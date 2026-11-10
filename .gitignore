@@ -1,0 +1,7 @@
+/bittrawler
+/dist/
+coverage.*
+*.test
+*.prof
+.env
+.DS_Store
