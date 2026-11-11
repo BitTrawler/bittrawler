@@ -712,3 +712,136 @@ func TestRetentionFailureLeavesStoreUsable(t *testing.T) {
 		t.Fatalf("store unusable after failed retention: %v", names(res))
 	}
 }
+
+func TestSeenBatchEmptyInput(t *testing.T) {
+	s, _ := newStore(t, Config{RetentionMonths: 12})
+
+	for _, input := range [][][20]byte{nil, {}} {
+		got, err := s.SeenBatch(context.Background(), input)
+		if err != nil {
+			t.Fatalf("seen batch: %v", err)
+		}
+
+		if got != nil {
+			t.Fatalf("got %v, want nil", got)
+		}
+	}
+}
+
+func TestSeenBatchPreservesInputOrder(t *testing.T) {
+	s, _ := newStore(t, Config{RetentionMonths: 12})
+	now := s.cfg.Now()
+
+	put(t, s,
+		Row{InfoHash: testHash(80), Name: "Seen.One", CreatedAt: now, Category: 2040},
+		Row{InfoHash: testHash(81), Name: "Seen.Two", CreatedAt: now, Category: 2040},
+	)
+
+	hashes := [][20]byte{testHash(81), testHash(82), testHash(80), testHash(83)}
+
+	got, err := s.SeenBatch(context.Background(), hashes)
+	if err != nil {
+		t.Fatalf("seen batch: %v", err)
+	}
+
+	want := []bool{true, false, true, false}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got %v, want %v", got, want)
+		}
+	}
+}
+
+func TestSeenBatchFindsOlderShard(t *testing.T) {
+	s, clock := newStore(t, Config{RetentionMonths: 12})
+
+	put(t, s, Row{InfoHash: testHash(90), Name: "Older.Shard.Release", CreatedAt: clock.Now(), Category: 2040})
+
+	clock.set(time.Date(2026, 12, 4, 0, 0, 0, 0, time.UTC))
+	put(t, s, Row{InfoHash: testHash(91), Name: "Current.Shard.Release", CreatedAt: clock.Now(), Category: 2040})
+
+	hashes := [][20]byte{testHash(90), testHash(91), testHash(92)}
+
+	got, err := s.SeenBatch(context.Background(), hashes)
+	if err != nil {
+		t.Fatalf("seen batch: %v", err)
+	}
+
+	want := []bool{true, true, false}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got %v, want %v", got, want)
+		}
+	}
+}
+
+func TestSeenBatchDuplicateHashes(t *testing.T) {
+	s, _ := newStore(t, Config{RetentionMonths: 12})
+
+	put(t, s, Row{InfoHash: testHash(93), Name: "Duplicate.Release", CreatedAt: s.cfg.Now(), Category: 2040})
+
+	hashes := [][20]byte{testHash(93), testHash(93), testHash(94), testHash(94)}
+
+	got, err := s.SeenBatch(context.Background(), hashes)
+	if err != nil {
+		t.Fatalf("seen batch: %v", err)
+	}
+
+	want := []bool{true, true, false, false}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got %v, want %v", got, want)
+		}
+	}
+}
+
+func TestSeenBatchChunking(t *testing.T) {
+	s, _ := newStore(t, Config{RetentionMonths: 12})
+	now := s.cfg.Now()
+
+	// 1203 hashes span three parameter chunks at the 500-hash boundary.
+	const count = 1203
+
+	hashes := make([][20]byte, count)
+
+	for i := range hashes {
+		hashes[i][0] = 0xbb
+		hashes[i][1] = byte(i >> 8)
+		hashes[i][2] = byte(i)
+	}
+
+	present := map[int]struct{}{0: {}, 600: {}, count - 1: {}}
+
+	rows := make([]Row, 0, len(present))
+
+	for i := range present {
+		rows = append(rows, Row{
+			InfoHash:  hashes[i],
+			Name:      fmt.Sprintf("Chunked.Release.%d", i),
+			CreatedAt: now,
+			Category:  2040,
+		})
+	}
+
+	put(t, s, rows...)
+
+	got, err := s.SeenBatch(context.Background(), hashes)
+	if err != nil {
+		t.Fatalf("seen batch: %v", err)
+	}
+
+	if len(got) != count {
+		t.Fatalf("got %d results, want %d", len(got), count)
+	}
+
+	for i := range got {
+		_, want := present[i]
+		if got[i] != want {
+			t.Fatalf("hash %d: seen = %v, want %v", i, got[i], want)
+		}
+	}
+}

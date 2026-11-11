@@ -5,12 +5,17 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 const insertTorrentSQL = `INSERT INTO torrents
 	(info_hash, name, size, created_at, category, content_id, seasons, episodes,
 	 kind, air_date, files_count, primary_file, seeders, leechers)
 	VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+
+// seenBatchChunkSize is the maximum number of infohashes bound into one IN
+// list, which keeps the statement below SQLite's parameter limit.
+const seenBatchChunkSize = 500
 
 // Seen reports whether the infohash is present in any retained shard.
 func (s *Store) Seen(ctx context.Context, hash [20]byte) (bool, error) {
@@ -29,6 +34,86 @@ func (s *Store) Seen(ctx context.Context, hash [20]byte) (bool, error) {
 	}
 
 	return false, nil
+}
+
+// SeenBatch reports, for each hash in the same order as the input, whether the
+// hash is present in any retained shard. It is the batch form of Seen, for the
+// crawler's triage.
+func (s *Store) SeenBatch(ctx context.Context, hashes [][20]byte) ([]bool, error) {
+	if len(hashes) == 0 {
+		return nil, nil
+	}
+
+	out := make([]bool, len(hashes))
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	for _, sh := range s.shardsNewestFirstLocked() {
+		for start := 0; start < len(hashes); start += seenBatchChunkSize {
+			end := min(start+seenBatchChunkSize, len(hashes))
+
+			if err := seenInShard(ctx, sh.db, hashes[start:end], out[start:end]); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return out, nil
+}
+
+// seenInShard marks the entries of out whose hash is present in db. The hashes
+// and out slices have the same length.
+func seenInShard(ctx context.Context, db *sql.DB, hashes [][20]byte, out []bool) error {
+	args := make([]any, len(hashes))
+
+	var placeholders strings.Builder
+
+	for i, hash := range hashes {
+		if i > 0 {
+			placeholders.WriteString(",")
+		}
+
+		placeholders.WriteString("?")
+
+		args[i] = hash[:]
+	}
+
+	rows, err := db.QueryContext(ctx, "SELECT info_hash FROM torrents WHERE info_hash IN ("+placeholders.String()+")", args...)
+	if err != nil {
+		return fmt.Errorf("batch seen query: %w", err)
+	}
+
+	defer func() { _ = rows.Close() }()
+
+	found := make(map[[20]byte]struct{}, len(hashes))
+
+	for rows.Next() {
+		var value []byte
+		if err := rows.Scan(&value); err != nil {
+			return fmt.Errorf("batch seen query: %w", err)
+		}
+
+		var hash [20]byte
+		if len(value) != len(hash) {
+			continue
+		}
+
+		copy(hash[:], value)
+		found[hash] = struct{}{}
+	}
+
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("batch seen query: %w", err)
+	}
+
+	for i, hash := range hashes {
+		if _, ok := found[hash]; ok {
+			out[i] = true
+		}
+	}
+
+	return nil
 }
 
 // Put writes one torrent. It returns false when the infohash has already been
