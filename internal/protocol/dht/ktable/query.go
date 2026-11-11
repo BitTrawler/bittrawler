@@ -67,7 +67,7 @@ type GetNodesForSampleInfoHashes struct {
 func (c GetNodesForSampleInfoHashes) execReturn(t *table) []Node {
 	peers := make([]Node, 0, c.N)
 	for _, p := range t.nodes.getCandidatesForSampleInfoHashes(c.N) {
-		peers = append(peers, p)
+		peers = append(peers, p.snapshot())
 		if len(peers) >= c.N {
 			break
 		}

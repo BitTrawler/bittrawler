@@ -16,7 +16,7 @@ func (k *nodeKeyspace) getLastRespondedBefore(t time.Time) []Node {
 
 	for _, it := range k.items {
 		if it.lastRespondedAt.Before(t) {
-			peers = append(peers, it)
+			peers = append(peers, it.snapshot())
 		}
 	}
 
@@ -137,7 +137,45 @@ func (n *node) drop(reason error) {
 }
 
 func (n *node) public() Node {
-	return n
+	return n.snapshot()
+}
+
+// nodeSnapshot is an immutable view of a node taken while the table lock is
+// held. Queries return snapshots rather than the live node so a caller reading a
+// node cannot race with another goroutine updating it.
+type nodeSnapshot struct {
+	nodeBase
+	lastRespondedAt          time.Time
+	dropped                  bool
+	bep51Support             protocolSupport
+	nextSampleInfoHashesTime time.Time
+}
+
+func (n nodeSnapshot) Time() time.Time {
+	return n.lastRespondedAt
+}
+
+func (n nodeSnapshot) Dropped() bool {
+	return n.dropped
+}
+
+func (n nodeSnapshot) IsSampleInfoHashesCandidate() bool {
+	now := time.Now()
+	threshold := now.Add(-(5 * time.Second))
+
+	return n.bep51Support != protocolSupportNo &&
+		n.nextSampleInfoHashesTime.Before(now) &&
+		n.lastRespondedAt.Before(threshold)
+}
+
+func (n *node) snapshot() nodeSnapshot {
+	return nodeSnapshot{
+		nodeBase:                 n.nodeBase,
+		lastRespondedAt:          n.lastRespondedAt,
+		dropped:                  n.dropReason != nil,
+		bep51Support:             n.bep51Support,
+		nextSampleInfoHashesTime: n.nextSampleInfoHashesTime,
+	}
 }
 
 func (n *node) Time() time.Time {

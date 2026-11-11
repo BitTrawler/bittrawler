@@ -58,7 +58,37 @@ func (h *hash) drop(reason error) {
 }
 
 func (h *hash) public() Hash {
-	return h
+	return h.snapshot()
+}
+
+// hashSnapshot is an immutable view of a hash and its peers. Like nodeSnapshot
+// it exists so readers cannot race with concurrent updates to the live item.
+type hashSnapshot struct {
+	id      ID
+	peers   []HashPeer
+	dropped bool
+}
+
+func (h hashSnapshot) ID() ID {
+	return h.id
+}
+
+func (h hashSnapshot) Peers() []HashPeer {
+	return h.peers
+}
+
+func (h hashSnapshot) Dropped() bool {
+	return h.dropped
+}
+
+func (h *hash) snapshot() hashSnapshot {
+	peers := make([]HashPeer, 0, len(h.peers))
+
+	for _, peer := range h.peers {
+		peers = append(peers, peer)
+	}
+
+	return hashSnapshot{id: h.id, peers: peers, dropped: h.droppedReason != nil}
 }
 
 // dropOldest evicts the least recently discovered hash, freeing one slot.

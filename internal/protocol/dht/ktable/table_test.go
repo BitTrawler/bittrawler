@@ -3,6 +3,7 @@ package ktable
 import (
 	"net/netip"
 	"testing"
+	"time"
 
 	"github.com/BitTrawler/bittrawler/internal/protocol"
 	"github.com/BitTrawler/bittrawler/internal/protocol/dht/ktable/btree"
@@ -158,5 +159,64 @@ func TestBatchCommand(t *testing.T) {
 
 	if !tbl.GetHashOrClosestNodes(testID(2)).Found {
 		t.Fatal("batch put hash not applied")
+	}
+}
+
+// A node returned by a query is an immutable snapshot of the table at that
+// moment: a later update must not change what the caller is holding, and it
+// must not race with the caller reading it.
+func TestNodeQueriesReturnSnapshots(t *testing.T) {
+	tbl := New(testID(0))
+
+	id := testID(1)
+	firstAddr := testAddr(1)
+	secondAddr := testAddr(2)
+
+	tbl.PutNode(id, firstAddr)
+
+	nodes := tbl.GetOldestNodes(time.Now(), 0)
+	if len(nodes) != 1 {
+		t.Fatalf("oldest nodes = %d, want 1", len(nodes))
+	}
+
+	tbl.PutNode(id, secondAddr, NodeResponded())
+
+	if got := nodes[0].Addr(); got != firstAddr {
+		t.Fatalf("snapshot addr changed to %v, want %v", got, firstAddr)
+	}
+
+	if got := nodes[0].Time(); !got.IsZero() {
+		t.Fatalf("snapshot time changed to %v, want zero", got)
+	}
+}
+
+// The same applies to hashes: the peers a caller holds must not change when the
+// table is updated.
+func TestHashQueriesReturnSnapshots(t *testing.T) {
+	tbl := New(testID(0))
+
+	id := testID(2)
+	peer := testAddr(3)
+
+	tbl.PutHash(id, []HashPeer{{Addr: peer}})
+
+	res := tbl.GetHashOrClosestNodes(id)
+	if !res.Found {
+		t.Fatal("hash not found")
+	}
+
+	peers := res.Hash.Peers()
+	if len(peers) != 1 {
+		t.Fatalf("peers = %d, want 1", len(peers))
+	}
+
+	tbl.PutHash(id, []HashPeer{{Addr: testAddr(4)}})
+
+	if got := res.Hash.Peers(); len(got) != 1 {
+		t.Fatalf("snapshot peers = %d, want 1", len(got))
+	}
+
+	if got := res.Hash.Peers()[0].Addr; got != peer {
+		t.Fatalf("snapshot peer changed to %v, want %v", got, peer)
 	}
 }
