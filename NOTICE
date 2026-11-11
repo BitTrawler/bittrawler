@@ -39,6 +39,12 @@ described in the commits that import them.
   internal/protocol/dht/server/**        (UDP server, sockets, transaction IDs)
   internal/protocol/dht/client/**        (client adapter over the server)
 
+  internal/protocol/metainfo/metainfo.go
+  internal/protocol/metainfo/parse.go
+  internal/protocol/metainfo/read_torrent_file.go
+  internal/protocol/metainfo/banning/**             (name, size and utf8 checks)
+  internal/protocol/metainfo/metainforequester/**   (BEP 9/10 metadata requester)
+
 All other files are original work and are covered by the MIT licence in
 LICENSE.
 
