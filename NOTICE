@@ -45,6 +45,8 @@ described in the commits that import them.
   internal/protocol/metainfo/banning/**             (name, size and utf8 checks)
   internal/protocol/metainfo/metainforequester/**   (BEP 9/10 metadata requester)
 
+  internal/dhtcrawler/**                (crawl loop, node maintenance and triage)
+
 All other files are original work and are covered by the MIT licence in
 LICENSE.
 

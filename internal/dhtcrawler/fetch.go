@@ -1,0 +1,175 @@
+package dhtcrawler
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/netip"
+	"sync"
+	"time"
+
+	"github.com/BitTrawler/bittrawler/internal/protocol"
+	"github.com/BitTrawler/bittrawler/internal/protocol/dht/ktable"
+	"github.com/BitTrawler/bittrawler/internal/protocol/metainfo"
+)
+
+// errNoMetadata reports that none of the peers supplied metadata.
+var errNoMetadata = errors.New("no peer returned metadata")
+
+// startFetch starts the peer lookup and metadata fetch stages.
+func (c *Crawler) startFetch(ctx context.Context, wg *sync.WaitGroup) {
+	startPool(ctx, wg, c.cfg.Workers.GetPeers, c.forPeers, c.getPeers)
+	startPool(ctx, wg, c.cfg.Workers.Metadata, c.forFetch, c.metadata)
+}
+
+// getPeers looks up the peers for an unseen infohash. The peers are remembered
+// in the routing table so this instance can serve them, and passed to the
+// metadata stage.
+func (c *Crawler) getPeers(ctx context.Context, item hashAndNode) {
+	res, err := c.client.GetPeers(ctx, item.node, item.infoHash)
+	if err != nil {
+		c.dropUnansweredAddr(ctx, item.node, fmt.Errorf("get_peers: %w", err))
+
+		if ctx.Err() == nil {
+			c.logger.Debug("failed to look up peers", "info_hash", item.infoHash.String(), "error", err)
+		}
+
+		return
+	}
+
+	c.rememberNode(ctx, res.ID, item.node)
+
+	if len(res.Values) == 0 {
+		return
+	}
+
+	hashPeers := make([]ktable.HashPeer, 0, len(res.Values))
+	for _, peer := range res.Values {
+		hashPeers = append(hashPeers, ktable.HashPeer{Addr: peer})
+	}
+
+	c.kTable.BatchCommand(ktable.PutHash{ID: item.infoHash, Peers: hashPeers})
+
+	peers := uniquePeers(res.Values, c.cfg.PeersPerInfoHash)
+	if len(peers) == 0 {
+		return
+	}
+
+	send(ctx, c.forFetch, infoHashWithPeers{infoHash: item.infoHash, node: item.node, peers: peers})
+}
+
+// rememberNode records a node that has just answered a query.
+func (c *Crawler) rememberNode(ctx context.Context, id protocol.ID, addr netip.AddrPort) {
+	c.kTable.BatchCommand(ktable.PutNode{
+		ID:      id,
+		Addr:    addr,
+		Options: []ktable.NodeOption{ktable.NodeResponded()},
+	})
+}
+
+// metadata fetches the torrent metadata from the peers found by getPeers and
+// queues the resulting row for persistence.
+func (c *Crawler) metadata(ctx context.Context, job infoHashWithPeers) {
+	// One budget covers every peer attempt and the scrape, so a hash with a
+	// long list of dead peers cannot hold a worker indefinitely.
+	fetchCtx, cancel := context.WithTimeout(ctx, c.cfg.MetadataTimeout)
+	defer cancel()
+
+	info, err := c.fetchMetainfo(fetchCtx, job)
+	if err != nil {
+		if ctx.Err() == nil {
+			c.logger.Debug("failed to fetch metadata", "info_hash", job.infoHash.String(), "error", err)
+		}
+
+		return
+	}
+
+	seeders, leechers := c.scrapePeers(fetchCtx, job.node, job.infoHash)
+	row := rowFromInfo(job.infoHash, info, seeders, leechers, time.Now())
+
+	send(ctx, c.forPersist, row)
+}
+
+// fetchMetainfo asks the peers in turn for the metadata. A torrent that fails
+// the banning checks is recorded in the blocklist and reported as an error so
+// no part of it is ever stored.
+func (c *Crawler) fetchMetainfo(ctx context.Context, job infoHashWithPeers) (metainfo.Info, error) {
+	for _, peer := range job.peers {
+		res, err := c.requester.Request(ctx, job.infoHash, peer)
+		if err != nil {
+			c.logger.Debug("metadata request failed",
+				"info_hash", job.infoHash.String(), "peer", peer.String(), "error", err)
+
+			continue
+		}
+
+		if banErr := c.banning.Check(res.Info); banErr != nil {
+			c.blockInfohash(ctx, job.infoHash, banErr)
+
+			return metainfo.Info{}, banErr
+		}
+
+		return res.Info, nil
+	}
+
+	return metainfo.Info{}, errNoMetadata
+}
+
+// blockInfohash records a hash that must not be indexed. Blocking is rare, so
+// it is written through immediately; the short budget keeps a slow database
+// from holding a metadata worker, and detaching from the crawl context means a
+// shutdown does not lose a decision that has already been made.
+func (c *Crawler) blockInfohash(ctx context.Context, hash protocol.ID, reason error) {
+	blockCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+
+	if _, err := c.blocklist.Block(blockCtx, []protocol.ID{hash}); err != nil {
+		c.logger.Error("failed to block infohash", "info_hash", hash.String(), "error", err)
+	}
+
+	c.logger.Debug("blocked infohash", "info_hash", hash.String(), "reason", reason)
+}
+
+// scrapePeers records the approximate seeders and leechers for a torrent. The
+// scrape is best effort: a failure leaves both at zero and the torrent is still
+// indexed.
+func (c *Crawler) scrapePeers(ctx context.Context, node netip.AddrPort, hash protocol.ID) (int, int) {
+	res, err := c.client.GetPeersScrape(ctx, node, hash)
+	if err != nil {
+		if ctx.Err() == nil {
+			c.logger.Debug("failed to scrape peers", "info_hash", hash.String(), "error", err)
+		}
+
+		return 0, 0
+	}
+
+	c.rememberNode(ctx, res.ID, node)
+
+	return int(res.BfSeeders.ApproximatedSize()), int(res.BfPeers.ApproximatedSize())
+}
+
+// uniquePeers removes duplicate and invalid addresses and keeps at most limit
+// of them. The DHT frequently returns the same address several times.
+func uniquePeers(addrs []netip.AddrPort, limit int) []netip.AddrPort {
+	seen := make(map[netip.AddrPort]struct{}, len(addrs))
+	peers := make([]netip.AddrPort, 0, min(len(addrs), limit))
+
+	for _, addr := range addrs {
+		if !addr.IsValid() {
+			continue
+		}
+
+		if _, ok := seen[addr]; ok {
+			continue
+		}
+
+		seen[addr] = struct{}{}
+		peers = append(peers, addr)
+
+		if len(peers) >= limit {
+			break
+		}
+	}
+
+	return peers
+}
