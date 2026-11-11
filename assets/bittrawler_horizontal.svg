@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2160" height="650" viewBox="0 0 2160 650" role="img" aria-label="bittrawler logo">
+<title>bittrawler — trawler and connected peer network</title>
+<rect width="2160" height="650" fill="#071426"/>
+<g transform="translate(70 102) scale(1.11)"><g id="trawler-mark" stroke-linejoin="round" stroke-linecap="round">
+  <!-- Horizon / twin waves -->
+  <path fill="#18DCC7" d="M 28 361 C 104 360 128 328 188 332 C 254 336 279 377 382 363 C 323 390 278 383 214 361 C 141 339 105 382 28 361 Z"/>
+  <path fill="#18DCC7" d="M 174 392 C 237 373 277 409 343 392 C 295 418 242 391 174 392 Z"/>
+
+  <!-- Classic original net: curved suspended DHT mesh, manually redrawn
+       to match the first visual concept. No pixel tracing. -->
+  <g id="classic-network-net" fill="none" stroke="#18DCC7" stroke-width="7.1" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Suspension from crane ring, three graceful strands -->
+    <path d="M 459 104 C 461 162 462 205 455 250"/>
+    <path d="M 459 104 C 468 157 490 197 513 222"/>
+    <path d="M 459 104 C 485 156 523 198 556 210"/>
+
+    <!-- Draped upper rim of the net -->
+    <path d="M 405 315 C 427 296 443 268 455 250"/>
+    <path d="M 455 250 Q 483 232 513 222 Q 539 210 556 210"/>
+    <path d="M 556 210 Q 590 223 619 252 Q 656 280 684 317"/>
+
+    <!-- Rounded, sagging lower rim -->
+    <path d="M 405 315 Q 447 335 482 326 Q 538 359 582 356 Q 636 351 684 317"/>
+
+    <!-- Mesh with the irregular, flowing pattern of the original -->
+    <path d="M 455 250 C 462 288 469 305 482 326"/>
+    <path d="M 513 222 C 514 246 508 274 505 296"/>
+    <path d="M 505 296 L 482 326"/>
+    <path d="M 513 222 C 531 241 547 271 565 286"/>
+    <path d="M 556 210 Q 559 247 565 286"/>
+    <path d="M 619 252 L 565 286"/>
+    <path d="M 565 286 Q 525 308 482 326"/>
+    <path d="M 565 286 Q 577 324 582 356"/>
+    <path d="M 565 286 Q 625 310 684 317"/>
+  </g>
+  <g fill="#18DCC7" id="network-nodes">
+    <circle cx="405" cy="315" r="11.5"/>
+    <circle cx="455" cy="250" r="12"/>
+    <circle cx="513" cy="222" r="12"/>
+    <circle cx="556" cy="210" r="12"/>
+    <circle cx="619" cy="252" r="12"/>
+    <circle cx="684" cy="317" r="12"/>
+    <circle cx="482" cy="326" r="12"/>
+    <circle cx="505" cy="296" r="11"/>
+    <circle cx="565" cy="286" r="12"/>
+    <circle cx="582" cy="356" r="12"/>
+  </g>
+
+  <!-- Boat hull, with pronounced bow and clean stern -->
+  <path fill="#F8FAFD" d="M 46 219 L 145 229 L 164 178 L 285 178 L 295 263 L 376 285 L 351 309 L 89 257 L 113 323 L 87 334 Z"/>
+  <!-- Cabin lintel, three consistent angled windows -->
+  <path fill="#F8FAFD" d="M 149 165 H 295 L 303 177 H 145 Z"/>
+  <g fill="#071426">
+    <path d="M 175 190 L 206 190 L 196 218 L 165 218 Z"/>
+    <path d="M 214 190 L 245 190 L 235 218 L 204 218 Z"/>
+    <path d="M 253 190 L 282 190 L 281 218 L 243 218 Z"/>
+  </g>
+  <!-- Mast and mastbar, square-ended like a pictogram -->
+  <g fill="#F8FAFD">
+    <path d="M 225 65 H 236 V 164 H 225 Z"/>
+    <path d="M 204 87 H 257 V 98 H 204 Z"/>
+    <path d="M 190 149 H 270 V 160 H 190 Z"/>
+    <path d="M 195 135 H 219 V 143 H 195 Z"/>
+  </g>
+  <!-- A-frame crane boom, high-contrast profile -->
+  <path fill="#F8FAFD" d="M 300 236 L 446 96 L 461 113 L 309 260 Z"/>
+  <path fill="#F8FAFD" d="M 351 285 L 451 107 L 466 114 L 370 290 Z"/>
+  <circle cx="459" cy="104" r="21" fill="#F8FAFD"/>
+  <circle cx="459" cy="104" r="11" fill="#071426"/>
+</g></g>
+<g aria-label="bittrawler" id="wordmark"><path d="M709 -22C985 -22 1166 198 1166 529C1166 853 981 1078 711 1078C574 1078 468 1024 400 910H399V1490H104V0H395V162H396C457 39 570 -22 709 -22ZM633 218C484 218 385 340 385 529C385 717 484 840 633 840C776 840 869 727 869 529C869 331 776 218 633 218Z" transform="translate(890.0000 425) scale(0.1293945 -0.1293945)" fill="#F8FAFD"/><path d="M104 0H399V1056H104ZM251 1189C348 1189 419 1256 419 1346C419 1436 348 1503 251 1503C154 1503 83 1436 83 1346C83 1256 154 1189 251 1189Z" transform="translate(1048.3750 425) scale(0.1293945 -0.1293945)" fill="#F8FAFD"/><path d="M711 1056H495V1344H200V1056H18V825H200V280C200 88 307 0 539 0H711V231H598C518 231 495 254 495 326V825H711Z" transform="translate(1113.4531 425) scale(0.1293945 -0.1293945)" fill="#F8FAFD"/><path d="M711 1056H495V1344H200V1056H18V825H200V280C200 88 307 0 539 0H711V231H598C518 231 495 254 495 326V825H711Z" transform="translate(1213.0781 425) scale(0.1293945 -0.1293945)" fill="#18DCC7"/><path d="M104 0H399V572C399 731 488 815 609 815C659 815 714 811 736 810V1061C712 1062 683 1063 649 1063C510 1063 430 1003 391 876H388V1056H104Z" transform="translate(1299.6406 425) scale(0.1293945 -0.1293945)" fill="#F8FAFD"/><path d="M427 -18C589 -18 680 46 736 149H740V0H1028V716C1028 942 862 1078 573 1078C283 1078 111 940 98 722H375C382 803 454 859 564 859C672 859 737 805 737 727V720C737 652 669 643 476 624C256 604 64 536 64 298C64 87 216 -18 427 -18ZM509 187C410 187 346 231 346 306C346 390 426 429 527 444C622 459 705 473 739 492V386C739 272 651 187 509 187Z" transform="translate(1398.5000 425) scale(0.1293945 -0.1293945)" fill="#F8FAFD"/><path d="M337 0H640L764 420C790 509 814 603 838 697C862 603 886 509 911 420L1034 0H1339L1664 1056H1351L1255 687C1224 562 1196 429 1167 298C1136 429 1104 563 1071 687L971 1056H705L604 687C571 562 539 428 507 297C478 428 449 562 417 687L320 1056H12Z" transform="translate(1543.0312 425) scale(0.1293945 -0.1293945)" fill="#F8FAFD"/><path d="M399 1490H104V0H399Z" transform="translate(1759.8906 425) scale(0.1293945 -0.1293945)" fill="#F8FAFD"/><path d="M586 -24C842 -24 1046 122 1085 332H816C789 250 710 197 595 197C440 197 350 298 345 454H1096V533C1096 855 887 1080 576 1080C273 1080 58 849 58 527C58 206 266 -24 586 -24ZM347 642C363 774 450 856 582 856C715 856 803 774 818 642Z" transform="translate(1824.9688 425) scale(0.1293945 -0.1293945)" fill="#F8FAFD"/><path d="M104 0H399V572C399 731 488 815 609 815C659 815 714 811 736 810V1061C712 1062 683 1063 649 1063C510 1063 430 1003 391 876H388V1056H104Z" transform="translate(1973.7656 425) scale(0.1293945 -0.1293945)" fill="#F8FAFD"/></g>
+</svg>
