@@ -7,12 +7,11 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	_ "modernc.org/sqlite"
+	"github.com/BitTrawler/bittrawler/internal/sqlite"
 )
 
 const shardPrefix = "torrents-"
@@ -181,21 +180,10 @@ func (s *Store) shardsNewestFirstLocked() []*shard {
 }
 
 func openShard(cfg Config, key, path string) (*shard, error) {
-	// Connection-scoped pragmas go in the DSN so every pooled connection
-	// gets them, not just the first one.
-	dsn := path + "?_pragma=busy_timeout(" + strconv.FormatInt(cfg.BusyTimeout.Milliseconds(), 10) + ")" +
-		"&_pragma=journal_mode(WAL)" +
-		"&_pragma=synchronous(NORMAL)" +
-		"&_pragma=temp_store(memory)" +
-		"&_pragma=cache_size(-32768)"
-
-	db, err := sql.Open("sqlite", dsn)
+	db, err := sqlite.Open(path, cfg.BusyTimeout)
 	if err != nil {
 		return nil, err
 	}
-
-	db.SetMaxOpenConns(4)
-	db.SetMaxIdleConns(4)
 
 	if err := migrate(db); err != nil {
 		_ = db.Close()
