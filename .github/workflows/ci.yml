@@ -11,6 +11,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    # A hung test must not burn the monthly minutes: GitHub's default job
+    # timeout is six hours.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -21,4 +24,4 @@ jobs:
         run: test -z "$(gofmt -l .)"
       - run: go build ./...
       - run: go vet ./...
-      - run: go test ./...
+      - run: go test -timeout 5m ./...

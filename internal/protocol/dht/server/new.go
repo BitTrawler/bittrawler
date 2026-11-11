@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"log/slog"
+	"net"
 	"net/netip"
 	"time"
 
@@ -50,29 +51,18 @@ func New(cfg Config, r responder.Responder) (Server, error) {
 		cfg.OutboundTTL = 20 * time.Second
 	}
 
-	sock, err := NewSocket(cfg.ListenAddr)
+	conn, err := net.ListenUDP("udp", net.UDPAddrFromAddrPort(cfg.ListenAddr))
 	if err != nil {
-		return nil, err
-	}
-
-	if err := sock.Open(cfg.ListenAddr); err != nil {
-		_ = sock.Close()
-
 		return nil, fmt.Errorf("bind %s: %w", cfg.ListenAddr, err)
 	}
 
-	localAddr, err := sock.LocalAddr()
-	if err != nil {
-		_ = sock.Close()
-
-		return nil, fmt.Errorf("local address: %w", err)
-	}
+	localAddr := conn.LocalAddr().(*net.UDPAddr).AddrPort()
 
 	s := &server{
 		cfg:       cfg,
 		logger:    cfg.Logger,
 		responder: r,
-		socket:    sock,
+		conn:      conn,
 		localAddr: localAddr,
 		queries:   make(map[queryKey]chan dht.RecvMsg),
 		queryRate: concurrency.NewKeyedLimiter(

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/netip"
 	"sync"
 	"time"
@@ -37,7 +38,7 @@ type server struct {
 	cfg       Config
 	logger    *slog.Logger
 	responder responder.Responder
-	socket    Socket
+	conn      *net.UDPConn
 	localAddr netip.AddrPort
 
 	mutex     sync.Mutex
@@ -67,7 +68,10 @@ func (s *server) Close() error {
 	})
 
 	s.closeOnce.Do(func() {
-		s.closeErr = s.socket.Close()
+		// net.UDPConn reads go through the netpoller, so Close unblocks the
+		// read loop on every platform. A raw file descriptor blocked in
+		// recvfrom is not woken by close on Linux.
+		s.closeErr = s.conn.Close()
 		s.wg.Wait()
 	})
 
@@ -80,7 +84,7 @@ func (s *server) read() {
 	buffer := make([]byte, 65507)
 
 	for {
-		n, from, err := s.socket.Receive(buffer)
+		n, from, err := s.conn.ReadFromUDPAddrPort(buffer)
 		if err != nil {
 			if s.stoppedClosed() {
 				return
@@ -242,5 +246,7 @@ func (s *server) send(addr netip.AddrPort, msg dht.Msg) error {
 		return err
 	}
 
-	return s.socket.Send(addr, data)
+	_, err = s.conn.WriteToUDPAddrPort(data, addr)
+
+	return err
 }
