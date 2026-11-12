@@ -60,7 +60,11 @@ func (c *Crawler) triageBatch(ctx context.Context, batch []hashAndNode) {
 
 	allowed, err := c.blocklist.Filter(ctx, hashes)
 	if err != nil {
-		c.logger.Error("failed to filter blocked hashes", "count", len(hashes), "error", err)
+		// A cancelled crawl closes the database under an in-flight batch; that is
+		// orderly shutdown, not a failure worth logging.
+		if ctx.Err() == nil {
+			c.logger.Error("failed to filter blocked hashes", "count", len(hashes), "error", err)
+		}
 
 		return
 	}
@@ -76,7 +80,9 @@ func (c *Crawler) triageBatch(ctx context.Context, batch []hashAndNode) {
 
 	stored, err := c.store.SeenBatch(ctx, keys)
 	if err != nil {
-		c.logger.Error("failed to check stored hashes", "count", len(keys), "error", err)
+		if ctx.Err() == nil {
+			c.logger.Error("failed to check stored hashes", "count", len(keys), "error", err)
+		}
 
 		return
 	}
