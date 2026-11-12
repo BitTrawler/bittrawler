@@ -48,6 +48,22 @@ func (d Drop) String() string {
 	}
 }
 
+// AdultEvidence says how strong the evidence for the adult classification was.
+// A weak classification is a judgement call that an external catalogue may
+// overturn; a strong one is not.
+type AdultEvidence uint8
+
+const (
+	// AdultEvidenceNone means the result is not an adult classification.
+	AdultEvidenceNone AdultEvidence = iota
+	// AdultEvidenceWeak means the result rests on a general word such as "sex"
+	// or "milf", which appears in mainstream titles and performer names.
+	AdultEvidenceWeak
+	// AdultEvidenceStrong means the result rests on a marker that only adult
+	// releases carry: a studio name, an explicit term, a studio code.
+	AdultEvidenceStrong
+)
+
 // Result is the classification of one torrent.
 type Result struct {
 	// Category is the Newznab category to store. Parent categories are used
@@ -62,6 +78,8 @@ type Result struct {
 	AirDate string
 	// Drop reports that the torrent must not be indexed.
 	Drop Drop
+	// AdultEvidence reports why the torrent was classified adult.
+	AdultEvidence AdultEvidence
 }
 
 // Config controls the classifier.
@@ -140,8 +158,16 @@ func (c *Classifier) Classify(name string, files []File) Result {
 		return Result{Drop: DropDeceptive}
 	}
 
-	if adultStrongText(name) || adultStrongText(text) {
-		return c.adultResult()
+	// A strong adult marker in the name is decisive. The same marker in a file
+	// path is weaker evidence — paths carry advertising URLs and release
+	// structure — so it classifies the row but is marked weak, which lets the
+	// TMDB stage overturn it if the title turns out to be a mainstream release.
+	if adultStrongText(name) {
+		return c.adultResult(AdultEvidenceStrong)
+	}
+
+	if adultStrongText(text) {
+		return c.adultResult(AdultEvidenceWeak)
 	}
 
 	return c.byFiles(name, text, cen)
@@ -200,7 +226,7 @@ func (c *Classifier) deceptive(name, text string, cen census) bool {
 // resultFor completes a classification whose content kind is known.
 func (c *Classifier) resultFor(kind contentKind, parsed scene.Name) Result {
 	if kind == kindXXX {
-		return c.adultResult()
+		return c.adultResult(AdultEvidenceWeak)
 	}
 
 	result := Result{Category: categoryOf(kind, parsed.Resolution)}
@@ -216,8 +242,8 @@ func (c *Classifier) resultFor(kind contentKind, parsed scene.Name) Result {
 
 // adultResult is the classification of adult content, which is always stored
 // under the XXX category and dropped only when configured to be.
-func (c *Classifier) adultResult() Result {
-	result := Result{Category: CategoryXXX}
+func (c *Classifier) adultResult(evidence AdultEvidence) Result {
+	result := Result{Category: CategoryXXX, AdultEvidence: evidence}
 	if c.cfg.DropAdult {
 		result.Drop = DropAdult
 	}

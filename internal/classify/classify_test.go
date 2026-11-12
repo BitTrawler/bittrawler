@@ -433,6 +433,18 @@ func TestClassifyRealWorldCases(t *testing.T) {
 			category: CategoryMovies,
 		},
 		{
+			name:     "kink keywords",
+			title:    "NewPrincess Mia Scat smearing facesitting - Princess Mia and toilet slave - Full HD 1080 (Femdom) 260420",
+			files:    filesOf("mp4", 3<<30),
+			category: CategoryXXX,
+		},
+		{
+			name:     "squirt keyword",
+			title:    "Some Site - Veronica Leal - A Squirt In The Streets 1080p",
+			files:    filesOf("mp4", 2<<30),
+			category: CategoryXXX,
+		},
+		{
 			name:     "code only jav name",
 			title:    "DVDMS233C.mp4",
 			files:    filesOf("mp4", 1<<30),

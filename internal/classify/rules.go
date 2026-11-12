@@ -70,8 +70,16 @@ func (c *Classifier) videoResult(name, text string) Result {
 		return c.resultFor(kindTV, parsed)
 	}
 
-	if adultWeakRegex.MatchString(text) || adultStrongText(text) {
-		return c.adultResult()
+	if adultStrongText(name) {
+		return c.adultResult(AdultEvidenceStrong)
+	}
+
+	if adultStrongText(text) {
+		return c.adultResult(AdultEvidenceWeak)
+	}
+
+	if adultWeakRegex.MatchString(name) {
+		return c.adultResult(AdultEvidenceWeak)
 	}
 
 	if parsed.AirDate != "" {
@@ -81,7 +89,7 @@ func (c *Classifier) videoResult(name, text string) Result {
 	// A name that is only a studio code is a Japanese adult release: measured at
 	// 59 of 59 on real torrents.
 	if isCodeOnlyName(name) {
-		return c.adultResult()
+		return c.adultResult(AdultEvidenceStrong)
 	}
 
 	if looksLikeEpisodeNumber(name, parsed) {
@@ -106,8 +114,12 @@ func (c *Classifier) softwareResult(name string) Result {
 // comic or ebook marker makes it a book, and a set of images with neither is
 // not a film even when the name claims to be one.
 func (c *Classifier) imageResult(name, text string) Result {
-	if adultWeakRegex.MatchString(text) {
-		return c.adultResult()
+	if adultStrongText(text) {
+		return c.adultResult(AdultEvidenceWeak)
+	}
+
+	if adultWeakRegex.MatchString(name) {
+		return c.adultResult(AdultEvidenceWeak)
 	}
 
 	if comicKeywordsRegex.MatchString(name) || isComicVolume(name) {
@@ -166,15 +178,19 @@ func (c *Classifier) byName(name, text string) Result {
 	}
 
 	if videoByName(parsed, name) {
-		if adultWeakRegex.MatchString(text) || adultStrongText(text) {
-			return c.adultResult()
+		if adultStrongText(name) {
+			return c.adultResult(AdultEvidenceStrong)
+		}
+
+		if adultStrongText(text) || adultWeakRegex.MatchString(name) {
+			return c.adultResult(AdultEvidenceWeak)
 		}
 
 		return c.resultFor(kindMovie, parsed)
 	}
 
 	if isCodeOnlyName(name) {
-		return c.adultResult()
+		return c.adultResult(AdultEvidenceStrong)
 	}
 
 	if gameKeywordsRegex.MatchString(name) {
@@ -189,8 +205,8 @@ func (c *Classifier) byName(name, text string) Result {
 		return Result{Category: CategoryAudio}
 	}
 
-	if adultWeakRegex.MatchString(text) {
-		return c.adultResult()
+	if adultStrongText(text) || adultWeakRegex.MatchString(name) {
+		return c.adultResult(AdultEvidenceWeak)
 	}
 
 	// A date is the weakest television signal, so it is tested last.

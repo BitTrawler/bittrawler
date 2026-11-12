@@ -91,12 +91,17 @@ step lands. Title and year parsing for it exist as a specification only.
 The measured numbers, on 10,004 real torrents with file lists and 197,032 real
 names from a live 9.75 M-row database:
 
-- **Coverage 86 %** of the sampled torrents fall in a known category, against
+- **Coverage 86.5 %** of the sampled torrents fall in a known category, against
   55 % classified in the same database by bitmagnet.
-- **Agreement 88 %** with bitmagnet's content types on the rows it classified.
+- **Agreement 87.4 %** with bitmagnet's content types on the rows it classified.
 - **The file list changes the answer for 28 % of torrents.** Ignoring files
   drops coverage from 86 % to 60 %, which is close to the coverage bitmagnet
   has. That is the measurement behind "the files are evidence, not a hint".
+- **Adult keyword coverage and precision:** the adult list covers acts, kinks
+  and studios (about 110 weak markers, plus studios and codes that are strong).
+  Of the rows it calls adult, 96.6 % are adult to bitmagnet as well; the
+  disagreements are mainly adult releases bitmagnet types as films and a few
+  mainstream titles that TMDB confirms or corrects.
 - **The live-crawl review:** on 92 hand-labelled rows from a real crawl, 88 %
   are classified correctly after the review round described in the working
   notes; the remaining misses are mostly releases whose only signal is the
