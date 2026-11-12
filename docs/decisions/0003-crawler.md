@@ -26,6 +26,9 @@ rules, its seeders are scraped, and the resulting row is written in a batch.
   a monthly shard: it is unpartitioned, small, and must outlive retention.
 - Crawl workers are goroutines with bounded channels. Backpressure is the
   queue; there is no queue table and no separate queue process.
+- A node that answers ping and find_node but not sample_infohashes is marked as
+  not supporting BEP 51 and kept. It is alive and still useful for the routing
+  table; the public bootstrap routers are exactly this kind of node.
 
 ## Why
 

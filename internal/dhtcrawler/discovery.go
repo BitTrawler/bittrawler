@@ -293,7 +293,19 @@ func (c *Crawler) sampleInfoHashes(ctx context.Context, node ktable.Node) {
 
 	res, err := c.client.SampleInfoHashes(ctx, node.Addr(), c.soughtNodeID.Get())
 	if err != nil {
-		c.dropUnansweredNode(ctx, node.ID(), fmt.Errorf("sample_infohashes: %w", err))
+		// A node that answers ping and find_node but not sample_infohashes is
+		// alive and useful; the bootstrap routers are exactly that. Marking it
+		// as unsupported stops the sample scheduler queuing it again without
+		// losing a node the routing table needs.
+		if ctx.Err() == nil {
+			c.kTable.BatchCommand(ktable.PutNode{
+				ID:      node.ID(),
+				Addr:    node.Addr(),
+				Options: []ktable.NodeOption{ktable.NodeBep51Support(false)},
+			})
+			c.logger.Debug("node does not answer sample_infohashes",
+				"node_id", node.ID().String(), "address", node.Addr().String(), "error", err)
+		}
 
 		return
 	}
