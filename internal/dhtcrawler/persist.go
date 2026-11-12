@@ -65,10 +65,13 @@ func (c *Crawler) persistBatch(batch []store.Row) {
 
 	inserted, err := c.store.PutBatch(ctx, batch)
 	if err != nil {
+		c.stats.persistFailures.Add(1)
 		c.logger.Error("failed to persist torrent batch", "rows", len(batch), "inserted", inserted, "error", err)
 
 		return
 	}
+
+	c.stats.torrentsPersisted.Add(uint64(inserted))
 
 	c.logger.Debug("persisted torrents", "rows", inserted, "batch", len(batch))
 }

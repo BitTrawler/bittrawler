@@ -29,6 +29,10 @@ type TableQuery interface {
 	GetHashOrClosestNodes(id ID) GetHashOrClosestNodesResult
 	// SampleHashesAndNodes returns a random sample of up to 8 hashes and nodes, and the total hashes count.
 	SampleHashesAndNodes() SampleHashesAndNodesResult
+	// NodeCount is the number of nodes in the routing table.
+	NodeCount() int
+	// HashCount is the number of infohashes in the hash keyspace.
+	HashCount() int
 }
 
 type Table interface {
@@ -156,4 +160,18 @@ func (t *table) SampleHashesAndNodes() SampleHashesAndNodesResult {
 	defer t.mutex.RUnlock()
 
 	return SampleHashesAndNodes{}.execReturn(t)
+}
+
+func (t *table) NodeCount() int {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	return t.nodes.count()
+}
+
+func (t *table) HashCount() int {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	return t.hashes.count()
 }

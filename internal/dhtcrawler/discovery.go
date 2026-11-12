@@ -310,6 +310,9 @@ func (c *Crawler) sampleInfoHashes(ctx context.Context, node ktable.Node) {
 		return
 	}
 
+	c.stats.samplesReceived.Add(1)
+	c.stats.hashesDiscovered.Add(uint64(len(res.Samples)))
+
 	var discovered []protocol.ID
 
 	for _, hash := range res.Samples {
@@ -360,6 +363,8 @@ func (c *Crawler) sampleInterval(requestedSeconds int, productive bool) time.Dur
 // own consumers. A full queue drops the nodes instead, and node discovery is
 // cheap to repeat.
 func (c *Crawler) addDiscovered(ctx context.Context, nodes []client.NodeInfo) {
+	c.stats.nodesDiscovered.Add(uint64(len(nodes)))
+
 	for _, node := range nodes {
 		if !node.Addr.IsValid() {
 			continue

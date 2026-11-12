@@ -28,6 +28,8 @@ func (c *Crawler) startFetch(ctx context.Context, wg *sync.WaitGroup) {
 func (c *Crawler) getPeers(ctx context.Context, item hashAndNode) {
 	res, err := c.client.GetPeers(ctx, item.node, item.infoHash)
 	if err != nil {
+		c.stats.peerLookupsFailed.Add(1)
+
 		c.dropUnansweredAddr(ctx, item.node, fmt.Errorf("get_peers: %w", err))
 
 		if ctx.Err() == nil {
@@ -40,8 +42,12 @@ func (c *Crawler) getPeers(ctx context.Context, item hashAndNode) {
 	c.rememberNode(ctx, res.ID, item.node)
 
 	if len(res.Values) == 0 {
+		c.stats.peerLookupsEmpty.Add(1)
+
 		return
 	}
+
+	c.stats.peerLookups.Add(1)
 
 	hashPeers := make([]ktable.HashPeer, 0, len(res.Values))
 	for _, peer := range res.Values {
@@ -104,13 +110,18 @@ func (c *Crawler) fetchMetainfo(ctx context.Context, job infoHashWithPeers) (met
 		}
 
 		if banErr := c.banning.Check(res.Info); banErr != nil {
+			c.stats.infohashesBlocked.Add(1)
 			c.blockInfohash(ctx, job.infoHash, banErr)
 
 			return metainfo.Info{}, banErr
 		}
 
+		c.stats.metadataFetched.Add(1)
+
 		return res.Info, nil
 	}
+
+	c.stats.metadataFailed.Add(1)
 
 	return metainfo.Info{}, errNoMetadata
 }

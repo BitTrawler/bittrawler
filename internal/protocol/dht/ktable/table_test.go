@@ -220,3 +220,25 @@ func TestHashQueriesReturnSnapshots(t *testing.T) {
 		t.Fatalf("snapshot peer changed to %v, want %v", got, peer)
 	}
 }
+
+func TestTableCounts(t *testing.T) {
+	tbl := New(testID(0))
+
+	tbl.PutNode(testID(1), testAddr(1))
+	tbl.PutNode(testID(2), testAddr(2))
+	tbl.PutHash(testID(3), []HashPeer{{Addr: testAddr(3)}})
+
+	if got := tbl.NodeCount(); got != 2 {
+		t.Fatalf("node count = %d, want 2", got)
+	}
+
+	if got := tbl.HashCount(); got != 1 {
+		t.Fatalf("hash count = %d, want 1", got)
+	}
+
+	tbl.DropNode(testID(1), nil)
+
+	if got := tbl.NodeCount(); got != 1 {
+		t.Fatalf("node count after drop = %d, want 1", got)
+	}
+}

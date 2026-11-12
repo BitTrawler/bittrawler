@@ -845,3 +845,50 @@ func TestSeenBatchChunking(t *testing.T) {
 		}
 	}
 }
+
+func TestStatsCountsRowsAndSizes(t *testing.T) {
+	s, clock := newStore(t, Config{RetentionMonths: 12})
+
+	put(t, s,
+		Row{InfoHash: testHash(100), Name: "Stats.One", CreatedAt: clock.Now(), Category: 2040},
+		Row{InfoHash: testHash(101), Name: "Stats.Two", CreatedAt: clock.Now(), Category: 2040},
+	)
+
+	clock.set(time.Date(2026, 12, 4, 0, 0, 0, 0, time.UTC))
+
+	put(t, s, Row{InfoHash: testHash(102), Name: "Stats.Three", CreatedAt: clock.Now(), Category: 2040})
+
+	stats, err := s.Stats(context.Background())
+	if err != nil {
+		t.Fatalf("stats: %v", err)
+	}
+
+	if stats.Rows != 3 {
+		t.Fatalf("rows = %d, want 3", stats.Rows)
+	}
+
+	if len(stats.Shards) != 2 {
+		t.Fatalf("shards = %d, want 2", len(stats.Shards))
+	}
+
+	if stats.Shards[0].Month != "2026-12" {
+		t.Fatalf("newest shard = %s, want 2026-12", stats.Shards[0].Month)
+	}
+
+	rows := 0
+	for _, shard := range stats.Shards {
+		if shard.DBBytes <= 0 {
+			t.Fatalf("shard %s has no size", shard.Month)
+		}
+
+		rows += shard.Rows
+	}
+
+	if rows != stats.Rows {
+		t.Fatalf("shard rows sum to %d, total is %d", rows, stats.Rows)
+	}
+
+	if stats.DBBytes <= 0 {
+		t.Fatal("store has no size")
+	}
+}

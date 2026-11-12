@@ -41,6 +41,7 @@ type Crawler struct {
 	blocklist *blocking.Blocklist
 	store     *store.Store
 	logger    *slog.Logger
+	stats     crawlerStats
 
 	inbound    <-chan ktable.Node
 	discovered chan ktable.Node

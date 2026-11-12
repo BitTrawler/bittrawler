@@ -342,6 +342,27 @@ func TestCrawlerCrawlsDiscoveredTorrent(t *testing.T) {
 		t.Error("created_at is zero")
 	}
 
+	stats := tc.crawler.Stats()
+	if stats.PeerLookups != 1 {
+		t.Errorf("peer lookups = %d, want 1", stats.PeerLookups)
+	}
+
+	if stats.PeerLookupsEmpty != 0 || stats.PeerLookupsFailed != 0 {
+		t.Errorf("empty/failed peer lookups = %d/%d, want 0/0", stats.PeerLookupsEmpty, stats.PeerLookupsFailed)
+	}
+
+	if stats.MetadataFetched != 1 {
+		t.Errorf("metadata fetched = %d, want 1", stats.MetadataFetched)
+	}
+
+	if stats.TorrentsPersisted != 1 {
+		t.Errorf("torrents persisted = %d, want 1", stats.TorrentsPersisted)
+	}
+
+	if stats.HashesTriaged == 0 {
+		t.Error("no hashes were triaged")
+	}
+
 	cancel()
 
 	select {

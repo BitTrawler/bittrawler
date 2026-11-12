@@ -58,6 +58,8 @@ func (c *Crawler) triageBatch(ctx context.Context, batch []hashAndNode) {
 		hashes = append(hashes, item.infoHash)
 	}
 
+	c.stats.hashesTriaged.Add(uint64(len(hashes)))
+
 	allowed, err := c.blocklist.Filter(ctx, hashes)
 	if err != nil {
 		// A cancelled crawl closes the database under an in-flight batch; that is
