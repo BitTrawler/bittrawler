@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/BitTrawler/bittrawler/internal/blocking"
+	"github.com/BitTrawler/bittrawler/internal/classify"
 	"github.com/BitTrawler/bittrawler/internal/concurrency"
 	"github.com/BitTrawler/bittrawler/internal/protocol"
 	"github.com/BitTrawler/bittrawler/internal/protocol/dht/client"
@@ -33,15 +34,16 @@ type infoHashWithPeers struct {
 
 // Crawler discovers infohashes and fetches their metadata.
 type Crawler struct {
-	cfg       Config
-	kTable    ktable.Table
-	client    client.Client
-	requester metainforequester.Requester
-	banning   banning.Checker
-	blocklist *blocking.Blocklist
-	store     *store.Store
-	logger    *slog.Logger
-	stats     crawlerStats
+	cfg        Config
+	kTable     ktable.Table
+	client     client.Client
+	requester  metainforequester.Requester
+	banning    banning.Checker
+	classifier *classify.Classifier
+	blocklist  *blocking.Blocklist
+	store      *store.Store
+	logger     *slog.Logger
+	stats      crawlerStats
 
 	inbound    <-chan ktable.Node
 	discovered chan ktable.Node
@@ -98,6 +100,7 @@ func New(cfg Config) (*Crawler, error) {
 		client:       cfg.DHT,
 		requester:    cfg.Requester,
 		banning:      cfg.Banning,
+		classifier:   classify.New(cfg.Classification),
 		blocklist:    cfg.Blocklist,
 		store:        cfg.Store,
 		logger:       cfg.Logger,

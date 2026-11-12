@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/BitTrawler/bittrawler/internal/blocking"
+	"github.com/BitTrawler/bittrawler/internal/classify"
 	"github.com/BitTrawler/bittrawler/internal/protocol/dht/client"
 	"github.com/BitTrawler/bittrawler/internal/protocol/dht/ktable"
 	"github.com/BitTrawler/bittrawler/internal/protocol/metainfo/banning"
@@ -28,6 +29,8 @@ type Config struct {
 	Blocklist *blocking.Blocklist
 	// Store receives the crawled torrents.
 	Store *store.Store
+	// Classification controls what happens to torrents the classifier rejects.
+	Classification classify.Config
 	// DiscoveredNodes receives nodes that query the DHT server. It is optional:
 	// when nil the crawler still discovers nodes from its own queries.
 	DiscoveredNodes <-chan ktable.Node

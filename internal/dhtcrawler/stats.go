@@ -32,8 +32,17 @@ type Stats struct {
 	MetadataFailed uint64
 	// InfohashesBlocked counts hashes rejected by the banning rules.
 	InfohashesBlocked uint64
+	// InfohashesDeceptive counts hashes whose files were executables under a
+	// media name, which are blocked as malware.
+	InfohashesDeceptive uint64
 	// TorrentsPersisted counts rows written to the store.
 	TorrentsPersisted uint64
+	// TorrentsDropped counts adult torrents the classifier dropped. Adult
+	// content is dropped only when configured to be; banned and deceptive
+	// content is counted by InfohashesBlocked and InfohashesDeceptive instead.
+	TorrentsDropped uint64
+	// TorrentsDroppedScript counts torrents dropped by the writing-system filter.
+	TorrentsDroppedScript uint64
 	// PersistFailures counts batches that could not be written.
 	PersistFailures uint64
 }
@@ -42,35 +51,40 @@ type Stats struct {
 // from a crawl worker, so they are atomics rather than plain integers and the
 // crawl path pays for a single add per event.
 type crawlerStats struct {
-	nodesDiscovered   atomic.Uint64
-	samplesReceived   atomic.Uint64
-	hashesDiscovered  atomic.Uint64
-	hashesTriaged     atomic.Uint64
-	peerLookups       atomic.Uint64
-	peerLookupsEmpty  atomic.Uint64
-	peerLookupsFailed atomic.Uint64
-	metadataFetched   atomic.Uint64
-	metadataFailed    atomic.Uint64
-	infohashesBlocked atomic.Uint64
-	torrentsPersisted atomic.Uint64
-	persistFailures   atomic.Uint64
+	nodesDiscovered       atomic.Uint64
+	samplesReceived       atomic.Uint64
+	hashesDiscovered      atomic.Uint64
+	hashesTriaged         atomic.Uint64
+	peerLookups           atomic.Uint64
+	peerLookupsEmpty      atomic.Uint64
+	peerLookupsFailed     atomic.Uint64
+	metadataFetched       atomic.Uint64
+	metadataFailed        atomic.Uint64
+	infohashesBlocked     atomic.Uint64
+	infohashesDeceptive   atomic.Uint64
+	torrentsPersisted     atomic.Uint64
+	torrentsDropped       atomic.Uint64
+	torrentsDroppedScript atomic.Uint64
+	persistFailures       atomic.Uint64
 }
 
 // Stats returns a snapshot of the crawler's counters. It is safe to call while
 // the crawl is running; the calls may not all observe the same instant.
 func (c *Crawler) Stats() Stats {
 	return Stats{
-		NodesDiscovered:   c.stats.nodesDiscovered.Load(),
-		SamplesReceived:   c.stats.samplesReceived.Load(),
-		HashesDiscovered:  c.stats.hashesDiscovered.Load(),
-		HashesTriaged:     c.stats.hashesTriaged.Load(),
-		PeerLookups:       c.stats.peerLookups.Load(),
-		PeerLookupsEmpty:  c.stats.peerLookupsEmpty.Load(),
-		PeerLookupsFailed: c.stats.peerLookupsFailed.Load(),
-		MetadataFetched:   c.stats.metadataFetched.Load(),
-		MetadataFailed:    c.stats.metadataFailed.Load(),
-		InfohashesBlocked: c.stats.infohashesBlocked.Load(),
-		TorrentsPersisted: c.stats.torrentsPersisted.Load(),
-		PersistFailures:   c.stats.persistFailures.Load(),
+		NodesDiscovered:     c.stats.nodesDiscovered.Load(),
+		SamplesReceived:     c.stats.samplesReceived.Load(),
+		HashesDiscovered:    c.stats.hashesDiscovered.Load(),
+		HashesTriaged:       c.stats.hashesTriaged.Load(),
+		PeerLookups:         c.stats.peerLookups.Load(),
+		PeerLookupsEmpty:    c.stats.peerLookupsEmpty.Load(),
+		PeerLookupsFailed:   c.stats.peerLookupsFailed.Load(),
+		MetadataFetched:     c.stats.metadataFetched.Load(),
+		MetadataFailed:      c.stats.metadataFailed.Load(),
+		InfohashesBlocked:   c.stats.infohashesBlocked.Load(),
+		InfohashesDeceptive: c.stats.infohashesDeceptive.Load(),
+		TorrentsPersisted:   c.stats.torrentsPersisted.Load(),
+		TorrentsDropped:     c.stats.torrentsDropped.Load(),
+		PersistFailures:     c.stats.persistFailures.Load(),
 	}
 }

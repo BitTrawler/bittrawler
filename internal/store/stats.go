@@ -20,7 +20,7 @@ type ShardStats struct {
 	WALBytes int64
 }
 
-// Stats is the store's on-disk footprint.
+// Stats is the store's on-disk footprint and contents.
 type Stats struct {
 	// Shards is ordered newest month first.
 	Shards []ShardStats
@@ -28,6 +28,8 @@ type Stats struct {
 	// DBBytes and WALBytes are the totals across shards.
 	DBBytes  int64
 	WALBytes int64
+	// Categories counts rows per stored Newznab category across all shards.
+	Categories map[int]int
 }
 
 // Stats reports the row count and file sizes of every retained shard. Counting
@@ -42,9 +44,17 @@ func (s *Store) Stats(ctx context.Context) (Stats, error) {
 	var stats Stats
 
 	for _, sh := range shards {
-		var rows int
-		if err := sh.db.QueryRowContext(ctx, "SELECT count(*) FROM torrents").Scan(&rows); err != nil {
-			return Stats{}, fmt.Errorf("count shard %s: %w", sh.key, err)
+		rows, categories, err := shardCounts(ctx, sh)
+		if err != nil {
+			return Stats{}, err
+		}
+
+		for category, count := range categories {
+			if stats.Categories == nil {
+				stats.Categories = make(map[int]int)
+			}
+
+			stats.Categories[category] += count
 		}
 
 		dbBytes, err := fileSize(sh.path)
@@ -69,6 +79,43 @@ func (s *Store) Stats(ctx context.Context) (Stats, error) {
 	}
 
 	return stats, nil
+}
+
+// shardCounts counts the shard's rows and groups them by category. One grouped
+// query per shard returns both, so the totals cannot disagree with the
+// per-category counts.
+func shardCounts(ctx context.Context, sh *shard) (int, map[int]int, error) {
+	rows, err := sh.db.QueryContext(ctx, "SELECT category, count(*) FROM torrents GROUP BY category")
+	if err != nil {
+		return 0, nil, fmt.Errorf("count shard %s: %w", sh.key, err)
+	}
+
+	defer rows.Close()
+
+	var (
+		total      int
+		categories = make(map[int]int)
+	)
+
+	for rows.Next() {
+		var (
+			category int
+			count    int
+		)
+
+		if err := rows.Scan(&category, &count); err != nil {
+			return 0, nil, fmt.Errorf("count shard %s: %w", sh.key, err)
+		}
+
+		categories[category] += count
+		total += count
+	}
+
+	if err := rows.Err(); err != nil {
+		return 0, nil, fmt.Errorf("count shard %s: %w", sh.key, err)
+	}
+
+	return total, categories, nil
 }
 
 // fileSize returns the size of path, or zero when it does not exist.

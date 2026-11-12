@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/BitTrawler/bittrawler/internal/classify"
 	"github.com/BitTrawler/bittrawler/internal/protocol/metainfo"
 	mi "github.com/anacrolix/torrent/metainfo"
 )
@@ -11,10 +12,12 @@ import (
 func TestRowFromInfoSingleFile(t *testing.T) {
 	createdAt := time.Unix(1_700_000_000, 0).UTC()
 
-	row := rowFromInfo(testHash(1), metainfo.Info{
+	info := metainfo.Info{
 		Name:   "Single.File.mkv",
 		Length: 4096,
-	}, 2, 3, createdAt)
+	}
+
+	row := rowFromInfo(testHash(1), info, filesFromInfo(info), classify.Result{}, 2, 3, createdAt)
 
 	if row.Name != "Single.File.mkv" {
 		t.Errorf("name = %q, want %q", row.Name, "Single.File.mkv")
@@ -47,13 +50,15 @@ func TestRowFromInfoSingleFile(t *testing.T) {
 }
 
 func TestRowFromInfoMultiFile(t *testing.T) {
-	row := rowFromInfo(testHash(1), metainfo.Info{
+	info := metainfo.Info{
 		Name: "Multi.File.Torrent",
 		Files: []mi.FileInfo{
 			{Length: 10, Path: []string{"a", "one.mkv"}},
 			{Length: 20, Path: []string{"b", "two.mkv"}},
 		},
-	}, 0, 0, time.Now())
+	}
+
+	row := rowFromInfo(testHash(1), info, filesFromInfo(info), classify.Result{}, 0, 0, time.Now())
 
 	if row.Size != 30 {
 		t.Errorf("size = %d, want 30", row.Size)
@@ -69,13 +74,15 @@ func TestRowFromInfoMultiFile(t *testing.T) {
 }
 
 func TestRowFromInfoPrimaryFileTieKeepsFirst(t *testing.T) {
-	row := rowFromInfo(testHash(1), metainfo.Info{
+	info := metainfo.Info{
 		Name: "Tied.File.Torrent",
 		Files: []mi.FileInfo{
 			{Length: 20, Path: []string{"first.mkv"}},
 			{Length: 20, Path: []string{"second.mkv"}},
 		},
-	}, 0, 0, time.Now())
+	}
+
+	row := rowFromInfo(testHash(1), info, filesFromInfo(info), classify.Result{}, 0, 0, time.Now())
 
 	if row.PrimaryFile != "first.mkv" {
 		t.Errorf("primary file = %q, want %q", row.PrimaryFile, "first.mkv")
@@ -83,11 +90,13 @@ func TestRowFromInfoPrimaryFileTieKeepsFirst(t *testing.T) {
 }
 
 func TestRowFromInfoPrefersUtf8Name(t *testing.T) {
-	row := rowFromInfo(testHash(1), metainfo.Info{
+	info := metainfo.Info{
 		Name:     "fallback name",
 		NameUtf8: "preferred name",
 		Length:   4096,
-	}, 0, 0, time.Now())
+	}
+
+	row := rowFromInfo(testHash(1), info, filesFromInfo(info), classify.Result{}, 0, 0, time.Now())
 
 	if row.Name != "preferred name" {
 		t.Errorf("name = %q, want %q", row.Name, "preferred name")

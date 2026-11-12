@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/BitTrawler/bittrawler/internal/classify"
 	"github.com/BitTrawler/bittrawler/internal/protocol"
 	"github.com/BitTrawler/bittrawler/internal/protocol/dht/ktable"
 	"github.com/BitTrawler/bittrawler/internal/protocol/metainfo"
@@ -15,6 +16,14 @@ import (
 
 // errNoMetadata reports that none of the peers supplied metadata.
 var errNoMetadata = errors.New("no peer returned metadata")
+
+// errBannedContent reports metadata whose contents or name match the blocking
+// rules. The infohash is recorded in the blocklist and is never indexed.
+var errBannedContent = errors.New("banned content")
+
+// errDeceptiveContent reports metadata that claims to be media but ships
+// executables. The infohash is recorded in the blocklist and is never indexed.
+var errDeceptiveContent = errors.New("deceptive content")
 
 // startFetch starts the peer lookup and metadata fetch stages.
 func (c *Crawler) startFetch(ctx context.Context, wg *sync.WaitGroup) {
@@ -91,7 +100,33 @@ func (c *Crawler) metadata(ctx context.Context, job infoHashWithPeers) {
 	}
 
 	seeders, leechers := c.scrapePeers(fetchCtx, job.node, job.infoHash)
-	row := rowFromInfo(job.infoHash, info, seeders, leechers, time.Now())
+	files := filesFromInfo(info)
+	class := c.classifier.Classify(info.BestName(), files)
+
+	switch class.Drop {
+	case classify.DropBanned:
+		c.stats.infohashesBlocked.Add(1)
+		c.blockInfohash(ctx, job.infoHash, errBannedContent)
+
+		return
+	case classify.DropDeceptive:
+		c.stats.infohashesDeceptive.Add(1)
+		c.blockInfohash(ctx, job.infoHash, errDeceptiveContent)
+
+		return
+	case classify.DropAdult:
+		c.stats.torrentsDropped.Add(1)
+		c.logger.Debug("dropped adult torrent", "info_hash", job.infoHash.String())
+
+		return
+	case classify.DropScript:
+		c.stats.torrentsDroppedScript.Add(1)
+		c.logger.Debug("dropped foreign-script torrent", "info_hash", job.infoHash.String())
+
+		return
+	}
+
+	row := rowFromInfo(job.infoHash, info, files, class, seeders, leechers, time.Now())
 
 	send(ctx, c.forPersist, row)
 }
