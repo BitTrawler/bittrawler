@@ -45,6 +45,16 @@ type Stats struct {
 	TorrentsDroppedScript uint64
 	// PersistFailures counts batches that could not be written.
 	PersistFailures uint64
+	// TMDBCalls counts classifications sent to the TMDB confirmation stage.
+	TMDBCalls uint64
+	// TMDBMatched counts lookups that found a confident match.
+	TMDBMatched uint64
+	// TMDBCorrected counts classifications TMDB changed.
+	TMDBCorrected uint64
+	// TMDBAdult counts torrents TMDB flagged as adult.
+	TMDBAdult uint64
+	// TMDBFailures counts lookups that could not be completed.
+	TMDBFailures uint64
 }
 
 // crawlerStats holds the live counters behind Stats. Every field is incremented
@@ -66,25 +76,36 @@ type crawlerStats struct {
 	torrentsDropped       atomic.Uint64
 	torrentsDroppedScript atomic.Uint64
 	persistFailures       atomic.Uint64
+	tmdbCalls             atomic.Uint64
+	tmdbMatched           atomic.Uint64
+	tmdbCorrected         atomic.Uint64
+	tmdbAdult             atomic.Uint64
+	tmdbFailures          atomic.Uint64
 }
 
 // Stats returns a snapshot of the crawler's counters. It is safe to call while
 // the crawl is running; the calls may not all observe the same instant.
 func (c *Crawler) Stats() Stats {
 	return Stats{
-		NodesDiscovered:     c.stats.nodesDiscovered.Load(),
-		SamplesReceived:     c.stats.samplesReceived.Load(),
-		HashesDiscovered:    c.stats.hashesDiscovered.Load(),
-		HashesTriaged:       c.stats.hashesTriaged.Load(),
-		PeerLookups:         c.stats.peerLookups.Load(),
-		PeerLookupsEmpty:    c.stats.peerLookupsEmpty.Load(),
-		PeerLookupsFailed:   c.stats.peerLookupsFailed.Load(),
-		MetadataFetched:     c.stats.metadataFetched.Load(),
-		MetadataFailed:      c.stats.metadataFailed.Load(),
-		InfohashesBlocked:   c.stats.infohashesBlocked.Load(),
-		InfohashesDeceptive: c.stats.infohashesDeceptive.Load(),
-		TorrentsPersisted:   c.stats.torrentsPersisted.Load(),
-		TorrentsDropped:     c.stats.torrentsDropped.Load(),
-		PersistFailures:     c.stats.persistFailures.Load(),
+		NodesDiscovered:       c.stats.nodesDiscovered.Load(),
+		SamplesReceived:       c.stats.samplesReceived.Load(),
+		HashesDiscovered:      c.stats.hashesDiscovered.Load(),
+		HashesTriaged:         c.stats.hashesTriaged.Load(),
+		PeerLookups:           c.stats.peerLookups.Load(),
+		PeerLookupsEmpty:      c.stats.peerLookupsEmpty.Load(),
+		PeerLookupsFailed:     c.stats.peerLookupsFailed.Load(),
+		MetadataFetched:       c.stats.metadataFetched.Load(),
+		MetadataFailed:        c.stats.metadataFailed.Load(),
+		InfohashesBlocked:     c.stats.infohashesBlocked.Load(),
+		InfohashesDeceptive:   c.stats.infohashesDeceptive.Load(),
+		TorrentsPersisted:     c.stats.torrentsPersisted.Load(),
+		TorrentsDropped:       c.stats.torrentsDropped.Load(),
+		TorrentsDroppedScript: c.stats.torrentsDroppedScript.Load(),
+		PersistFailures:       c.stats.persistFailures.Load(),
+		TMDBCalls:             c.stats.tmdbCalls.Load(),
+		TMDBMatched:           c.stats.tmdbMatched.Load(),
+		TMDBCorrected:         c.stats.tmdbCorrected.Load(),
+		TMDBAdult:             c.stats.tmdbAdult.Load(),
+		TMDBFailures:          c.stats.tmdbFailures.Load(),
 	}
 }

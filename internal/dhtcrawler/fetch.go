@@ -128,6 +128,12 @@ func (c *Crawler) metadata(ctx context.Context, job infoHashWithPeers) {
 
 	row := rowFromInfo(job.infoHash, info, files, class, seeders, leechers, time.Now())
 
+	if c.tmdb != nil && tmdbCandidate(class) {
+		send(ctx, c.forTMDB, tmdbJob{row: row, name: info.BestName()})
+
+		return
+	}
+
 	send(ctx, c.forPersist, row)
 }
 

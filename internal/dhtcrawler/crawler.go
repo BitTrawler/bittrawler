@@ -40,6 +40,7 @@ type Crawler struct {
 	requester  metainforequester.Requester
 	banning    banning.Checker
 	classifier *classify.Classifier
+	tmdb       TMDBSearcher
 	blocklist  *blocking.Blocklist
 	store      *store.Store
 	logger     *slog.Logger
@@ -53,6 +54,7 @@ type Crawler struct {
 	forTriage  chan hashAndNode
 	forPeers   chan hashAndNode
 	forFetch   chan infoHashWithPeers
+	forTMDB    chan tmdbJob
 	forPersist chan store.Row
 
 	seenHashes   *seenHashes
@@ -101,6 +103,7 @@ func New(cfg Config) (*Crawler, error) {
 		requester:    cfg.Requester,
 		banning:      cfg.Banning,
 		classifier:   classify.New(cfg.Classification),
+		tmdb:         cfg.TMDB,
 		blocklist:    cfg.Blocklist,
 		store:        cfg.Store,
 		logger:       cfg.Logger,
@@ -112,6 +115,7 @@ func New(cfg Config) (*Crawler, error) {
 		forTriage:    make(chan hashAndNode, 2048),
 		forPeers:     make(chan hashAndNode, 8*w.GetPeers),
 		forFetch:     make(chan infoHashWithPeers, 8*w.Metadata),
+		forTMDB:      make(chan tmdbJob, 8*cfg.TMDBWorkers),
 		forPersist:   make(chan store.Row, 1024),
 		seenHashes:   newSeenHashes(cfg.SeenHashesSize, cfg.SeenHashesFalsePositiveRate),
 		soughtNodeID: &concurrency.AtomicValue[protocol.ID]{},
@@ -132,9 +136,11 @@ func (c *Crawler) Run(ctx context.Context) error {
 	c.startTriage(ctx, &wg)
 	c.startFetch(ctx, &wg)
 	startWorker(ctx, &wg, c.runPersist)
+	c.startTMDB(ctx, &wg)
 
 	<-ctx.Done()
 	wg.Wait()
+	c.flushTMDBQueue()
 
 	return nil
 }

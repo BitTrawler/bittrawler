@@ -31,6 +31,13 @@ type Config struct {
 	Store *store.Store
 	// Classification controls what happens to torrents the classifier rejects.
 	Classification classify.Config
+	// TMDB confirms and corrects film and television classifications. It is
+	// optional: nil disables the confirmation stage.
+	TMDB TMDBSearcher
+	// TMDBWorkers is how many goroutines confirm classifications against TMDB.
+	TMDBWorkers int
+	// TMDBTimeout bounds one lookup, including the HTTP requests behind it.
+	TMDBTimeout time.Duration
 	// DiscoveredNodes receives nodes that query the DHT server. It is optional:
 	// when nil the crawler still discovers nodes from its own queries.
 	DiscoveredNodes <-chan ktable.Node
@@ -109,6 +116,8 @@ func DefaultConfig() Config {
 		PersistBatchWait:            5 * time.Second,
 		PeersPerInfoHash:            4,
 		MetadataTimeout:             45 * time.Second,
+		TMDBWorkers:                 4,
+		TMDBTimeout:                 5 * time.Second,
 		Workers: WorkerCounts{
 			Ping:             4,
 			FindNode:         8,
@@ -186,6 +195,14 @@ func (c Config) withDefaults() Config {
 
 	if c.MetadataTimeout <= 0 {
 		c.MetadataTimeout = def.MetadataTimeout
+	}
+
+	if c.TMDBWorkers <= 0 {
+		c.TMDBWorkers = def.TMDBWorkers
+	}
+
+	if c.TMDBTimeout <= 0 {
+		c.TMDBTimeout = def.TMDBTimeout
 	}
 
 	c.Workers = c.Workers.withDefaults(def.Workers)
