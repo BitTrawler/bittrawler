@@ -110,7 +110,7 @@ func (s *server) read() {
 			continue
 		}
 
-		recv := dht.RecvMsg{Msg: msg, From: from}
+		recv := dht.RecvMsg{Msg: msg, From: unmapAddrPort(from)}
 
 		switch msg.Y {
 		case dht.YQuery:
@@ -121,6 +121,18 @@ func (s *server) read() {
 			s.handleResponse(recv)
 		}
 	}
+}
+
+// unmapAddrPort strips the IPv4-mapped IPv6 form from an address. A dual-stack
+// socket reports an IPv4 peer as ::ffff:a.b.c.d, which would never match the
+// plain IPv4 address the outgoing query was sent to, so every response from an
+// IPv4 node would be dropped.
+func unmapAddrPort(addr netip.AddrPort) netip.AddrPort {
+	if addr.Addr().Is4In6() {
+		return netip.AddrPortFrom(addr.Addr().Unmap(), addr.Port())
+	}
+
+	return addr
 }
 
 func (s *server) stoppedClosed() bool {
