@@ -181,14 +181,13 @@ func splitStatements(src string) []string {
 // splitSemicolons splits plain SQL on top-level semicolons.
 func splitSemicolons(src string) []string {
 	var (
-		out         []string
-		current     strings.Builder
-		inSingle    bool
-		inDouble    bool
-		inBracket   bool
-		inLineCom   bool
-		inBlockCom  bool
-		lastWritten byte
+		out        []string
+		current    strings.Builder
+		inSingle   bool
+		inDouble   bool
+		inBracket  bool
+		inLineCom  bool
+		inBlockCom bool
 	)
 
 	for i := 0; i < len(src); i++ {
@@ -253,12 +252,8 @@ func splitSemicolons(src string) []string {
 			default:
 				current.WriteByte(c)
 			}
-
-			lastWritten = c
 		}
 	}
-
-	_ = lastWritten
 
 	if s := strings.TrimSpace(current.String()); s != "" {
 		out = append(out, s)
