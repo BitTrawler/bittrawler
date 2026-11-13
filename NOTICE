@@ -29,7 +29,7 @@ the dependency-injection plumbing and generated mocks removed, logging moved to
 log/slog, and defects fixed on import. Files added to these packages after the
 import, such as new tests and dependency-injection adapters, are original work.
 
-Measured against bitmagnet at the commit above, about 3,700 lines, or 19 per
+Measured against bitmagnet at the commit above, about 3,400 lines, or 16 per
 cent of the Go code in this repository, remain line-for-line derived from it.
 The dhtcrawler package measures far lower because it was rewritten, but it is
 still derived work.
