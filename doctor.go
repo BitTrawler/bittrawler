@@ -67,7 +67,9 @@ func runDoctor(args []string) int {
 
 	loaded, hasDatabase, err := inspectConfig(ctx, flags.overrides())
 	if err != nil {
-		fmt.Printf("fail  settings: %v\n", err)
+		// The settings package already prefixes its errors; the label does
+		// not need to repeat it.
+		fmt.Printf("fail  settings: %v\n", strings.TrimPrefix(err.Error(), "settings: "))
 
 		return 1
 	}
