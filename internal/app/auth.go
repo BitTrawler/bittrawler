@@ -22,8 +22,10 @@ import (
 const (
 	// sessionCookie is the name of the sign-in cookie.
 	sessionCookie = "bittrawler_session"
-	// sessionDuration is how long a sign-in lasts.
-	sessionDuration = 30 * 24 * time.Hour
+	// fallbackSessionDays is used when the setting is somehow outside its
+	// bounds, which validation should prevent. A sign-in that expires at once
+	// is worse than a long one, so it falls back to the default.
+	fallbackSessionDays = 30
 	// bcryptCost is above the library default: signing in is rare and the hash
 	// is the only thing protecting the interface.
 	bcryptCost = 12
@@ -61,6 +63,18 @@ func (a *App) verifyCredentials(username, password string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(state.hash), []byte(password)) == nil
 }
 
+// sessionLifetime is how long a new sign-in lasts. It is read from the settings
+// on each sign-in, so a change applies to the next sign-in without a restart.
+// Cookies already issued keep the expiry they were signed with.
+func (a *App) sessionLifetime() time.Duration {
+	days := a.currentConfig().Web.SessionDays
+	if days < 1 {
+		days = fallbackSessionDays
+	}
+
+	return time.Duration(days) * 24 * time.Hour
+}
+
 // newSessionValue returns a signed session cookie value for the account. The
 // cookie carries only its expiry and the username, signed with the session key,
 // so validating it costs one MAC and no database work.
@@ -70,7 +84,7 @@ func (a *App) newSessionValue(now time.Time) (string, error) {
 		return "", errors.New("app: no administrator account")
 	}
 
-	expiry := now.Add(sessionDuration).Unix()
+	expiry := now.Add(a.sessionLifetime()).Unix()
 	payload := fmt.Sprintf("%d|%s", expiry, state.username)
 	encoded := base64.RawURLEncoding.EncodeToString([]byte(payload))
 
@@ -141,7 +155,7 @@ func (a *App) setSessionCookie(w http.ResponseWriter, r *http.Request) error {
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Secure:   isHTTPS(r),
-		MaxAge:   int(sessionDuration.Seconds()),
+		MaxAge:   int(a.sessionLifetime().Seconds()),
 	})
 
 	return nil

@@ -586,3 +586,16 @@ func TestFeedSearchAndTorrentPages(t *testing.T) {
 
 	_ = application
 }
+
+// TestSessionLifetimeSetting checks that the sign-in cookie expires with the
+// session setting rather than a fixed lifetime.
+func TestSessionLifetimeSetting(t *testing.T) {
+	t.Setenv("BITTRAWLER_WEB_SESSION_DAYS", "2")
+
+	_, baseURL := start(t)
+
+	completeSetup(t, baseURL)
+
+	cookie := signIn(t, baseURL, "admin", "correct-horse-battery")
+	assert.Equal(t, int((2 * 24 * time.Hour).Seconds()), cookie.MaxAge)
+}

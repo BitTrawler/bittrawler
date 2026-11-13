@@ -20,6 +20,7 @@ func TestDefaultIsValid(t *testing.T) {
 	assert.Equal(t, "0.0.0.0:6684", cfg.DHT.ListenAddress)
 	assert.Equal(t, 12, cfg.Store.RetentionMonths)
 	assert.Equal(t, 32, cfg.Crawler.Workers.Metadata)
+	assert.Equal(t, 30, cfg.Web.SessionDays)
 	assert.True(t, cfg.Crawler.Enabled)
 	assert.Empty(t, cfg.Web.AdminUsername)
 	assert.Empty(t, cfg.Torznab.APIKey)
@@ -208,6 +209,8 @@ func TestValidationErrors(t *testing.T) {
 		{"bad log level", func(c *config.Config) { c.Log.Level = "verbose" }, "log.level"},
 		{"negative retention", func(c *config.Config) { c.Store.RetentionMonths = -1 }, "retention_months"},
 		{"zero worker", func(c *config.Config) { c.Crawler.Workers.Metadata = 0 }, "workers.metadata"},
+		{"zero session days", func(c *config.Config) { c.Web.SessionDays = 0 }, "session_days"},
+		{"session days above the maximum", func(c *config.Config) { c.Web.SessionDays = 366 }, "session_days"},
 		{"zero metadata timeout", func(c *config.Config) { c.Crawler.MetadataTimeout = 0 }, "metadata_timeout"},
 		{"bad bootstrap node", func(c *config.Config) { c.Crawler.BootstrapNodes = []string{"nohost"} }, "bootstrap_nodes"},
 		{"bad drop script", func(c *config.Config) { c.Classify.DropScripts = []string{"klingon"} }, "drop_scripts"},

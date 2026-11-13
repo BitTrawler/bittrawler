@@ -24,7 +24,10 @@ type Data struct {
 
 // Web is the web interface and the Torznab endpoint.
 type Web struct {
-	Address           string `key:"address" label:"Listen Address" usage:"The address the web interface and the Torznab endpoint listen on. Changing it needs a restart."`
+	Address string `key:"address" label:"Listen Address" usage:"The address the web interface and the Torznab endpoint listen on. Changing it needs a restart."`
+	// SessionDays is how long a sign-in lasts. Existing cookies keep the expiry
+	// they were issued with, so shortening it does not sign anyone out now.
+	SessionDays       int    `key:"session_days" label:"Session Days" usage:"How long a sign-in lasts. Existing sessions keep the expiry they were issued with." min:"1" max:"365" advanced:"true"`
 	AdminUsername     string `key:"admin_username" hidden:"true" usage:"Username of the administrator account. Set during setup." restart:"true"`
 	AdminPasswordHash string `key:"admin_password_hash" hidden:"true" secret:"true" usage:"Password hash of the administrator account. Set during setup; reset it with bittrawler auth reset." restart:"true"`
 	SessionSecret     string `key:"session_secret" hidden:"true" secret:"true" usage:"Key that signs login sessions. Generated on first start; rotating it signs everyone out." restart:"true"`
@@ -112,7 +115,8 @@ func Default() Config {
 			Directory: "./data",
 		},
 		Web: Web{
-			Address: "0.0.0.0:6684",
+			Address:     "0.0.0.0:6684",
+			SessionDays: 30,
 		},
 		Log: Log{
 			Level: "info",
