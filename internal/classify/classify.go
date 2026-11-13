@@ -159,9 +159,10 @@ func (c *Classifier) Classify(name string, files []File) Result {
 	}
 
 	// A strong adult marker in the name is decisive. The same marker in a file
-	// path is weaker evidence — paths carry advertising URLs and release
-	// structure — so it classifies the row but is marked weak, which lets the
-	// TMDB stage overturn it if the title turns out to be a mainstream release.
+	// path is weaker evidence, because paths carry advertising URLs and release
+	// structure, so there it classifies the row but is marked weak. The TMDB
+	// stage can then overturn it if the title turns out to be a mainstream
+	// release.
 	if adultStrongText(name) {
 		return c.adultResult(AdultEvidenceStrong)
 	}

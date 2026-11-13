@@ -1,13 +1,12 @@
 // Package classify decides what a torrent is from its name and file list, and
-// whether it must not be indexed at all.
+// whether it may be indexed at all.
 //
-// Classification runs once at intake, while the metadata is in memory: the
-// result is stored on the torrent row and is never recomputed. It is a rewrite
-// of the bitmagnet classifier, whose ordered rules are kept as knowledge but
-// whose CEL workflow is replaced by plain Go.
+// Classification runs once at intake, while the metadata is in memory. The
+// result is stored on the row and never recomputed, so a change to the rules
+// only affects torrents crawled afterwards.
 //
-// Two things differ from the original on purpose. The file list is the complete
-// list from the metadata, not the first hundred rows the old schema stored, and
-// every rule also works when the file list is missing, because a third of the
-// torrents in the reference database were indexed without one.
+// The rules are plain Go over embedded keyword lists and the scene grammar,
+// replacing the CEL workflow bitmagnet uses. Classification sees the complete
+// file list rather than the first hundred files, and every rule also works when
+// the metadata carries no files at all.
 package classify
