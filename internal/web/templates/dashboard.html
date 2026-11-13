@@ -149,7 +149,7 @@
         <thead>
           <tr><th>Month</th><th class="num">Rows</th><th class="num">Database</th><th class="num">WAL</th></tr>
         </thead>
-        <tbody>
+        <tbody id="shards">
           {{range .Shards}}
           <tr><td>{{.Month}}</td><td class="num">{{.Rows}}</td><td class="num">{{.Database}}</td><td class="num">{{.WAL}}</td></tr>
           {{else}}
@@ -164,14 +164,14 @@
   <section class="card">
     <header class="card-head">
       <h2>Classification</h2>
-      <p>Rows by stored category.</p>
+      <p>Rows by stored category. Recounted every minute.</p>
     </header>
     <div class="table-wrap">
       <table class="table compact">
         <thead>
           <tr><th>Category</th><th class="num">Rows</th><th class="num">Share</th></tr>
         </thead>
-        <tbody>
+        <tbody id="categories">
           {{range .Categories}}
           <tr><td><span class="cat">{{.Name}}</span></td><td class="num">{{.Rows}}</td><td class="num">{{.Share}}</td></tr>
           {{else}}

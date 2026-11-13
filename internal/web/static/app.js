@@ -227,6 +227,95 @@ function updateSpark(history) {
   }));
 }
 
+// updateTables rebuilds the storage and classification tables from the feed.
+// The server recounts them once a minute, so they change less often than the
+// counters; the signature check avoids replacing the DOM on every poll.
+function updateTables(payload) {
+  updateShards(payload.shards);
+  updateCategories(payload.categories);
+}
+
+function updateShards(rows) {
+  const body = document.getElementById('shards');
+  if (!body || !Array.isArray(rows)) {
+    return;
+  }
+
+  const signature = JSON.stringify(rows);
+  if (body.dataset.signature === signature) {
+    return;
+  }
+  body.dataset.signature = signature;
+
+  if (rows.length === 0) {
+    body.replaceChildren(emptyRow(4, 'No shards yet.'));
+
+    return;
+  }
+
+  body.replaceChildren(...rows.map((shard) => {
+    const row = document.createElement('tr');
+    row.append(
+      textCell(shard.month),
+      textCell(shard.rows, 'num'),
+      textCell(shard.database, 'num'),
+      textCell(shard.wal, 'num'),
+    );
+
+    return row;
+  }));
+}
+
+function updateCategories(rows) {
+  const body = document.getElementById('categories');
+  if (!body || !Array.isArray(rows)) {
+    return;
+  }
+
+  const signature = JSON.stringify(rows);
+  if (body.dataset.signature === signature) {
+    return;
+  }
+  body.dataset.signature = signature;
+
+  if (rows.length === 0) {
+    body.replaceChildren(emptyRow(3, 'Nothing classified yet.'));
+
+    return;
+  }
+
+  body.replaceChildren(...rows.map((category) => {
+    const row = document.createElement('tr');
+    const name = document.createElement('td');
+    const label = document.createElement('span');
+    label.className = 'cat';
+    label.textContent = category.name;
+    name.append(label);
+    row.append(name, textCell(category.rows, 'num'), textCell(category.share, 'num'));
+
+    return row;
+  }));
+}
+
+function textCell(text, className = '') {
+  const cell = document.createElement('td');
+  if (className) {
+    cell.className = className;
+  }
+  cell.textContent = text;
+
+  return cell;
+}
+
+function emptyRow(colspan, text) {
+  const row = document.createElement('tr');
+  const cell = textCell(text, 'empty');
+  cell.colSpan = colspan;
+  row.append(cell);
+
+  return row;
+}
+
 function updateCrawlState(running) {
   const state = document.querySelector('[data-crawl-state]');
   if (!state) {
@@ -276,13 +365,14 @@ async function refreshFeed() {
     }
     updateRuntime(payload.runtime);
     updateSpark(payload.history);
+    updateTables(payload);
 
     const torrents = payload.torrents || [];
 
     if (torrents.length === 0) {
       const row = document.createElement('tr');
       const cell = document.createElement('td');
-      cell.colSpan = 5;
+      cell.colSpan = 6;
       cell.className = 'empty';
       cell.textContent = 'Nothing indexed yet. New torrents appear here as the crawler writes them.';
       row.append(cell);

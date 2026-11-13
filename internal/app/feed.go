@@ -351,7 +351,9 @@ func (a *App) handleFeed(w http.ResponseWriter, r *http.Request) {
 			Goroutines: snapshot.Goroutines,
 			CPUPercent: snapshot.CPUPercent,
 		},
-		History: historyBars(snapshot.History),
+		History:    historyBars(snapshot.History),
+		Shards:     feedShards(shardRows(snapshot)),
+		Categories: feedCategories(categoryRows(snapshot)),
 	}
 
 	torrents, err := a.torrentStore.Latest(r.Context(), limit)
@@ -645,12 +647,58 @@ type feedTorrent struct {
 
 // feedResponse is the body of GET /api/feed.
 type feedResponse struct {
-	Crawling     bool          `json:"crawling"`
-	CrawlEnabled bool          `json:"crawl_enabled"`
-	Stats        feedStats     `json:"stats"`
-	Counters     feedCounters  `json:"counters"`
-	KTable       feedKTable    `json:"ktable"`
-	Runtime      feedRuntime   `json:"runtime"`
-	History      []int         `json:"history"`
-	Torrents     []feedTorrent `json:"torrents"`
+	Crawling     bool           `json:"crawling"`
+	CrawlEnabled bool           `json:"crawl_enabled"`
+	Stats        feedStats      `json:"stats"`
+	Counters     feedCounters   `json:"counters"`
+	KTable       feedKTable     `json:"ktable"`
+	Runtime      feedRuntime    `json:"runtime"`
+	History      []int          `json:"history"`
+	Shards       []feedShard    `json:"shards"`
+	Categories   []feedCategory `json:"categories"`
+	Torrents     []feedTorrent  `json:"torrents"`
+}
+
+// feedShard is one row of the storage table, formatted as the page renders it.
+type feedShard struct {
+	Month    string `json:"month"`
+	Rows     string `json:"rows"`
+	Database string `json:"database"`
+	WAL      string `json:"wal"`
+}
+
+// feedCategory is one row of the classification table, formatted the same way.
+type feedCategory struct {
+	Name  string `json:"name"`
+	Rows  string `json:"rows"`
+	Share string `json:"share"`
+}
+
+func feedShards(rows []web.ShardRow) []feedShard {
+	shards := make([]feedShard, 0, len(rows))
+
+	for _, row := range rows {
+		shards = append(shards, feedShard{
+			Month:    row.Month,
+			Rows:     row.Rows,
+			Database: row.Database,
+			WAL:      row.WAL,
+		})
+	}
+
+	return shards
+}
+
+func feedCategories(rows []web.CategoryRow) []feedCategory {
+	categories := make([]feedCategory, 0, len(rows))
+
+	for _, row := range rows {
+		categories = append(categories, feedCategory{
+			Name:  row.Name,
+			Rows:  row.Rows,
+			Share: row.Share,
+		})
+	}
+
+	return categories
 }
