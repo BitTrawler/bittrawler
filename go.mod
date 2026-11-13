@@ -1,6 +1,6 @@
 module github.com/BitTrawler/bittrawler
 
-go 1.27
+go 1.27.4
 
 require (
 	github.com/anacrolix/torrent v1.58.0
