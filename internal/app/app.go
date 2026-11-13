@@ -398,11 +398,6 @@ func (a *App) DHTAddress() string {
 	return a.dht.LocalAddr().String()
 }
 
-// DataDirectory returns the data directory in use.
-func (a *App) DataDirectory() string {
-	return a.dataDir
-}
-
 // SettingValue returns a setting's current value. It exists for the interface
 // and for tests that need to observe a saved change.
 func (a *App) SettingValue(key string) (any, bool) {

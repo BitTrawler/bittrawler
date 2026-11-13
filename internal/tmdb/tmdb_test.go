@@ -17,7 +17,6 @@ type fakeServer struct {
 	movies  string
 	shows   string
 	status  int
-	header  http.Header
 	server  *httptest.Server
 	request atomic.Int64
 }

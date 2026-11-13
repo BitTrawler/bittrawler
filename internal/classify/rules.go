@@ -233,12 +233,6 @@ func looksLikeEpisodeNumber(name string, parsed scene.Name) bool {
 	return episodeNumberRegex.MatchString(name)
 }
 
-// tvSignal reports whether the name carries a television marker: a season or
-// episode number, an air date for a daily show, or a complete-series label.
-func tvSignal(parsed scene.Name) bool {
-	return !parsed.Episodes.Empty() || parsed.AirDate != "" || parsed.Series
-}
-
 // videoByName reports whether the name alone identifies a video release, either
 // because it states a resolution or because it carries a source, codec or
 // container marker.

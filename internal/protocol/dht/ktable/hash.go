@@ -112,10 +112,6 @@ func (k *hashKeyspace) dropOldest(reason error) bool {
 	return k.drop(oldest, reason)
 }
 
-func (h *hash) hasPeers() bool {
-	return len(h.peers) > 0
-}
-
 func (h *hash) ID() ID {
 	return h.id
 }

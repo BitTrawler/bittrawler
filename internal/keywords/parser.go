@@ -77,15 +77,6 @@ func NewRexTokensFromKeywords(kws ...string) ([]dialect.Token, error) {
 	return tokens, nil
 }
 
-func MustNewRexTokensFromKeywords(kws ...string) []dialect.Token {
-	tokens, err := NewRexTokensFromKeywords(kws...)
-	if err != nil {
-		panic(err)
-	}
-
-	return tokens
-}
-
 type keywordsLexer struct {
 	lexer.Lexer
 }

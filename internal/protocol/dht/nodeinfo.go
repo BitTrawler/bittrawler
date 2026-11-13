@@ -5,9 +5,6 @@ import (
 	"encoding"
 	"encoding/binary"
 	"fmt"
-	"math"
-	"math/rand"
-	"net"
 	"reflect"
 
 	"github.com/BitTrawler/bittrawler/internal/protocol"
@@ -21,18 +18,6 @@ type NodeInfo struct {
 
 func (ni NodeInfo) String() string {
 	return fmt.Sprintf("{%x at %s}", ni.ID, ni.Addr)
-}
-
-func RandomNodeInfo(ipLen int) (ni NodeInfo) {
-	ni.ID = protocol.RandomNodeID()
-	ni.Addr.Port = rand.Intn(math.MaxUint16 + 1)
-	ni.Addr.IP = make(net.IP, ipLen)
-
-	for i := range ipLen {
-		ni.Addr.IP[i] = byte(rand.Intn(256))
-	}
-
-	return
 }
 
 var _ interface {

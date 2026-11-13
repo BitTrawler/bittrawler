@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/anacrolix/torrent/bencode"
@@ -34,21 +33,6 @@ func RandomNodeID() (id ID) {
 	return
 }
 
-// RandomNodeIDWithClientSuffix generates a node ID for the DHT client.
-// We use a random byte string with the client ID encoded at the end,
-// to allow identifying other bitmagnet instances in the wild.
-// A suffix is used instead of a prefix, which would be incompatible with DHT,
-// where ID prefixes are used for computing the distance metric).
-func RandomNodeIDWithClientSuffix() (id ID) {
-	_, _ = crand.Read(id[:])
-
-	for i := range len(idClientPart) {
-		id[20-len(idClientPart)+i] = idClientPart[i]
-	}
-
-	return
-}
-
 type ID [20]byte
 
 func ParseID(str string) (ID, error) {
@@ -66,15 +50,6 @@ func ParseID(str string) (ID, error) {
 	copy(id[:], b)
 
 	return id, nil
-}
-
-func MustParseID(str string) ID {
-	id, err := ParseID(str)
-	if err != nil {
-		panic(err)
-	}
-
-	return id
 }
 
 func NewIDFromRawString(s string) (id ID) {
@@ -104,10 +79,6 @@ func MustNewIDFromByteSlice(b []byte) ID {
 
 func (id ID) String() string {
 	return hex.EncodeToString(id[:])
-}
-
-func (id ID) Int160() Int160 {
-	return NewInt160FromByteArray(id)
 }
 
 func (id ID) IsZero() bool {
@@ -186,36 +157,6 @@ func (id *ID) UnmarshalJSON(data []byte) error {
 	*id = tb
 
 	return nil
-}
-
-func (id *ID) UnmarshalGQL(input interface{}) error {
-	switch input := input.(type) {
-	case string:
-		tb, err := ParseID(input)
-		if err != nil {
-			return err
-		}
-
-		*id = tb
-
-		return nil
-	default:
-		return errors.New("invalid hash type")
-	}
-}
-
-func (id ID) MarshalGQL(w io.Writer) {
-	_, _ = w.Write([]byte(`"` + id.String() + `"`))
-}
-
-type MutableID ID
-
-func (id *MutableID) SetBit(i int, v bool) {
-	if v {
-		id[i/8] |= 1 << (7 - uint(i%8))
-	} else {
-		id[i/8] &= ^(1 << (7 - uint(i%8)))
-	}
 }
 
 func RandomPeerID() ID {
