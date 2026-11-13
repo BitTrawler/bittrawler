@@ -384,6 +384,8 @@ code {
   border-radius: 7px;
   white-space: nowrap;
   overflow-x: auto;
+  /* One click selects the whole value, which is what a copy is for. */
+  user-select: all;
 }
 
 .value-static {
