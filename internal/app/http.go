@@ -24,12 +24,15 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /login", a.handleLoginForm)
 	mux.HandleFunc("POST /login", a.handleLoginSubmit)
 	mux.HandleFunc("POST /logout", a.handleLogout)
+	mux.HandleFunc("GET /search", a.handleSearch)
+	mux.HandleFunc("GET /torrent/{hash}", a.handleTorrent)
+	mux.HandleFunc("GET /api/feed", a.handleFeed)
 	mux.HandleFunc("GET /settings", a.handleSettings)
 	mux.HandleFunc("POST /settings", a.handleSettingsSave)
 	mux.HandleFunc("POST /settings/torznab/rotate", a.handleRotateAPIKey)
 	mux.HandleFunc("POST /settings/admin", a.handleAdminSave)
 	mux.HandleFunc("POST /crawl", a.handleCrawl)
-	mux.HandleFunc("GET /{$}", a.handleHome)
+	mux.HandleFunc("GET /{$}", a.handleOverview)
 
 	return mux
 }
@@ -57,30 +60,6 @@ func staticHandler() http.Handler {
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 		files.ServeHTTP(w, r)
 	})
-}
-
-// handleHome renders the dashboard.
-func (a *App) handleHome(w http.ResponseWriter, r *http.Request) {
-	if !a.authorised(w, r) {
-		return
-	}
-
-	status := a.Status()
-	cfg := a.currentConfig()
-
-	data := web.DashboardData{
-		Shell:           a.shell("dashboard", "Overview"),
-		Commit:          status.Commit,
-		BuildDate:       status.BuildDate,
-		APIKey:          status.TorznabAPIKey,
-		TorznabURL:      a.torznabURL(r),
-		DHTAddress:      status.DHTAddress,
-		DataDirectory:   a.dataDir,
-		RetentionMonths: cfg.Store.RetentionMonths,
-		CrawlEnabled:    cfg.Crawler.Enabled,
-	}
-
-	a.renderPage(w, "dashboard", data)
 }
 
 // handleHealth is the liveness and readiness endpoint. It does no database
@@ -122,7 +101,12 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 
 // renderPage renders a page and turns a template error into a 500.
 func (a *App) renderPage(w http.ResponseWriter, name string, data any) {
-	if err := a.pages.Render(w, http.StatusOK, name, data); err != nil {
+	a.renderPageStatus(w, http.StatusOK, name, data)
+}
+
+// renderPageStatus renders a page with an explicit HTTP status.
+func (a *App) renderPageStatus(w http.ResponseWriter, status int, name string, data any) {
+	if err := a.pages.Render(w, status, name, data); err != nil {
 		a.logger.Error("render page", "page", name, "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 	}

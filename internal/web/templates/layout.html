@@ -12,15 +12,15 @@
 <div class="app">
   <aside class="sidebar">
     <a class="brand" href="/">
-      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M2.5 7c1.7 0 2.5-1.4 4.2-1.4S9.2 7 10.9 7s2.5-1.4 4.2-1.4S17.6 7 17.5 7"/><path d="M2.5 11c1.7 0 2.5-1.4 4.2-1.4s2.5 1.4 4.2 1.4 2.5-1.4 4.2-1.4S17.6 11 17.5 11"/><path d="M2.5 15c1.7 0 2.5-1.4 4.2-1.4s2.5 1.4 4.2 1.4 2.5-1.4 4.2-1.4S17.6 15 17.5 15"/></svg></span>
-      <span class="brand-word">BitTrawler</span>
+      <img class="brand-logo" src="/static/logo.svg" alt="BitTrawler">
     </a>
     <nav class="nav" aria-label="Main">
       <a class="nav-link{{if eq .Active "dashboard"}} is-active{{end}}" href="/">Overview</a>
+      <a class="nav-link{{if eq .Active "search"}} is-active{{end}}" href="/search">Search</a>
       <a class="nav-link{{if eq .Active "settings"}} is-active{{end}}" href="/settings">Settings</a>
     </nav>
     <div class="sidebar-foot">
-      <div class="crawl-state">
+      <div class="crawl-state" data-crawl-state>
         {{if .Crawling}}<span class="dot is-live"></span><span class="crawl-label">Crawling</span>{{else}}<span class="dot"></span><span class="crawl-label">Paused</span>{{end}}
       </div>
       <div class="build">Version {{.Version}}</div>

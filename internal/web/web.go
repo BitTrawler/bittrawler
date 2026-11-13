@@ -29,7 +29,7 @@ type Pages struct {
 // New parses the templates for every page. The signed-out pages use the
 // centred authentication layout; the signed-in pages use the application shell.
 func New() (*Pages, error) {
-	app := []string{"dashboard", "settings"}
+	app := []string{"dashboard", "search", "torrent", "notfound", "settings"}
 	auth := []string{"setup", "login"}
 
 	pages := make(map[string]pageTemplates, len(app)+len(auth))
@@ -90,7 +90,7 @@ func (p *Pages) Render(w http.ResponseWriter, status int, name string, data any)
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Security-Policy",
-		"default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
+		"default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
 	w.WriteHeader(status)
 
 	_, err := w.Write(buffer.Bytes())
@@ -123,17 +123,128 @@ type LoginData struct {
 	Username string
 }
 
-// DashboardData is the status page.
-type DashboardData struct {
+// OverviewStats are the numbers on the dashboard tiles.
+type OverviewStats struct {
+	Stored      string
+	Rate        string
+	Database    string
+	BytesPerRow string
+	Nodes       string
+	Crawled     string
+	Shards      int
+}
+
+// CounterItem is one named counter in a pipeline group or the runtime list.
+// Key is the JSON field the live feed uses to refresh it.
+type CounterItem struct {
+	Key   string
+	Label string
+	Value string
+}
+
+// CounterGroup is a named group of pipeline counters.
+type CounterGroup struct {
+	Name  string
+	Items []CounterItem
+}
+
+// ShardRow is one month of the storage table.
+type ShardRow struct {
+	Month    string
+	Rows     string
+	Database string
+	WAL      string
+}
+
+// CategoryRow is one category of the classification table.
+type CategoryRow struct {
+	Name  string
+	Rows  string
+	Share string
+}
+
+// TorrentRow is one torrent in the live feed or in search results.
+type TorrentRow struct {
+	Hash     string
+	Name     string
+	Category string
+	Size     string
+	Files    string
+	Age      string
+	Seeders  int
+	Leechers int
+}
+
+// OverviewData is the dashboard.
+type OverviewData struct {
 	Shell
+	Stats           OverviewStats
+	Notice          string
+	Warming         bool
+	CrawlError      string
+	Recent          []TorrentRow
+	Pipeline        []CounterGroup
+	Runtime         []CounterItem
+	Shards          []ShardRow
+	Categories      []CategoryRow
+	History         []int
 	Commit          string
 	BuildDate       string
+	Uptime          string
 	APIKey          string
 	TorznabURL      string
 	DHTAddress      string
 	DataDirectory   string
 	RetentionMonths int
 	CrawlEnabled    bool
+}
+
+// CategoryOption is one entry of the search page's category filter.
+type CategoryOption struct {
+	Value int
+	Label string
+}
+
+// SearchData is the search page.
+type SearchData struct {
+	Shell
+	Query            string
+	Categories       []CategoryOption
+	SelectedCategory int
+	SelectedSort     string
+	Results          []TorrentRow
+	Total            int
+	Page             int
+	HasPrev          bool
+	HasNext          bool
+	PrevURL          string
+	NextURL          string
+	Error            string
+}
+
+// TorrentData is one torrent's detail page.
+type TorrentData struct {
+	Shell
+	Name        string
+	Hash        string
+	Magnet      string
+	Category    string
+	Size        string
+	Created     string
+	Files       string
+	PrimaryFile string
+	Seasons     string
+	Episodes    string
+	AirDate     string
+	ContentID   string
+	Seeders     string
+	Leechers    string
+}
+
+// NotFoundData is the torrent-not-found page.
+type NotFoundData struct {
+	Shell
+	Hash string
 }
 
 // SettingsData is the settings page.

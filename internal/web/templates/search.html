@@ -1,0 +1,63 @@
+{{define "content"}}
+<header class="page-head">
+  <div>
+    <h1>Search</h1>
+    <p class="page-sub">{{if .Error}}{{.Error}}{{else if .Query}}{{.Total}} torrents matched.{{else if .Results}}{{.Total}} torrents indexed.{{else}}Browse the index, or search by name, season or episode.{{end}}</p>
+  </div>
+</header>
+
+<form class="search-form" method="get" action="/search">
+  <input class="search-input" type="search" name="q" value="{{.Query}}" placeholder="Name, S05E01, 1080p, group" autofocus>
+  <select name="cat" aria-label="Category">
+    {{range .Categories}}<option value="{{.Value}}"{{if eq .Value $.SelectedCategory}} selected{{end}}>{{.Label}}</option>{{end}}
+  </select>
+  <select name="sort" aria-label="Sort order">
+    <option value="newest"{{if eq .SelectedSort "newest"}} selected{{end}}>Newest first</option>
+    <option value="relevance"{{if eq .SelectedSort "relevance"}} selected{{end}}>Best match</option>
+  </select>
+  <button class="button" type="submit">Search</button>
+</form>
+
+{{if .Results}}
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th class="col-category">Category</th>
+        <th class="num">Size</th>
+        <th class="num">Seeds</th>
+        <th class="num col-peers">Peers</th>
+        <th class="num col-age">Age</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Results}}
+      <tr>
+        <td class="name"><a href="/torrent/{{.Hash}}">{{.Name}}</a></td>
+        <td class="col-category"><span class="cat">{{.Category}}</span></td>
+        <td class="num">{{.Size}}</td>
+        <td class="num">{{.Seeders}}</td>
+        <td class="num col-peers">{{.Leechers}}</td>
+        <td class="num col-age">{{.Age}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+
+{{if or .HasPrev .HasNext}}
+<nav class="pager" aria-label="Pages">
+  {{if .HasPrev}}<a class="button secondary" href="{{.PrevURL}}">Previous</a>{{end}}
+  <span class="pager-info">Page {{.Page}}</span>
+  {{if .HasNext}}<a class="button secondary" href="{{.NextURL}}">Next</a>{{end}}
+</nav>
+{{end}}
+{{else if not .Error}}
+{{if .Query}}
+<p class="empty-state">No torrents matched "{{.Query}}". Try a shorter query, or a different category.</p>
+{{else}}
+<p class="empty-state">The index is empty so far. Let the crawler run, or browse the <a href="/">live feed</a>.</p>
+{{end}}
+{{end}}
+{{end}}

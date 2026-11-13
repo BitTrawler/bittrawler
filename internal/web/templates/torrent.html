@@ -1,0 +1,62 @@
+{{define "content"}}
+<header class="page-head">
+  <div>
+    <h1 class="torrent-title">{{.Name}}</h1>
+    <p class="page-sub">{{.Category}} · {{.Size}} · added {{.Created}}</p>
+  </div>
+</header>
+
+<div class="grid two">
+  <section class="card">
+    <header class="card-head">
+      <h2>Download</h2>
+      <p>Give this magnet link to any BitTorrent client.</p>
+    </header>
+    <div class="field-row">
+      <div class="field-label">Magnet</div>
+      <div class="copy-row">
+        <code class="code-block wrap">{{.Magnet}}</code>
+        <button class="button secondary small" type="button" data-copy="{{.Magnet}}">Copy</button>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field-label">Info Hash</div>
+      <div class="copy-row">
+        <code class="code-block">{{.Hash}}</code>
+        <button class="button secondary small" type="button" data-copy="{{.Hash}}">Copy</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <header class="card-head">
+      <h2>Details</h2>
+      <p>What the crawler recorded when it found this torrent.</p>
+    </header>
+    <dl class="kv">
+      <dt>Category</dt>
+      <dd>{{.Category}}</dd>
+      <dt>Size</dt>
+      <dd>{{.Size}}</dd>
+      <dt>Files</dt>
+      <dd>{{.Files}}</dd>
+      {{if .PrimaryFile}}<dt>Primary File</dt>
+      <dd><code class="value-static">{{.PrimaryFile}}</code></dd>{{end}}
+      {{if .Seasons}}<dt>Seasons</dt>
+      <dd>{{.Seasons}}</dd>{{end}}
+      {{if .Episodes}}<dt>Episodes</dt>
+      <dd>{{.Episodes}}</dd>{{end}}
+      {{if .AirDate}}<dt>Air Date</dt>
+      <dd>{{.AirDate}}</dd>{{end}}
+      <dt>Content ID</dt>
+      <dd>{{.ContentID}}</dd>
+      <dt>Peers</dt>
+      <dd>{{.Seeders}} seeding, {{.Leechers}} leeching</dd>
+      <dt>Added</dt>
+      <dd>{{.Created}}</dd>
+    </dl>
+  </section>
+</div>
+
+<p class="page-foot"><a href="/search">Back to search</a></p>
+{{end}}

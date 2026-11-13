@@ -526,3 +526,63 @@ func TestSavingRespectsOverridesAndAdvanced(t *testing.T) {
 	workers, _ = application.SettingValue("crawler.workers.metadata")
 	assert.Equal(t, 40, workers)
 }
+
+func TestFeedSearchAndTorrentPages(t *testing.T) {
+	application, baseURL := start(t)
+
+	completeSetup(t, baseURL)
+	session := signIn(t, baseURL, "admin", "correct-horse-battery")
+
+	// The feed requires a signed-in browser.
+	response := get(t, noRedirect(), baseURL+"/api/feed", nil)
+	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
+	response.Body.Close()
+
+	response = get(t, noRedirect(), baseURL+"/api/feed", cookieHeader(session))
+	require.Equal(t, http.StatusOK, response.StatusCode)
+
+	var feed struct {
+		Crawling bool `json:"crawling"`
+		Stats    struct {
+			Stored int   `json:"stored"`
+			Bytes  int64 `json:"bytes"`
+			Shards int   `json:"shards"`
+		} `json:"stats"`
+		Torrents []json.RawMessage `json:"torrents"`
+	}
+
+	require.NoError(t, json.NewDecoder(response.Body).Decode(&feed))
+	response.Body.Close()
+
+	assert.False(t, feed.Crawling)
+	assert.Empty(t, feed.Torrents)
+	assert.Equal(t, 1, feed.Stats.Shards)
+
+	// The overview shows the feed and the search link.
+	response = get(t, noRedirect(), baseURL+"/", cookieHeader(session))
+	require.Equal(t, http.StatusOK, response.StatusCode)
+
+	overview := body(t, response)
+	assert.Contains(t, overview, "Recently Added")
+	assert.Contains(t, overview, `href="/search"`)
+
+	// Search pages render with and without a query.
+	response = get(t, noRedirect(), baseURL+"/search", cookieHeader(session))
+	require.Equal(t, http.StatusOK, response.StatusCode)
+	assert.Contains(t, body(t, response), "The index is empty so far.")
+
+	response = get(t, noRedirect(), baseURL+"/search?q=batman", cookieHeader(session))
+	require.Equal(t, http.StatusOK, response.StatusCode)
+	assert.Contains(t, body(t, response), "No torrents matched")
+
+	// A torrent that is not in the index gets the not-found page.
+	response = get(t, noRedirect(), baseURL+"/torrent/deadbeef", cookieHeader(session))
+	assert.Equal(t, http.StatusNotFound, response.StatusCode)
+	assert.Contains(t, body(t, response), "Torrent Not Found")
+
+	response = get(t, noRedirect(), baseURL+"/torrent/"+strings.Repeat("0", 40), cookieHeader(session))
+	assert.Equal(t, http.StatusNotFound, response.StatusCode)
+	response.Body.Close()
+
+	_ = application
+}

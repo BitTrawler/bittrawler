@@ -571,11 +571,18 @@ func (a *App) handleCrawl(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	if err := a.SetCrawl(ctx, enable); err != nil {
-		a.logger.Error("change the crawl state", "error", err)
+	state := "started"
+
+	if !enable {
+		state = "paused"
 	}
 
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	if err := a.SetCrawl(ctx, enable); err != nil {
+		a.logger.Error("change the crawl state", "error", err)
+		state = "failed"
+	}
+
+	http.Redirect(w, r, "/?crawl="+state, http.StatusSeeOther)
 }
 
 // authorised checks the session and sends the browser to sign in when it is

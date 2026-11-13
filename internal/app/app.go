@@ -22,6 +22,7 @@ import (
 
 	"github.com/BitTrawler/bittrawler/internal/blocking"
 	"github.com/BitTrawler/bittrawler/internal/config"
+	"github.com/BitTrawler/bittrawler/internal/dhtcrawler"
 	"github.com/BitTrawler/bittrawler/internal/protocol"
 	"github.com/BitTrawler/bittrawler/internal/protocol/dht/ktable"
 	"github.com/BitTrawler/bittrawler/internal/protocol/dht/responder"
@@ -70,6 +71,9 @@ type App struct {
 
 	auth    atomic.Pointer[authState]
 	limiter *loginLimiter
+
+	crawler atomic.Pointer[dhtcrawler.Crawler]
+	stats   statsCache
 
 	crawlMu      sync.Mutex
 	crawlCancel  context.CancelFunc
@@ -239,12 +243,18 @@ func (a *App) Start(ctx context.Context) error {
 		}
 	}
 
-	a.wg.Add(2)
+	a.wg.Add(3)
 
 	go func() {
 		defer a.wg.Done()
 
 		a.serveHTTP()
+	}()
+
+	go func() {
+		defer a.wg.Done()
+
+		a.runStats(a.ctx)
 	}()
 
 	go func() {

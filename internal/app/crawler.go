@@ -51,6 +51,8 @@ func (a *App) startCrawl() error {
 		return fmt.Errorf("app: start crawler: %w", err)
 	}
 
+	a.crawler.Store(crawler)
+
 	ctx, cancel := context.WithCancel(a.ctx)
 	done := make(chan struct{})
 

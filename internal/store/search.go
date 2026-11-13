@@ -172,6 +172,62 @@ func queryShard(ctx context.Context, sh *shard, match, filter string, filterArgs
 	return scanTorrents(ctx, sh.db, query, args, true)
 }
 
+// rowScanner is the part of sql.Row and sql.Rows the torrent scan needs.
+type rowScanner interface {
+	Scan(dest ...any) error
+}
+
+// scanTorrent reads one torrent row, appending any extra destinations the
+// caller needs (the relevance rank in a search).
+func scanTorrent(scan rowScanner, extra ...any) (Torrent, error) {
+	var (
+		hash        []byte
+		name        string
+		size        int64
+		createdAt   int64
+		category    int
+		contentID   sql.NullInt64
+		seasons     sql.NullString
+		episodes    sql.NullString
+		airDate     sql.NullString
+		filesCount  sql.NullInt64
+		primaryFile sql.NullString
+		seeders     int
+		leechers    int
+	)
+
+	dest := []any{&hash, &name, &size, &createdAt, &category, &contentID,
+		&seasons, &episodes, &airDate, &filesCount, &primaryFile,
+		&seeders, &leechers}
+	dest = append(dest, extra...)
+
+	if err := scan.Scan(dest...); err != nil {
+		return Torrent{}, err
+	}
+
+	var t Torrent
+
+	copy(t.InfoHash[:], hash)
+	t.Name = name
+	t.Size = size
+	t.CreatedAt = timeFromUnix(createdAt)
+	t.Category = category
+	t.ContentID = contentID.Int64
+	t.Seasons = parseSeasonTokens(seasons.String)
+	t.Episodes = parseEpisodeTokens(episodes.String)
+	t.AirDate = airDate.String
+	t.FilesCount = -1
+	if filesCount.Valid {
+		t.FilesCount = int(filesCount.Int64)
+	}
+
+	t.PrimaryFile = primaryFile.String
+	t.Seeders = seeders
+	t.Leechers = leechers
+
+	return t, nil
+}
+
 func scanTorrents(ctx context.Context, db *sql.DB, query string, args []any, withRank bool) ([]scoredTorrent, error) {
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -183,56 +239,19 @@ func scanTorrents(ctx context.Context, db *sql.DB, query string, args []any, wit
 	out := make([]scoredTorrent, 0, 16)
 
 	for rows.Next() {
-		var (
-			hash        []byte
-			name        string
-			size        int64
-			createdAt   int64
-			category    int
-			contentID   sql.NullInt64
-			seasons     sql.NullString
-			episodes    sql.NullString
-			airDate     sql.NullString
-			filesCount  sql.NullInt64
-			primaryFile sql.NullString
-			seeders     int
-			leechers    int
-			rank        float64
-		)
+		var rank float64
 
-		dest := []any{&hash, &name, &size, &createdAt, &category, &contentID,
-			&seasons, &episodes, &airDate, &filesCount, &primaryFile,
-			&seeders, &leechers}
-
+		extra := []any{}
 		if withRank {
-			dest = append(dest, &rank)
+			extra = append(extra, &rank)
 		}
 
-		if err := rows.Scan(dest...); err != nil {
+		torrent, err := scanTorrent(rows, extra...)
+		if err != nil {
 			return nil, err
 		}
 
-		var t Torrent
-
-		copy(t.InfoHash[:], hash)
-		t.Name = name
-		t.Size = size
-		t.CreatedAt = timeFromUnix(createdAt)
-		t.Category = category
-		t.ContentID = contentID.Int64
-		t.Seasons = parseSeasonTokens(seasons.String)
-		t.Episodes = parseEpisodeTokens(episodes.String)
-		t.AirDate = airDate.String
-		t.FilesCount = -1
-		if filesCount.Valid {
-			t.FilesCount = int(filesCount.Int64)
-		}
-
-		t.PrimaryFile = primaryFile.String
-		t.Seeders = seeders
-		t.Leechers = leechers
-
-		out = append(out, scoredTorrent{Torrent: t, rank: rank})
+		out = append(out, scoredTorrent{Torrent: torrent, rank: rank})
 	}
 
 	return out, rows.Err()

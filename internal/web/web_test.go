@@ -70,8 +70,20 @@ func TestRenderLogin(t *testing.T) {
 	assert.Contains(t, body, "card auth-card auth-card-narrow")
 }
 
-func TestRenderDashboard(t *testing.T) {
-	recorder := render(t, "dashboard", web.DashboardData{
+func renderStatus(t *testing.T, status int, page string, data any) *httptest.ResponseRecorder {
+	t.Helper()
+
+	pages, err := web.New()
+	require.NoError(t, err)
+
+	recorder := httptest.NewRecorder()
+	require.NoError(t, pages.Render(recorder, status, page, data))
+
+	return recorder
+}
+
+func TestRenderOverview(t *testing.T) {
+	recorder := render(t, "dashboard", web.OverviewData{
 		Shell: web.Shell{
 			Title:    "Overview",
 			Active:   "dashboard",
@@ -79,8 +91,32 @@ func TestRenderDashboard(t *testing.T) {
 			Crawling: true,
 			Uptime:   "2h0m",
 		},
+		Stats: web.OverviewStats{
+			Stored:   "12,345",
+			Rate:     "6.0",
+			Database: "1.2 GiB",
+			Shards:   2,
+			Crawled:  "120",
+		},
+		Recent: []web.TorrentRow{
+			{Hash: "0123456789abcdef0123456789abcdef01234567", Name: "Some.Release.2024.1080p", Category: "Movies/HD", Size: "1.2 GiB", Files: "3", Seeders: 12, Leechers: 3, Age: "4m"},
+		},
+		Pipeline: []web.CounterGroup{
+			{Name: "Discovery", Items: []web.CounterItem{{Key: "nodes_discovered", Label: "Nodes discovered", Value: "1,204"}}},
+		},
+		Runtime: []web.CounterItem{
+			{Key: "heap", Label: "Heap", Value: "24.1 MiB"},
+		},
+		Shards: []web.ShardRow{
+			{Month: "2026-11", Rows: "18", Database: "76 KiB", WAL: "32 KiB"},
+		},
+		Categories: []web.CategoryRow{
+			{Name: "Movies/HD", Rows: "7", Share: "38.9%"},
+		},
+		History:         []int{10, 40, 25, 80},
 		Commit:          "abc1234",
 		BuildDate:       "2026-11-13",
+		Uptime:          "2h0m",
 		APIKey:          "0123456789abcdef0123456789abcdef",
 		TorznabURL:      "http://nas:6684/torznab/api",
 		DHTAddress:      "0.0.0.0:6684",
@@ -91,23 +127,111 @@ func TestRenderDashboard(t *testing.T) {
 	body := recorder.Body.String()
 
 	assert.Contains(t, body, `class="sidebar"`)
-	assert.Contains(t, body, `class="nav-link is-active" href="/">Overview</a>`)
-	assert.Contains(t, body, "Crawling")
+	assert.Contains(t, body, `src="/static/logo.svg"`)
+	assert.Contains(t, body, `href="/">Overview</a>`)
+	assert.Contains(t, body, `href="/search">Search</a>`)
 	assert.Contains(t, body, "Pause Crawling")
-	assert.Contains(t, body, "12 months")
+	assert.Contains(t, body, "Recently Added")
+	assert.Contains(t, body, "Some.Release.2024.1080p")
+	assert.Contains(t, body, `href="/torrent/0123456789abcdef0123456789abcdef01234567"`)
+	assert.Contains(t, body, `data-stat="stored">12,345<`)
+	assert.Contains(t, body, `id="feed"`)
 	assert.Contains(t, body, "http://nas:6684/torznab/api")
-	assert.Contains(t, body, `action="/logout"`)
+	assert.Contains(t, body, "Ingest Activity")
+	assert.Contains(t, body, `data-counter="nodes_discovered">1,204<`)
+	assert.Contains(t, body, `data-runtime="heap">24.1 MiB<`)
+	assert.Contains(t, body, "Monthly shards, newest first.")
+	assert.Contains(t, body, "2026-11")
+	assert.Contains(t, body, "Movies/HD")
+	assert.Contains(t, body, `class="bar"`)
 }
 
-func TestRenderPausedDashboard(t *testing.T) {
-	recorder := render(t, "dashboard", web.DashboardData{
-		Shell: web.Shell{Title: "Dashboard", Active: "dashboard", Version: "dev", Crawling: false, Uptime: "0s"},
+func TestRenderPausedOverview(t *testing.T) {
+	recorder := render(t, "dashboard", web.OverviewData{
+		Shell: web.Shell{Title: "Overview", Active: "dashboard", Version: "dev", Crawling: false, Uptime: "0s"},
 	})
 
 	body := recorder.Body.String()
 
 	assert.Contains(t, body, "Resume Crawling")
 	assert.NotContains(t, body, "Pause Crawling")
+	assert.Contains(t, body, "Nothing indexed yet")
+}
+
+func TestRenderSearch(t *testing.T) {
+	recorder := render(t, "search", web.SearchData{
+		Shell:            web.Shell{Title: "Search", Active: "search", Version: "dev"},
+		Query:            "batman",
+		Categories:       []web.CategoryOption{{Value: 0, Label: "All categories"}, {Value: 2000, Label: "Movies"}},
+		SelectedCategory: 2000,
+		SelectedSort:     "newest",
+		Results: []web.TorrentRow{
+			{Hash: "0123456789abcdef0123456789abcdef01234567", Name: "Batman.2022.1080p", Category: "Movies/HD", Size: "2.0 GiB", Seeders: 4, Leechers: 1, Age: "2h"},
+		},
+		Total:   2,
+		Page:    1,
+		HasNext: true,
+		NextURL: "/search?q=batman&cat=2000&page=2",
+	})
+
+	body := recorder.Body.String()
+
+	assert.Contains(t, body, `class="nav-link is-active" href="/search">Search</a>`)
+	assert.Contains(t, body, `action="/search"`)
+	assert.Contains(t, body, `value="batman"`)
+	assert.Contains(t, body, `<option value="2000" selected>Movies</option>`)
+	assert.Contains(t, body, "2 torrents matched.")
+	assert.Contains(t, body, "Batman.2022.1080p")
+	assert.Contains(t, body, `href="/search?q=batman&amp;cat=2000&amp;page=2"`)
+}
+
+func TestRenderSearchEmpty(t *testing.T) {
+	recorder := render(t, "search", web.SearchData{
+		Shell: web.Shell{Title: "Search", Active: "search", Version: "dev"},
+	})
+
+	body := recorder.Body.String()
+
+	assert.Contains(t, body, "The index is empty so far.")
+	assert.NotContains(t, body, "<table")
+}
+
+func TestRenderTorrent(t *testing.T) {
+	recorder := render(t, "torrent", web.TorrentData{
+		Shell:       web.Shell{Title: "Torrent", Version: "dev"},
+		Name:        "Some.Release.2024.1080p",
+		Hash:        "0123456789abcdef0123456789abcdef01234567",
+		Magnet:      "magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=Some.Release",
+		Category:    "Movies/HD",
+		Size:        "1.2 GiB",
+		Created:     "13 Nov 2026, 14:00",
+		Files:       "3",
+		PrimaryFile: "Some.Release.2024.1080p.mkv",
+		ContentID:   "12345",
+		Seeders:     "12",
+		Leechers:    "3",
+	})
+
+	body := recorder.Body.String()
+
+	assert.Contains(t, body, "Some.Release.2024.1080p")
+	assert.Contains(t, body, "magnet:?xt=urn:btih:")
+	assert.Contains(t, body, "Some.Release.2024.1080p.mkv")
+	assert.Contains(t, body, "Back to search")
+	assert.Contains(t, body, `data-copy=`)
+}
+
+func TestRenderNotFound(t *testing.T) {
+	recorder := renderStatus(t, http.StatusNotFound, "notfound", web.NotFoundData{
+		Shell: web.Shell{Title: "Torrent Not Found", Version: "dev"},
+		Hash:  "deadbeef",
+	})
+
+	body := recorder.Body.String()
+
+	assert.Equal(t, http.StatusNotFound, recorder.Code)
+	assert.Contains(t, body, "Torrent Not Found")
+	assert.Contains(t, body, "deadbeef")
 }
 
 func TestRenderSettings(t *testing.T) {
