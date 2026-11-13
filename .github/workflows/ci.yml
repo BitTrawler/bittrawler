@@ -115,6 +115,25 @@ jobs:
           wait "$pid"
           echo "clean shutdown"
 
+
+  # govulncheck reports only vulnerabilities reachable from this code, so it is
+  # a gate rather than an advisory list. The tool version is pinned: a new
+  # scanner should be a reviewed bump, not a silent change.
+  vulnerabilities:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+          check-latest: true
+          cache: true
+      - name: install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+      - name: scan for reachable vulnerabilities
+        run: '"$(go env GOPATH)/bin/govulncheck" ./...'
+
   # The fuzz targets compile but never run by default, so a short smoke run keeps
   # them honest without continuous fuzzing. They are hermetic: no network.
   fuzz:
