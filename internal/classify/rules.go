@@ -66,6 +66,12 @@ func (c *Classifier) byFiles(name, text string, cen census) Result {
 func (c *Classifier) videoResult(name, text string) Result {
 	parsed := scene.Parse(name)
 
+	// A performer's name decides before the television markers: adult studios
+	// sometimes label a release as a series.
+	if pornstarText(name) {
+		return c.adultResult(AdultEvidenceStrong)
+	}
+
 	if !parsed.Episodes.Empty() || parsed.Series {
 		return c.resultFor(kindTV, parsed)
 	}
@@ -118,6 +124,10 @@ func (c *Classifier) imageResult(name, text string) Result {
 		return c.adultResult(AdultEvidenceWeak)
 	}
 
+	if pornstarText(name) {
+		return c.adultResult(AdultEvidenceStrong)
+	}
+
 	if adultWeakRegex.MatchString(name) {
 		return c.adultResult(AdultEvidenceWeak)
 	}
@@ -160,6 +170,12 @@ func isComicVolume(name string) bool {
 // ordered rule set, kept for that case only.
 func (c *Classifier) byName(name, text string) Result {
 	parsed := scene.Parse(name)
+
+	// A performer's name decides before the television markers: adult studios
+	// sometimes label a release as a series.
+	if pornstarText(name) {
+		return c.adultResult(AdultEvidenceStrong)
+	}
 
 	if !parsed.Episodes.Empty() || parsed.Series {
 		return c.resultFor(kindTV, parsed)

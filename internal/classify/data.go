@@ -367,9 +367,14 @@ var javLabelRegex = func() *regexp.Regexp {
 }()
 
 // adultStrongText reports whether text carries an explicit adult marker. It
-// covers the ASCII keyword rules and the CJK terms.
+// covers the ASCII keyword rules, a listed performer's full name and the CJK
+// terms.
 func adultStrongText(text string) bool {
 	if adultStrongRegex.MatchString(text) || javLabelRegex.MatchString(text) {
+		return true
+	}
+
+	if pornstarText(text) {
 		return true
 	}
 
