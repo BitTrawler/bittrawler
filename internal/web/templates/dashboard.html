@@ -2,7 +2,6 @@
 <header class="page-head">
   <div>
     <h1>Overview</h1>
-    <p class="page-sub">Crawler state, recent additions and the Torznab endpoint.</p>
   </div>
   <div class="page-actions">
     {{if .Crawling}}
@@ -59,7 +58,6 @@
   <section class="card">
     <header class="card-head">
       <h2>Torznab Endpoint</h2>
-      <p>Prowlarr and the Arr applications connect here.</p>
     </header>
     <div class="field-row">
       <div class="field-label">URL</div>
@@ -81,7 +79,6 @@
   <section class="card">
     <header class="card-head">
       <h2>Status</h2>
-      <p>Crawler, node, storage and the process itself.</p>
     </header>
     <dl class="kv">
       <dt>Crawler</dt>
@@ -107,7 +104,6 @@
 <section class="card">
   <header class="card-head">
     <h2>Crawler</h2>
-    <p>Activity and pipeline counters for the current process.</p>
   </header>
   {{if .Warming}}<p class="notice" id="warmup">The crawler is starting. The DHT bootstrap usually takes under a minute before the first torrents appear.</p>{{end}}
   <div class="grid split">
@@ -142,7 +138,6 @@
   <section class="card">
     <header class="card-head">
       <h2>Storage</h2>
-      <p>Monthly shards, newest first.</p>
     </header>
     <div class="table-wrap">
       <table class="table compact">
@@ -164,7 +159,6 @@
   <section class="card">
     <header class="card-head">
       <h2>Classification</h2>
-      <p>Rows by stored category. Recounted every minute.</p>
     </header>
     <div class="table-wrap">
       <table class="table compact">
@@ -187,7 +181,6 @@
 <section class="card">
   <header class="card-head">
     <h2>Recently Added</h2>
-    <p>Newest torrents as they are indexed. <a href="/search">Search the index</a>.</p>
   </header>
   <div class="table-wrap">
     <table class="table">

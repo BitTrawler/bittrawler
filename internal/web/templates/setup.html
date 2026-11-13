@@ -3,7 +3,7 @@
   <section class="card auth-card">
     <header class="auth-head">
       <h1>Set Up BitTrawler</h1>
-      <p>Create the administrator account. It signs in to the web interface and can be changed later in Settings.</p>
+      <p>Create the administrator account.</p>
     </header>
 
     {{if .Error}}<p class="notice error" role="alert">{{.Error}}</p>{{end}}
@@ -34,7 +34,6 @@
   <aside class="card auth-card">
     <header class="card-head">
       <h2>Torznab Endpoint</h2>
-      <p>Prowlarr connects here.</p>
     </header>
     <div class="endpoint">
       <div class="endpoint-row">
@@ -52,7 +51,6 @@
         </div>
       </div>
     </div>
-    <p class="muted small">Copy or rotate the key later in Settings.</p>
   </aside>
 </div>
 {{end}}
