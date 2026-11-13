@@ -48,6 +48,8 @@ func run(args []string) int {
 		return runAuth(args[1:])
 	case "settings":
 		return runSettings(args[1:])
+	case "reclassify":
+		return runReclassify(args[1:])
 	case "help", "-h", "--help":
 		usage(os.Stdout)
 
@@ -71,8 +73,9 @@ Commands:
   auth reset   clear the administrator account and run setup again
   settings reset <key>
                reset a stored setting to its default
+  reclassify   re-run the classifier over the stored rows (dry run unless -apply)
 
-Flags accepted by run, doctor, healthcheck, auth and settings:
+Flags accepted by run, doctor, healthcheck, auth, settings and reclassify:
   -data string       data directory (default ./data)
   -http string       override web.address, for example 0.0.0.0:6684
   -dht string        override dht.listen_address

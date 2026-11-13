@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -1459,5 +1460,80 @@ func TestRetentionForgetsDroppedShardCounts(t *testing.T) {
 
 	if len(after.Shards) != 1 || after.Shards[0].Month != "2026-11" {
 		t.Fatalf("shards after retention = %+v, want the current month only", after.Shards)
+	}
+}
+
+// TestForEachAndUpdateClassifications checks the maintenance path used by the
+// reclassify command: stream every row, then write changed derived fields.
+func TestForEachAndUpdateClassifications(t *testing.T) {
+	ctx := context.Background()
+	s, _ := newStore(t, Config{RetentionMonths: 12})
+	now := s.cfg.Now()
+
+	put(t, s,
+		Row{InfoHash: testHash(30), Name: "Cory.Chase.And.Friend.2024.1080p", CreatedAt: now, Category: 8000, FilesCount: 1, PrimaryFile: "clip.mp4"},
+		Row{InfoHash: testHash(31), Name: "Some.Show.S01E02.1080p.WEB-DL", CreatedAt: now, Category: 2040},
+	)
+
+	seen := make(map[[20]byte]bool)
+
+	if err := s.ForEach(ctx, func(torrent Torrent) error {
+		seen[torrent.InfoHash] = true
+
+		return nil
+	}); err != nil {
+		t.Fatalf("for each: %v", err)
+	}
+
+	if len(seen) != 2 || !seen[testHash(30)] || !seen[testHash(31)] {
+		t.Fatalf("for each saw %d rows, want both", len(seen))
+	}
+
+	updated, err := s.UpdateClassifications(ctx, []Classified{{
+		InfoHash:  testHash(30),
+		CreatedAt: now,
+		Category:  6000,
+		Seasons:   []int{2},
+		Episodes:  []int{201},
+	}})
+	if err != nil {
+		t.Fatalf("update classifications: %v", err)
+	}
+
+	if updated != 1 {
+		t.Fatalf("updated %d rows, want 1", updated)
+	}
+
+	changed, ok, err := s.Get(ctx, testHash(30))
+	if err != nil || !ok {
+		t.Fatalf("get changed row: ok=%v err=%v", ok, err)
+	}
+
+	if changed.Category != 6000 {
+		t.Fatalf("category = %d, want 6000", changed.Category)
+	}
+
+	if !slices.Equal(changed.Seasons, []int{2}) || !slices.Equal(changed.Episodes, []int{201}) {
+		t.Fatalf("tokens = %v/%v, want [2]/[201]", changed.Seasons, changed.Episodes)
+	}
+
+	// The season token is what search reads, so a reclassified row has to be
+	// findable by its new season.
+	query := NewQuery()
+	query.Season = 2
+	query.Limit = 10
+
+	res := search(t, s, query)
+	if len(res.Torrents) != 1 || res.Torrents[0].InfoHash != testHash(30) {
+		t.Fatalf("season search found %d rows, want the reclassified one", len(res.Torrents))
+	}
+
+	untouched, ok, err := s.Get(ctx, testHash(31))
+	if err != nil || !ok {
+		t.Fatalf("get untouched row: ok=%v err=%v", ok, err)
+	}
+
+	if untouched.Category != 2040 {
+		t.Fatalf("untouched category = %d, want 2040", untouched.Category)
 	}
 }
