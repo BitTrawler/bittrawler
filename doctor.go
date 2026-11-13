@@ -165,17 +165,26 @@ func runDoctor(args []string) int {
 	checkListen("udp", cfg.DHT.ListenAddress, "dht address")
 
 	if _, statErr := os.Stat(dataDir); statErr == nil {
-		lock := flock.New(filepath.Join(dataDir, ".lock"))
+		lockPath := filepath.Join(dataDir, ".lock")
 
-		locked, lockErr := lock.TryLock()
-		switch {
-		case lockErr != nil:
-			report("fail", "data directory lock", lockErr.Error())
-		case !locked:
-			report("fail", "data directory lock", "in use by another process")
-		default:
-			report("ok", "data directory lock", "free")
-			_ = lock.Unlock()
+		// Probing the lock creates the file when it is missing, and doctor must
+		// not change the installation it inspects. A directory without a lock
+		// file has never run, so there is no lock to check.
+		if _, err := os.Stat(lockPath); err != nil {
+			report("ok", "data directory lock", "not created yet")
+		} else {
+			lock := flock.New(lockPath)
+
+			locked, lockErr := lock.TryLock()
+			switch {
+			case lockErr != nil:
+				report("fail", "data directory lock", lockErr.Error())
+			case !locked:
+				report("fail", "data directory lock", "in use by another process")
+			default:
+				report("ok", "data directory lock", "free")
+				_ = lock.Unlock()
+			}
 		}
 	}
 
