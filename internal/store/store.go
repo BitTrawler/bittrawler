@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -37,6 +38,13 @@ type Store struct {
 	mu      sync.RWMutex
 	shards  map[string]*shard
 	writeMu sync.Mutex
+
+	// countsMu guards the row and category totals. They are read from the
+	// shards once at startup and kept current by writes and retention, so the
+	// statistics timer never scans the store.
+	countsMu   sync.Mutex
+	shardRows  map[string]int
+	categories map[int]int
 }
 
 type shard struct {
@@ -64,7 +72,12 @@ func Open(cfg Config) (*Store, error) {
 		return nil, err
 	}
 
-	s := &Store{cfg: cfg, shards: make(map[string]*shard)}
+	s := &Store{
+		cfg:        cfg,
+		shards:     make(map[string]*shard),
+		shardRows:  make(map[string]int),
+		categories: make(map[int]int),
+	}
 
 	paths, err := filepath.Glob(filepath.Join(cfg.Dir, shardPrefix+"*.db"))
 	if err != nil {
@@ -94,6 +107,12 @@ func Open(cfg Config) (*Store, error) {
 	}
 
 	if _, err := s.shardFor(cfg.Now().UTC()); err != nil {
+		_ = s.Close()
+
+		return nil, err
+	}
+
+	if err := s.seedCounts(context.Background()); err != nil {
 		_ = s.Close()
 
 		return nil, err

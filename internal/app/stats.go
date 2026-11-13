@@ -13,12 +13,9 @@ import (
 )
 
 const (
-	// statsInterval is how often the live counters are refreshed.
+	// statsInterval is how often the live counters and the store totals are
+	// refreshed. The totals come from the store's memory, so each tick is cheap.
 	statsInterval = 5 * time.Second
-	// statsFullInterval is how often the stored row count, shard table and
-	// categories are recounted. Counting rows means scanning the shards, so it
-	// is slower than reading the crawler's atomics.
-	statsFullInterval = 60 * time.Second
 	// rateWindow is how far back the displayed ingest rate is measured.
 	rateWindow = time.Minute
 	// historyWindow is how much sample history the sparkline shows.
@@ -62,8 +59,6 @@ type statsCache struct {
 	snapshot      statsSnapshot
 	history       []rateSample
 	lastPersisted uint64
-	lastFull      time.Time
-	haveFull      bool
 }
 
 // runStats refreshes the counters until the context is cancelled.
@@ -71,22 +66,21 @@ func (a *App) runStats(ctx context.Context) {
 	ticker := time.NewTicker(statsInterval)
 	defer ticker.Stop()
 
-	a.refreshStats(ctx, true)
+	a.refreshStats(ctx)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			a.refreshStats(ctx, false)
+			a.refreshStats(ctx)
 		}
 	}
 }
 
-// refreshStats takes a new snapshot. The crawler counters and the process
-// readings are cheap; the stored row count is a shard scan, so it runs on a
-// slower interval.
-func (a *App) refreshStats(ctx context.Context, full bool) {
+// refreshStats takes a new snapshot. The crawler counters, the process readings
+// and the store totals are all cheap reads now, so each tick refreshes them all.
+func (a *App) refreshStats(ctx context.Context) {
 	now := time.Now()
 	snapshot := statsSnapshot{
 		Updated:    now,
@@ -141,41 +135,20 @@ func (a *App) refreshStats(ctx context.Context, full bool) {
 	}
 
 	snapshot.History = append([]rateSample{}, a.stats.history...)
-	snapshot.StoreRows = a.stats.snapshot.StoreRows
-	snapshot.StoreBytes = a.stats.snapshot.StoreBytes
-	snapshot.BytesPerRow = a.stats.snapshot.BytesPerRow
-	snapshot.Shards = a.stats.snapshot.Shards
-	snapshot.Categories = a.stats.snapshot.Categories
-
-	// While the store looks empty a recount is cheap, and it catches rows that
-	// arrived since the last full pass without waiting for the slow interval.
-	doFull := full || !a.stats.haveFull || a.stats.snapshot.StoreRows == 0 ||
-		now.Sub(a.stats.lastFull) >= statsFullInterval
-	if doFull {
-		a.stats.lastFull = now
-		a.stats.haveFull = true
-	}
 
 	a.stats.mu.Unlock()
 
-	months := a.torrentStore.ShardMonths()
-	snapshot.Months = months
-	snapshot.StoreBytes = shardBytes(a.dataDir, months)
+	snapshot.Months = a.torrentStore.ShardMonths()
 
-	if doFull {
-		stats, err := a.torrentStore.Stats(ctx)
-		if err != nil {
-			a.logger.Warn("count the store", "error", err)
-		} else {
-			snapshot.StoreRows = stats.Rows
-			snapshot.StoreBytes = stats.DBBytes + stats.WALBytes
-			snapshot.Shards = append([]store.ShardStats{}, stats.Shards...)
-			snapshot.Categories = make(map[int]int, len(stats.Categories))
-
-			for category, rows := range stats.Categories {
-				snapshot.Categories[category] = rows
-			}
-		}
+	stats, err := a.torrentStore.Stats(ctx)
+	if err != nil {
+		a.logger.Warn("count the store", "error", err)
+		snapshot.StoreBytes = shardBytes(a.dataDir, snapshot.Months)
+	} else {
+		snapshot.StoreRows = stats.Rows
+		snapshot.StoreBytes = stats.DBBytes + stats.WALBytes
+		snapshot.Shards = append([]store.ShardStats{}, stats.Shards...)
+		snapshot.Categories = stats.Categories
 	}
 
 	if snapshot.StoreRows > 0 {

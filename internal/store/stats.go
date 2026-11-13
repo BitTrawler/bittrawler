@@ -32,31 +32,28 @@ type Stats struct {
 	Categories map[int]int
 }
 
-// Stats reports the row count and file sizes of every retained shard. Counting
-// rows means a scan of each shard, so this is meant for a timer rather than a
-// request path; use the crawler's counters for live rates.
+// Stats reports the row count, the category breakdown and the file sizes of
+// every retained shard. The counts come from memory, so this is cheap enough
+// for a timer; only the file sizes are read from disk.
 func (s *Store) Stats(ctx context.Context) (Stats, error) {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	shards := s.shardsNewestFirstLocked()
+	s.mu.RUnlock()
 
-	var stats Stats
+	s.countsMu.Lock()
+	shardRows := make(map[string]int, len(s.shardRows))
+	for key, rows := range s.shardRows {
+		shardRows[key] = rows
+	}
+	categories := make(map[int]int, len(s.categories))
+	for category, rows := range s.categories {
+		categories[category] = rows
+	}
+	s.countsMu.Unlock()
+
+	stats := Stats{Categories: categories}
 
 	for _, sh := range shards {
-		rows, categories, err := shardCounts(ctx, sh)
-		if err != nil {
-			return Stats{}, err
-		}
-
-		for category, count := range categories {
-			if stats.Categories == nil {
-				stats.Categories = make(map[int]int)
-			}
-
-			stats.Categories[category] += count
-		}
-
 		dbBytes, err := fileSize(sh.path)
 		if err != nil {
 			return Stats{}, err
@@ -69,11 +66,11 @@ func (s *Store) Stats(ctx context.Context) (Stats, error) {
 
 		stats.Shards = append(stats.Shards, ShardStats{
 			Month:    sh.key,
-			Rows:     rows,
+			Rows:     shardRows[sh.key],
 			DBBytes:  dbBytes,
 			WALBytes: walBytes,
 		})
-		stats.Rows += rows
+		stats.Rows += shardRows[sh.key]
 		stats.DBBytes += dbBytes
 		stats.WALBytes += walBytes
 	}

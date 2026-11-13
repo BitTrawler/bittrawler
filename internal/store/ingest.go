@@ -166,37 +166,40 @@ func (s *Store) PutBatch(ctx context.Context, rows []Row) (int, error) {
 			return inserted, err
 		}
 
-		n, err := s.putGroup(ctx, key, sh, groups[key])
+		n, added, err := s.putGroup(ctx, key, sh, groups[key])
 		inserted += n
 
 		if err != nil {
 			return inserted, err
 		}
+
+		s.addCounts(key, n, added)
 	}
 
 	return inserted, nil
 }
 
-func (s *Store) putGroup(ctx context.Context, key string, sh *shard, rows []Row) (int, error) {
+func (s *Store) putGroup(ctx context.Context, key string, sh *shard, rows []Row) (int, map[int]int, error) {
 	tx, err := sh.db.BeginTx(ctx, nil)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 
 	defer func() { _ = tx.Rollback() }()
 
 	inserted := 0
+	added := make(map[int]int)
 
 	for _, row := range rows {
 		dup, err := exists(ctx, tx, row.InfoHash)
 		if err != nil {
-			return inserted, err
+			return inserted, nil, err
 		}
 
 		if !dup {
 			dup, err = s.existsInOtherShards(ctx, key, row.InfoHash)
 			if err != nil {
-				return inserted, err
+				return inserted, nil, err
 			}
 		}
 
@@ -211,17 +214,18 @@ func (s *Store) putGroup(ctx context.Context, key string, sh *shard, rows []Row)
 			nullIfEmpty(row.AirDate), nullableIntOr(row.FilesCount),
 			nullIfEmpty(row.PrimaryFile), row.Seeders, row.Leechers,
 		); err != nil {
-			return inserted, err
+			return inserted, nil, err
 		}
 
 		inserted++
+		added[row.Category]++
 	}
 
 	if err := tx.Commit(); err != nil {
-		return inserted, err
+		return inserted, nil, err
 	}
 
-	return inserted, nil
+	return inserted, added, nil
 }
 
 func (s *Store) existsInOtherShards(ctx context.Context, key string, hash [20]byte) (bool, error) {

@@ -35,6 +35,12 @@ func (s *Store) DropExpired(ctx context.Context) ([]string, error) {
 			continue
 		}
 
+		if _, counts, err := shardCounts(ctx, sh); err != nil {
+			errs = append(errs, fmt.Errorf("count shard %s: %w", key, err))
+		} else {
+			s.subtractCounts(key, counts)
+		}
+
 		// Remove the shard from the open set first: a failed unlink must not
 		// leave a closed handle that every later query would trip over.
 		delete(s.shards, key)

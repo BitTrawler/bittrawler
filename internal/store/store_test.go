@@ -1313,3 +1313,151 @@ func TestSplitStatementsPassesQuotedSemicolonsThrough(t *testing.T) {
 		}
 	}
 }
+
+// statsFor reads the store statistics and fails the test on error.
+func statsFor(t *testing.T, s *Store) Stats {
+	t.Helper()
+
+	stats, err := s.Stats(context.Background())
+	if err != nil {
+		t.Fatalf("stats: %v", err)
+	}
+
+	return stats
+}
+
+// TestStatsFollowWrites checks that the totals are maintained by writes rather
+// than read from the shards on every call.
+func TestStatsFollowWrites(t *testing.T) {
+	s, _ := newStore(t, Config{RetentionMonths: 12})
+	now := s.cfg.Now()
+
+	put(t, s,
+		Row{InfoHash: testHash(1), Name: "One.2020.1080p", CreatedAt: now, Category: 2040},
+		Row{InfoHash: testHash(2), Name: "Two.2020.1080p", CreatedAt: now, Category: 2040},
+		Row{InfoHash: testHash(3), Name: "Three.2020.1080p", CreatedAt: now, Category: 5000},
+	)
+
+	stats := statsFor(t, s)
+	if stats.Rows != 3 {
+		t.Fatalf("rows = %d, want 3", stats.Rows)
+	}
+
+	if got := stats.Categories[2040]; got != 2 {
+		t.Fatalf("category 2040 rows = %d, want 2", got)
+	}
+
+	if got := stats.Categories[5000]; got != 1 {
+		t.Fatalf("category 5000 rows = %d, want 1", got)
+	}
+
+	if len(stats.Shards) != 1 || stats.Shards[0].Rows != 3 {
+		t.Fatalf("shard rows = %+v, want one shard with 3 rows", stats.Shards)
+	}
+
+	// A rediscovery is not a new row.
+	n, err := s.PutBatch(context.Background(), []Row{{
+		InfoHash: testHash(1), Name: "One.2020.1080p", CreatedAt: now, Category: 2040,
+	}})
+	if err != nil {
+		t.Fatalf("repeat put: %v", err)
+	}
+
+	if n != 0 {
+		t.Fatalf("repeat put inserted %d rows, want 0", n)
+	}
+
+	stats = statsFor(t, s)
+	if stats.Rows != 3 || stats.Categories[2040] != 2 {
+		t.Fatalf("counts changed on a rediscovery: %+v", stats)
+	}
+}
+
+// TestStatsReloadOnOpen checks that the in-memory totals are seeded from the
+// shards at startup.
+func TestStatsReloadOnOpen(t *testing.T) {
+	dir := t.TempDir()
+	clock := &testClock{t: time.Date(2026, 11, 10, 12, 0, 0, 0, time.UTC)}
+
+	s, err := Open(Config{Dir: dir, Now: clock.Now, RetentionMonths: 12})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+
+	put(t, s,
+		Row{InfoHash: testHash(4), Name: "Four.2020.1080p", CreatedAt: clock.Now(), Category: 2040},
+		Row{InfoHash: testHash(5), Name: "Five.2020.1080p", CreatedAt: clock.Now(), Category: 2040},
+	)
+
+	if err := s.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	reopened, err := Open(Config{Dir: dir, Now: clock.Now, RetentionMonths: 12})
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+
+	t.Cleanup(func() { _ = reopened.Close() })
+
+	stats := statsFor(t, reopened)
+	if stats.Rows != 2 {
+		t.Fatalf("rows after reopen = %d, want 2", stats.Rows)
+	}
+
+	if got := stats.Categories[2040]; got != 2 {
+		t.Fatalf("category 2040 rows after reopen = %d, want 2", got)
+	}
+}
+
+// TestRetentionForgetsDroppedShardCounts checks that the totals lose the rows of
+// a shard that retention unlinks.
+func TestRetentionForgetsDroppedShardCounts(t *testing.T) {
+	clock := &testClock{t: time.Date(2026, 11, 10, 12, 0, 0, 0, time.UTC)}
+
+	s, err := Open(Config{Dir: t.TempDir(), Now: clock.Now, RetentionMonths: 1})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+
+	t.Cleanup(func() { _ = s.Close() })
+
+	old := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
+
+	put(t, s,
+		Row{InfoHash: testHash(6), Name: "Old.One.2026.1080p", CreatedAt: old, Category: 2040},
+		Row{InfoHash: testHash(7), Name: "Old.Two.2026.1080p", CreatedAt: old, Category: 2040},
+		Row{InfoHash: testHash(8), Name: "New.One.2026.1080p", CreatedAt: clock.Now(), Category: 5000},
+	)
+
+	before := statsFor(t, s)
+	if before.Rows != 3 {
+		t.Fatalf("rows before retention = %d, want 3", before.Rows)
+	}
+
+	dropped, err := s.DropExpired(context.Background())
+	if err != nil {
+		t.Fatalf("drop expired: %v", err)
+	}
+
+	if len(dropped) != 1 || dropped[0] != "2026-05" {
+		t.Fatalf("dropped = %v, want [2026-05]", dropped)
+	}
+
+	after := statsFor(t, s)
+	if after.Rows != 1 {
+		t.Fatalf("rows after retention = %d, want 1", after.Rows)
+	}
+
+	if _, ok := after.Categories[2040]; ok {
+		t.Fatalf("dropped shard's category is still counted: %+v", after.Categories)
+	}
+
+	if got := after.Categories[5000]; got != 1 {
+		t.Fatalf("kept category rows = %d, want 1", got)
+	}
+
+	if len(after.Shards) != 1 || after.Shards[0].Month != "2026-11" {
+		t.Fatalf("shards after retention = %+v, want the current month only", after.Shards)
+	}
+}
