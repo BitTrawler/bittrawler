@@ -8,9 +8,10 @@ import (
 	"github.com/BitTrawler/bittrawler/internal/web"
 )
 
-// routes builds the HTTP surface. The Torznab endpoint authenticates with its
-// own API key; the pages authenticate with the session cookie, except for the
-// setup page, the sign-in page and the health check.
+// routes builds the HTTP surface. The Torznab endpoint and the statistics API
+// authenticate with the Torznab API key; the pages authenticate with the
+// session cookie, except for the setup page, the sign-in page and the health
+// check.
 func (a *App) routes() http.Handler {
 	mux := http.NewServeMux()
 
@@ -27,6 +28,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /search", a.handleSearch)
 	mux.HandleFunc("GET /torrent/{hash}", a.handleTorrent)
 	mux.HandleFunc("GET /api/feed", a.handleFeed)
+	mux.HandleFunc("GET /api/stats", a.handleStatsAPI)
 	mux.HandleFunc("GET /settings", a.handleSettings)
 	mux.HandleFunc("POST /settings", a.handleSettingsSave)
 	mux.HandleFunc("POST /settings/torznab/rotate", a.handleRotateAPIKey)
