@@ -249,3 +249,17 @@ func splitSemicolons(src string) []string {
 
 	return out
 }
+
+// SchemaVersion returns the schema version new shards are created with.
+func SchemaVersion() (int, error) {
+	migrations, err := migrations()
+	if err != nil {
+		return 0, err
+	}
+
+	if len(migrations) == 0 {
+		return 0, nil
+	}
+
+	return migrations[len(migrations)-1].version, nil
+}
