@@ -1,4 +1,4 @@
-BitTrawler is derived from bitmagnet. Source files are copied or adapted from
+BitTrawler is derived from bitmagnet. Parts of it are copied or adapted from
 bitmagnet and are used under its MIT licence, reproduced at the end of this
 file.
 
@@ -7,45 +7,32 @@ Commit: b1a6ab1 (tag v0.10.1-beta.1, plus the changes from open pull requests #5
         and #535)
 Copyright (c) 2023 bitmagnet contributors
 
-Files copied or adapted from bitmagnet, with import paths and package
-documentation changed. Imported packages are adapted further as the code is
-brought in: dependency-injection plumbing, metrics and generated mocks are
-removed, logging goes through log/slog, and defects fixed on import are
-described in the commits that import them.
+Copied or adapted from bitmagnet:
 
-  internal/lexer/lexer.go
-  internal/regex/util.go
-  internal/regex/util_test.go
-  internal/keywords/parser.go
-  internal/keywords/parser_test.go
+  internal/lexer             the bencode-style lexer
+  internal/regex             regular expression helpers
+  internal/keywords          the keyword parsing mini-language
+  internal/concurrency       the atomic value and the keyed rate limiter
+  internal/protocol          protocol identifiers, DHT messages, node addresses
+                             and information, scraping, the routing table and
+                             its btree, the KRPC responder, the UDP server and
+                             its client, metainfo parsing, the BEP 9/10
+                             metadata requester, and the metainfo banning
+                             checks
+  internal/dhtcrawler        imported from bitmagnet and since substantially
+                             rewritten: dependency injection and metrics were
+                             removed, logging moved to log/slog, and the crawl
+                             loop was restructured
 
-  internal/concurrency/atomic.go
-  internal/concurrency/keyed_limiter.go
+The imported files have their import paths and package documentation changed,
+the dependency-injection plumbing and generated mocks removed, logging moved to
+log/slog, and defects fixed on import. Files added to these packages after the
+import, such as new tests and dependency-injection adapters, are original work.
 
-  internal/protocol/id.go
-  internal/protocol/int160.go
-  internal/protocol/dht/dht.go
-  internal/protocol/dht/msg.go
-  internal/protocol/dht/nodeaddr.go
-  internal/protocol/dht/nodeinfo.go
-  internal/protocol/dht/scrape.go
-  internal/protocol/dht/error.go
-  internal/protocol/dht/msg_test.go
-  internal/protocol/dht/nodeaddr_test.go
-  internal/protocol/dht/error_test.go
-
-  internal/protocol/dht/ktable/**        (routing table, keyspaces and btree)
-  internal/protocol/dht/responder/**     (KRPC responder)
-  internal/protocol/dht/server/**        (UDP server, sockets, transaction IDs)
-  internal/protocol/dht/client/**        (client adapter over the server)
-
-  internal/protocol/metainfo/metainfo.go
-  internal/protocol/metainfo/parse.go
-  internal/protocol/metainfo/read_torrent_file.go
-  internal/protocol/metainfo/banning/**             (name, size and utf8 checks)
-  internal/protocol/metainfo/metainforequester/**   (BEP 9/10 metadata requester)
-
-  internal/dhtcrawler/**                (crawl loop, node maintenance and triage)
+Measured against bitmagnet at the commit above, about 3,700 lines, or 19 per
+cent of the Go code in this repository, remain line-for-line derived from it.
+The dhtcrawler package measures far lower because it was rewritten, but it is
+still derived work.
 
 All other files are original work and are covered by the MIT licence in
 LICENSE.
