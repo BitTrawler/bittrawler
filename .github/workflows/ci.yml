@@ -26,7 +26,7 @@ jobs:
       - run: go build ./...
       - run: GOOS=linux GOARCH=arm64 go build ./...
       - run: go vet ./...
-      - run: go test -race -timeout 10m ./...
+      - run: go test -race -shuffle=on -count=1 -timeout 10m ./...
 
   # Start the real binary, call the endpoints an operator or a container health
   # check calls, and prove that SIGTERM shuts it down inside the documented
@@ -114,6 +114,45 @@ jobs:
 
           wait "$pid"
           echo "clean shutdown"
+
+  # The fuzz targets compile but never run by default, so a short smoke run keeps
+  # them honest without continuous fuzzing. They are hermetic: no network.
+  fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+          check-latest: true
+          cache: true
+      - name: fuzz the parsers
+        run: |
+          set -euo pipefail
+
+          # package:target pairs. Ten seconds each is enough to enter the
+          # interesting states; a crasher is saved as a regression seed by Go.
+          targets=(
+            "./internal/classify/scene:FuzzParseName"
+            "./internal/classify/scene:FuzzParseEpisodes"
+            "./internal/keywords:FuzzNewRegexFromKeywords"
+            "./internal/protocol/dht:FuzzNodeAddrUnmarshalBinary"
+            "./internal/protocol/dht:FuzzNodeInfoUnmarshalBinary"
+            "./internal/protocol/dht:FuzzCompactIPv4NodeInfoUnmarshalBinary"
+            "./internal/protocol/dht:FuzzMsgUnmarshal"
+            "./internal/protocol/metainfo:FuzzParseMetaInfoBytes"
+            "./internal/protocol/metainfo:FuzzReadTorrentFileBytes"
+            "./internal/protocol/metainfo/metainforequester:FuzzReadAllPieces"
+            "./internal/protocol/metainfo/metainforequester:FuzzReadMessage"
+          )
+
+          for entry in "${targets[@]}"; do
+            package="${entry%%:*}"
+            target="${entry##*:}"
+            echo "fuzzing ${target} in ${package}"
+            go test -run='^$' -fuzz="^${target}$" -fuzztime=10s "${package}"
+          done
 
   # Build the image exactly as CI would, then smoke-test it the way the compose
   # example runs it: read-only root filesystem, tmpfs /tmp, a bind-mounted data
