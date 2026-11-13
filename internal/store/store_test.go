@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -1083,5 +1084,232 @@ func TestOffsetPastTheEndReturnsAnEmptyPage(t *testing.T) {
 	res = search(t, s, q)
 	if len(res.Torrents) != 2 {
 		t.Fatalf("unpaged query returned %d rows, want 2", len(res.Torrents))
+	}
+}
+
+// shardPathFor returns the path of the shard a store opened at now would use for
+// now's month. Tests create something at that path before calling Open, so Open
+// finds it where a real shard would be.
+func shardPathFor(dir string, now time.Time) string {
+	return filepath.Join(dir, shardPrefix+monthKey(now)+".db")
+}
+
+// TestOpenFailsWhenDataDirectoryIsAFile checks that a data directory path that
+// is a regular file is reported as an error rather than silently ignored.
+func TestOpenFailsWhenDataDirectoryIsAFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "data")
+
+	if err := os.WriteFile(path, []byte("not a directory"), 0o600); err != nil {
+		t.Fatalf("write data path: %v", err)
+	}
+
+	_, err := Open(Config{Dir: path})
+	if err == nil {
+		t.Fatal("Open accepted a regular file as the data directory")
+	}
+
+	// The error must name the path, or an operator cannot tell what to fix.
+	if !strings.Contains(err.Error(), path) {
+		t.Fatalf("error = %q, want it to name %s", err, path)
+	}
+
+	info, statErr := os.Stat(path)
+	if statErr != nil {
+		t.Fatalf("stat data path: %v", statErr)
+	}
+
+	if !info.Mode().IsRegular() {
+		t.Fatalf("%s is no longer a regular file", path)
+	}
+}
+
+// TestOpenFailsWhenShardPathIsADirectory checks a shard path that is a
+// directory. The glob that finds existing shards matches directories too, so
+// this must surface as a shard open failure naming the month.
+func TestOpenFailsWhenShardPathIsADirectory(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Date(2026, 11, 10, 12, 0, 0, 0, time.UTC)
+
+	if err := os.Mkdir(shardPathFor(dir, now), 0o755); err != nil {
+		t.Fatalf("mkdir shard path: %v", err)
+	}
+
+	_, err := Open(Config{Dir: dir, Now: func() time.Time { return now }})
+	if err == nil {
+		t.Fatal("Open accepted a directory as a shard")
+	}
+
+	if want := "open shard " + monthKey(now); !strings.Contains(err.Error(), want) {
+		t.Fatalf("error = %q, want a failure containing %q", err, want)
+	}
+}
+
+// TestOpenFailsWhenShardIsNotADatabase checks that a shard file holding
+// something other than SQLite is refused, and left on disk for an operator to
+// inspect or replace.
+func TestOpenFailsWhenShardIsNotADatabase(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Date(2026, 11, 10, 12, 0, 0, 0, time.UTC)
+	path := shardPathFor(dir, now)
+	garbage := bytes.Repeat([]byte("this is not a SQLite database;"), 256)
+
+	if err := os.WriteFile(path, garbage, 0o644); err != nil {
+		t.Fatalf("write corrupt shard: %v", err)
+	}
+
+	_, err := Open(Config{Dir: dir, Now: func() time.Time { return now }})
+	if err == nil {
+		t.Fatal("Open accepted a shard that is not a database")
+	}
+
+	if want := "open shard " + monthKey(now); !strings.Contains(err.Error(), want) {
+		t.Fatalf("error = %q, want a failure containing %q", err, want)
+	}
+
+	data, readErr := os.ReadFile(path)
+	if readErr != nil {
+		t.Fatalf("read corrupt shard back: %v", readErr)
+	}
+
+	if !bytes.Equal(data, garbage) {
+		t.Fatal("Open rewrote the corrupt shard")
+	}
+}
+
+// TestSchemaVersionMatchesEmbeddedMigrations checks the version reported to the
+// version command, against the migrations actually embedded in the binary, and
+// against the version stamped on a freshly created shard.
+func TestSchemaVersionMatchesEmbeddedMigrations(t *testing.T) {
+	version, err := SchemaVersion()
+	if err != nil {
+		t.Fatalf("schema version: %v", err)
+	}
+
+	if version <= 0 {
+		t.Fatalf("schema version = %d, want a positive version", version)
+	}
+
+	embedded, err := migrations()
+	if err != nil {
+		t.Fatalf("migrations: %v", err)
+	}
+
+	if len(embedded) == 0 {
+		t.Fatal("no migrations are embedded")
+	}
+
+	latest := 0
+
+	for _, m := range embedded {
+		if m.version > latest {
+			latest = m.version
+		}
+	}
+
+	if version != latest {
+		t.Fatalf("SchemaVersion = %d, latest embedded migration = %d", version, latest)
+	}
+
+	// A new shard must carry the version SchemaVersion reports; a build that
+	// bumps one without the other is caught here rather than by a user.
+	dir := t.TempDir()
+	s, _ := newStore(t, Config{Dir: dir, RetentionMonths: 12})
+
+	db, err := sqlite.Open(shardPathFor(dir, s.cfg.Now()), time.Second)
+	if err != nil {
+		t.Fatalf("open shard: %v", err)
+	}
+
+	defer func() { _ = db.Close() }()
+
+	var stamped int
+	if err := db.QueryRow("PRAGMA user_version").Scan(&stamped); err != nil {
+		t.Fatalf("read user_version: %v", err)
+	}
+
+	if stamped != version {
+		t.Fatalf("new shard user_version = %d, SchemaVersion = %d", stamped, version)
+	}
+}
+
+// TestSplitSemicolonsEdgeCases covers the places a semicolon must not split a
+// statement: inside a quoted string and inside either comment form.
+func TestSplitSemicolonsEdgeCases(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want []string
+	}{
+		{
+			name: "semicolon inside a quoted string",
+			src:  `INSERT INTO t (v) VALUES ('a;b'); SELECT 1;`,
+			want: []string{`INSERT INTO t (v) VALUES ('a;b')`, "SELECT 1"},
+		},
+		{
+			name: "escaped quote inside a quoted string",
+			src:  `INSERT INTO t (v) VALUES ('it''s; fine'); SELECT 1;`,
+			want: []string{`INSERT INTO t (v) VALUES ('it''s; fine')`, "SELECT 1"},
+		},
+		{
+			name: "semicolon inside a line comment",
+			src:  "SELECT 1 -- one; two\n;\nSELECT 2;",
+			want: []string{"SELECT 1 -- one; two", "SELECT 2"},
+		},
+		{
+			name: "semicolon inside a block comment",
+			src:  `SELECT 1 /* one; two */; SELECT 2;`,
+			want: []string{"SELECT 1 /* one; two */", "SELECT 2"},
+		},
+		{
+			name: "empty statements between queries",
+			src:  ";; SELECT 1;; SELECT 2;;",
+			want: []string{"SELECT 1", "SELECT 2"},
+		},
+		{
+			name: "only empty statements",
+			src:  " ; ; ",
+			want: nil,
+		},
+		{
+			name: "empty input",
+			src:  "",
+			want: nil,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := splitSemicolons(test.src)
+
+			if len(got) != len(test.want) {
+				t.Fatalf("splitSemicolons(%q) = %#v, want %#v", test.src, got, test.want)
+			}
+
+			for i := range test.want {
+				if got[i] != test.want[i] {
+					t.Fatalf("statement %d = %q, want %q", i, got[i], test.want[i])
+				}
+			}
+		})
+	}
+}
+
+// TestSplitStatementsPassesQuotedSemicolonsThrough checks the full splitter,
+// including its goose handling, on one plain statement containing a quoted
+// semicolon and a commented one.
+func TestSplitStatementsPassesQuotedSemicolonsThrough(t *testing.T) {
+	src := "INSERT INTO t (v) VALUES ('a;b'); /* ; */ SELECT 1;"
+	want := []string{"INSERT INTO t (v) VALUES ('a;b')", "/* ; */ SELECT 1"}
+
+	got := splitStatements(src)
+
+	if len(got) != len(want) {
+		t.Fatalf("splitStatements = %#v, want %#v", got, want)
+	}
+
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("statement %d = %q, want %q", i, got[i], want[i])
+		}
 	}
 }

@@ -404,3 +404,160 @@ func TestDoctorDoesNotCreateALockFile(t *testing.T) {
 	assert.Contains(t, stdout, "not created yet")
 	assert.Equal(t, before, snapshotDirectory(t, dir))
 }
+
+// TestDoctorReportsAnUnwritableDataDirectory checks that doctor notices it
+// cannot write to the data directory and exits nonzero, rather than reporting a
+// ready installation that cannot start.
+func TestDoctorReportsAnUnwritableDataDirectory(t *testing.T) {
+	clearSettingEnvironment(t)
+
+	// A literal address resolves without a DNS query, so the test does not
+	// depend on the network.
+	t.Setenv("BITTRAWLER_CRAWLER_BOOTSTRAP_NODES", "127.0.0.1:6881")
+
+	t.Run("never started", func(t *testing.T) {
+		// A directory without a settings database is a valid installation that
+		// has not started, so doctor reaches its writability probe.
+		dir := t.TempDir()
+
+		require.NoError(t, os.Chmod(dir, 0o500))
+
+		// Restore a traversable mode first: t.TempDir's removal runs after this
+		// cleanup, and a failure part way through must not leave a directory the
+		// test framework cannot delete.
+		t.Cleanup(func() { require.NoError(t, os.Chmod(dir, 0o700)) })
+
+		var code int
+
+		stdout, stderr := captureOutput(t, func() {
+			code = run([]string{"doctor", "-data", dir, "-http", "127.0.0.1:0", "-dht", "127.0.0.1:0"})
+		})
+
+		assert.NotEqual(t, 0, code, "doctor passed an unwritable data directory")
+		assert.Contains(t, stdout, "warn  settings")
+		assert.Contains(t, stdout, "fail  data directory")
+		assert.Contains(t, stdout, "not writable")
+		assert.Contains(t, stdout, "problem(s) found")
+		assert.Empty(t, stderr)
+	})
+
+	// An installation that has run has a WAL-mode settings database. SQLite
+	// cannot read one of those without a writable directory, so the settings
+	// probe fails before the data directory probe: doctor still reports a
+	// failure and exits nonzero, but names the wrong problem
+	// (defect, reported rather than fixed). The assertions stay general so a fix
+	// that reaches the data directory check still passes.
+	t.Run("existing installation", func(t *testing.T) {
+		dir := newDataDirectory(t, nil)
+
+		require.NoError(t, os.Chmod(dir, 0o500))
+		t.Cleanup(func() { require.NoError(t, os.Chmod(dir, 0o700)) })
+
+		var code int
+
+		stdout, stderr := captureOutput(t, func() {
+			code = run([]string{"doctor", "-data", dir, "-http", "127.0.0.1:0", "-dht", "127.0.0.1:0"})
+		})
+
+		assert.NotEqual(t, 0, code, "doctor passed an unwritable data directory")
+		assert.Contains(t, stdout, "fail ")
+		assert.Empty(t, stderr)
+	})
+}
+
+// TestDoctorReportsABoundWebPort checks that doctor notices the configured web
+// address is already in use, which would stop the instance starting.
+func TestDoctorReportsABoundWebPort(t *testing.T) {
+	clearSettingEnvironment(t)
+
+	dir := newDataDirectory(t, map[string]string{
+		"crawler.bootstrap_nodes": "127.0.0.1:6881",
+	})
+
+	// Hold the port open for the duration of the command, so doctor's own
+	// listen probe must fail.
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	t.Cleanup(func() { _ = listener.Close() })
+
+	address := listener.Addr().String()
+
+	var code int
+
+	stdout, stderr := captureOutput(t, func() {
+		code = run([]string{"doctor", "-data", dir, "-http", address, "-dht", "127.0.0.1:0"})
+	})
+
+	assert.NotEqual(t, 0, code, "doctor passed with the web port already bound")
+	assert.Contains(t, stdout, "fail  web address")
+	assert.Contains(t, stdout, address)
+	assert.Contains(t, stdout, "problem(s) found")
+	assert.Empty(t, stderr)
+}
+
+// TestSettingsResetRejectsAnUnknownKey checks the recovery command's argument
+// checking: the key is refused before the database is opened, so nothing is
+// changed.
+func TestSettingsResetRejectsAnUnknownKey(t *testing.T) {
+	clearSettingEnvironment(t)
+
+	dir := newDataDirectory(t, nil)
+
+	before := snapshotDirectory(t, dir)
+
+	var code int
+
+	stdout, stderr := captureOutput(t, func() {
+		code = run([]string{"settings", "reset", "-data", dir, "no.such.setting"})
+	})
+
+	require.Equal(t, 1, code)
+	assert.Empty(t, stdout)
+	assert.Contains(t, stderr, `unknown setting "no.such.setting"`)
+	assert.Equal(t, before, snapshotDirectory(t, dir))
+}
+
+// TestAuthResetOnADirectoryWithNoAccount records what the recovery command does
+// on two installations without an account: a directory that has never started
+// is refused rather than turned into one, and a configured installation with no
+// account is cleared harmlessly.
+func TestAuthResetOnADirectoryWithNoAccount(t *testing.T) {
+	clearSettingEnvironment(t)
+
+	t.Run("never started", func(t *testing.T) {
+		dir := t.TempDir()
+		before := snapshotDirectory(t, dir)
+
+		var code int
+
+		stdout, stderr := captureOutput(t, func() {
+			code = run([]string{"auth", "reset", "-data", dir})
+		})
+
+		// openSettings refuses to create the database: a recovery command must
+		// not turn a directory that has never started into an installation.
+		require.Equal(t, 1, code)
+		assert.Empty(t, stdout)
+		assert.Contains(t, stderr, "no settings database")
+		assert.Contains(t, stderr, dir)
+		assert.Equal(t, before, snapshotDirectory(t, dir))
+	})
+
+	t.Run("no account configured", func(t *testing.T) {
+		dir := newDataDirectory(t, nil)
+
+		var code int
+
+		stdout, stderr := captureOutput(t, func() {
+			code = run([]string{"auth", "reset", "-data", dir})
+		})
+
+		require.Equal(t, 0, code)
+		assert.Empty(t, stderr)
+		assert.Contains(t, stdout, "Administrator account cleared.")
+
+		// Deleting keys that were never set leaves no settings behind.
+		assert.Empty(t, readSettings(t, dir))
+	})
+}

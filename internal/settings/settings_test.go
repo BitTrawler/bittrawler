@@ -1,6 +1,7 @@
 package settings_test
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"os"
@@ -178,4 +179,122 @@ func TestReadOnlyFromRelativeDirectory(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, ok)
 	assert.Equal(t, "127.0.0.1:9999", value)
+}
+
+// TestOpenFailsWhenDirectoryIsAFile checks that the data directory path being a
+// regular file is reported, not treated as an existing empty directory.
+func TestOpenFailsWhenDirectoryIsAFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "data")
+
+	require.NoError(t, os.WriteFile(path, []byte("not a directory"), 0o600))
+
+	_, err := settings.Open(path)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), path)
+
+	info, statErr := os.Stat(path)
+	require.NoError(t, statErr)
+	assert.True(t, info.Mode().IsRegular())
+}
+
+// TestOpenFailsOnCorruptDatabase checks that a settings.db holding something
+// other than SQLite fails cleanly rather than being reported as usable.
+func TestOpenFailsOnCorruptDatabase(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "settings.db")
+	garbage := bytes.Repeat([]byte("not a SQLite database;"), 256)
+
+	require.NoError(t, os.WriteFile(path, garbage, 0o600))
+
+	_, err := settings.Open(dir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "read schema version")
+
+	// The corrupt file is left in place so an operator can inspect it.
+	info, statErr := os.Stat(path)
+	require.NoError(t, statErr)
+	assert.Equal(t, int64(len(garbage)), info.Size())
+}
+
+// TestOpenReadOnlyFailsWhenPathIsADirectory checks that OpenReadOnly refuses a
+// settings.db that is a directory. os.Stat succeeds there, so the refusal must
+// come from opening or reading it as a database.
+func TestOpenReadOnlyFailsWhenPathIsADirectory(t *testing.T) {
+	dir := t.TempDir()
+
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "settings.db"), 0o700))
+
+	_, err := settings.OpenReadOnly(dir)
+	require.Error(t, err)
+}
+
+// TestDeleteAbsentKeyAndEmptyKey records the empty-key behaviour: writes are
+// rejected, reads treat it as absent, and deleting an absent key is harmless.
+func TestDeleteAbsentKeyAndEmptyKey(t *testing.T) {
+	ctx := context.Background()
+	store, _ := open(t)
+
+	require.NoError(t, store.Delete(ctx, "absent"))
+
+	err := store.Set(ctx, "", "value")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "a key is required")
+
+	value, ok, err := store.Get(ctx, "")
+	require.NoError(t, err)
+	assert.False(t, ok)
+	assert.Empty(t, value)
+
+	require.NoError(t, store.Delete(ctx, ""))
+
+	values, err := store.All(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, values)
+}
+
+// TestSetManyEmptyMapIsANoOp checks that an empty map commits nothing and
+// leaves existing settings alone.
+func TestSetManyEmptyMapIsANoOp(t *testing.T) {
+	ctx := context.Background()
+	store, _ := open(t)
+
+	require.NoError(t, store.Set(ctx, "keep", "before"))
+
+	require.NoError(t, store.SetMany(ctx, map[string]string{}))
+
+	values, err := store.All(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{"keep": "before"}, values)
+}
+
+// TestSetManyWritesEveryKeyInOneCall checks a mixed batch: all keys land and a
+// later call updates without adding duplicates.
+func TestSetManyWritesEveryKeyInOneCall(t *testing.T) {
+	ctx := context.Background()
+	store, _ := open(t)
+
+	batch := map[string]string{
+		"web.address":     "127.0.0.1:9999",
+		"torznab.api_key": "abc",
+		"log.level":       "debug",
+		"empty":           "",
+	}
+
+	require.NoError(t, store.SetMany(ctx, batch))
+
+	values, err := store.All(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, batch, values)
+
+	// A second batch overwrites in the same way, so setting is idempotent.
+	require.NoError(t, store.SetMany(ctx, map[string]string{"web.address": "127.0.0.1:1234"}))
+
+	value, ok, err := store.Get(ctx, "web.address")
+	require.NoError(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, "127.0.0.1:1234", value)
+
+	values, err = store.All(ctx)
+	require.NoError(t, err)
+	assert.Len(t, values, len(batch))
 }
