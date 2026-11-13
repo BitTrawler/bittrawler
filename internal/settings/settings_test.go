@@ -154,3 +154,28 @@ func TestRefusesNewerSchema(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "newer")
 }
+
+// TestReadOnlyFromRelativeDirectory covers the recovery commands, which are
+// given whatever -data held and therefore often a relative path.
+func TestReadOnlyFromRelativeDirectory(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "data"), 0o700))
+
+	t.Chdir(dir)
+
+	store, err := settings.Open("data")
+	require.NoError(t, err)
+
+	require.NoError(t, store.Set(context.Background(), "web.address", "127.0.0.1:9999"))
+	require.NoError(t, store.Close())
+
+	readOnly, err := settings.OpenReadOnly("data")
+	require.NoError(t, err)
+
+	defer readOnly.Close()
+
+	value, ok, err := readOnly.Get(context.Background(), "web.address")
+	require.NoError(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, "127.0.0.1:9999", value)
+}

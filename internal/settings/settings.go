@@ -87,7 +87,14 @@ func OpenReadOnly(dir string) (*Store, error) {
 		return nil, fmt.Errorf("settings: %w", err)
 	}
 
-	dsn := (&url.URL{Scheme: "file", Path: path}).String() +
+	// The DSN is a URI, so a relative path would be read as a host and SQLite
+	// would refuse it. Resolve the path before quoting it.
+	absolutePath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, fmt.Errorf("settings: resolve %s: %w", path, err)
+	}
+
+	dsn := (&url.URL{Scheme: "file", Path: filepath.ToSlash(absolutePath)}).String() +
 		"?mode=ro&_pragma=busy_timeout(" + strconv.Itoa(busyTimeout) + ")"
 
 	db, err := sql.Open("sqlite", dsn)
