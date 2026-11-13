@@ -2,6 +2,7 @@ package torznab
 
 import (
 	"encoding/xml"
+	"strings"
 
 	"github.com/BitTrawler/bittrawler/internal/classify"
 )
@@ -49,6 +50,34 @@ type capsCategory struct {
 	Sub  []capsCategory `xml:"subcat,omitempty"`
 }
 
+// searchParams is the single source of truth for the supportedParams attribute:
+// the parameters each search function implements, spelled as the Torznab
+// specification spells them. The handler parses all of them for every
+// function; season and ep describe an episode and tmdbid selects a work the
+// TMDB stage identified, so they are advertised only where they mean
+// something. cat, limit and offset are the generic search parameters every
+// function honours. The caps test checks each advertised parameter changes the
+// store query, so the advert cannot promise a filter the search ignores.
+var searchParams = map[Function][]string{
+	FunctionSearch: {ParamQuery, ParamCategory, ParamLimit, ParamOffset},
+	FunctionTV:     {ParamQuery, ParamSeason, ParamEpisode, ParamTMDBID, ParamCategory, ParamLimit, ParamOffset},
+	FunctionMovie:  {ParamQuery, ParamTMDBID, ParamCategory, ParamLimit, ParamOffset},
+	FunctionMusic:  {ParamQuery, ParamCategory, ParamLimit, ParamOffset},
+	FunctionBook:   {ParamQuery, ParamCategory, ParamLimit, ParamOffset},
+}
+
+// supportedParamsFor renders the supportedParams attribute for a search
+// function.
+func supportedParamsFor(function Function) string {
+	return strings.Join(searchParams[function], ",")
+}
+
+// searchCaps renders one searching element for a function the endpoint
+// answers.
+func searchCaps(function Function) capsSearch {
+	return capsSearch{Available: "yes", SupportedParams: supportedParamsFor(function)}
+}
+
 // capsFor builds the capability document. Only the categories the classifier
 // stores are advertised, so a client maps exactly what it can receive.
 func capsFor(cfg Config) caps {
@@ -56,15 +85,13 @@ func capsFor(cfg Config) caps {
 		Server: capsServer{Title: cfg.Title},
 		Limits: capsLimits{Max: cfg.MaxLimit, Default: cfg.DefaultLimit},
 		Searching: capsSearching{
-			// The identifier parameters are not advertised: the store only
-			// knows TMDB ids for some rows, and the clients search by title
-			// well enough. tv-search advertises season and ep, including the
-			// daily MM/dd form.
-			Search:      capsSearch{Available: "yes", SupportedParams: "q"},
-			TVSearch:    capsSearch{Available: "yes", SupportedParams: "q,season,ep"},
-			MovieSearch: capsSearch{Available: "yes", SupportedParams: "q"},
-			MusicSearch: capsSearch{Available: "yes", SupportedParams: "q"},
-			BookSearch:  capsSearch{Available: "yes", SupportedParams: "q"},
+			Search:      searchCaps(FunctionSearch),
+			TVSearch:    searchCaps(FunctionTV),
+			MovieSearch: searchCaps(FunctionMovie),
+			MusicSearch: searchCaps(FunctionMusic),
+			BookSearch:  searchCaps(FunctionBook),
+			// The endpoint answers no audio function; t=music covers the audio
+			// categories it serves.
 			AudioSearch: capsSearch{Available: "no"},
 		},
 		Categories: capsCategories{Categories: capsCategoryTree()},

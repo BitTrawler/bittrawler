@@ -81,15 +81,16 @@ func TestCapsDocument(t *testing.T) {
 		t.Errorf("limits = max %d default %d, want max 200 default 50", caps.Limits.Max, caps.Limits.Default)
 	}
 
-	if caps.Searching.Search.Available != "yes" || caps.Searching.Search.SupportedParams != "q" {
-		t.Errorf("search = %q/%q, want yes/q",
-			caps.Searching.Search.Available, caps.Searching.Search.SupportedParams)
+	if caps.Searching.Search.Available != "yes" ||
+		caps.Searching.Search.SupportedParams != supportedParamsFor(FunctionSearch) {
+		t.Errorf("search = %q/%q, want yes/%q",
+			caps.Searching.Search.Available, caps.Searching.Search.SupportedParams, supportedParamsFor(FunctionSearch))
 	}
 
 	if caps.Searching.TVSearch.Available != "yes" ||
-		caps.Searching.TVSearch.SupportedParams != "q,season,ep" {
-		t.Errorf("tv-search = %q/%q, want yes/q,season,ep",
-			caps.Searching.TVSearch.Available, caps.Searching.TVSearch.SupportedParams)
+		caps.Searching.TVSearch.SupportedParams != supportedParamsFor(FunctionTV) {
+		t.Errorf("tv-search = %q/%q, want yes/%q",
+			caps.Searching.TVSearch.Available, caps.Searching.TVSearch.SupportedParams, supportedParamsFor(FunctionTV))
 	}
 
 	if caps.Searching.MovieSearch.Available != "yes" {
