@@ -78,6 +78,23 @@ func migrate(db *sql.DB) error {
 		return fmt.Errorf("read user_version: %w", err)
 	}
 
+	latest := 0
+	for _, m := range want {
+		if m.version > latest {
+			latest = m.version
+		}
+	}
+
+	// A shard written by a newer release carries migrations this build does not
+	// have. Running the ones it does know would leave the schema half-understood,
+	// so refuse the shard instead.
+	if current > latest {
+		return fmt.Errorf(
+			"shard schema version %d is newer than this build's %d; use a newer release or restore the shard from a backup",
+			current, latest,
+		)
+	}
+
 	for _, m := range want {
 		if m.version <= current {
 			continue

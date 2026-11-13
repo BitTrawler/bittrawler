@@ -8,9 +8,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/BitTrawler/bittrawler/internal/sqlite"
 )
 
 // testClock is a settable clock for rollover and retention tests.
@@ -890,5 +893,45 @@ func TestStatsCountsRowsAndSizes(t *testing.T) {
 
 	if stats.DBBytes <= 0 {
 		t.Fatal("store has no size")
+	}
+}
+
+// TestOpenRefusesShardFromANewerSchema checks that a shard written by a newer
+// release is refused rather than opened with a schema this build does not know.
+func TestOpenRefusesShardFromANewerSchema(t *testing.T) {
+	dir := t.TempDir()
+
+	s, _ := newStore(t, Config{Dir: dir, RetentionMonths: 12})
+	if err := s.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	latest, err := SchemaVersion()
+	if err != nil {
+		t.Fatalf("schema version: %v", err)
+	}
+
+	path := filepath.Join(dir, shardPrefix+"2026-11.db")
+
+	db, err := sqlite.Open(path, time.Second)
+	if err != nil {
+		t.Fatalf("open shard: %v", err)
+	}
+
+	if _, err := db.Exec(fmt.Sprintf("PRAGMA user_version = %d", latest+1)); err != nil {
+		t.Fatalf("set user_version: %v", err)
+	}
+
+	if err := db.Close(); err != nil {
+		t.Fatalf("close shard: %v", err)
+	}
+
+	_, err = Open(Config{Dir: dir, Now: func() time.Time { return time.Date(2026, 11, 10, 12, 0, 0, 0, time.UTC) }})
+	if err == nil {
+		t.Fatal("opened a shard from a newer schema")
+	}
+
+	if !strings.Contains(err.Error(), "newer than this build") {
+		t.Fatalf("error = %q, want a newer-schema refusal", err)
 	}
 }
