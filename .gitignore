@@ -5,3 +5,4 @@ coverage.*
 *.prof
 .env
 .DS_Store
+/data/

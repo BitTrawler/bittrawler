@@ -1,0 +1,29 @@
+{{define "content"}}
+<header class="head">
+  <p class="mark">BitTrawler</p>
+  <h1>Dashboard</h1>
+  <p class="lede">Version {{.Version}}{{if .Commit}} ({{.Commit}}){{end}} · running for {{.Uptime}}</p>
+</header>
+
+<section class="panel">
+  <h2>Indexer</h2>
+  <p class="hint">Give Prowlarr this URL and API key. The key can be rotated on the settings page.</p>
+  <dl class="keyvalue">
+    <dt>URL</dt><dd><code>{{.TorznabURL}}</code></dd>
+    <dt>API key</dt><dd><code class="secret">{{.APIKey}}</code></dd>
+  </dl>
+</section>
+
+<section class="panel">
+  <h2>Status</h2>
+  <dl class="keyvalue">
+    <dt>Crawling</dt><dd>{{if .Crawling}}yes{{else}}no{{end}}</dd>
+    <dt>DHT</dt><dd><code>{{.DHTAddress}}</code></dd>
+    <dt>Built</dt><dd>{{.BuildDate}}</dd>
+  </dl>
+</section>
+
+<form class="actions" method="post" action="/logout">
+  <button class="quiet" type="submit">Sign out</button>
+</form>
+{{end}}

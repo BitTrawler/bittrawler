@@ -1,0 +1,35 @@
+{{define "content"}}
+<header class="head">
+  <p class="mark">BitTrawler</p>
+  <h1>First run</h1>
+  <p class="lede">Choose the administrator account for this instance. You can change it later from the settings page.</p>
+</header>
+
+{{if .Error}}<p class="alert" role="alert">{{.Error}}</p>{{end}}
+
+<form class="form" method="post" action="/setup">
+  <label>Username
+    <input name="username" value="{{.Username}}" autocomplete="username" required maxlength="64" autofocus>
+  </label>
+  <label>Password
+    <input type="password" name="password" autocomplete="new-password" required minlength="10">
+    <span class="hint">At least 10 characters. Store it in your password manager.</span>
+  </label>
+  <label>Confirm password
+    <input type="password" name="password_confirm" autocomplete="new-password" required minlength="10">
+  </label>
+  <label>TMDB token <span class="hint">Optional. A read access token from themoviedb.org lets BitTrawler confirm film and television classifications.</span>
+    <input type="password" name="tmdb_token" autocomplete="off" spellcheck="false">
+  </label>
+  <button type="submit">Finish setup</button>
+</form>
+
+<section class="panel">
+  <h2>Indexer endpoint</h2>
+  <p class="hint">Prowlarr and the Arr applications use these. The key was generated for you.</p>
+  <dl class="keyvalue">
+    <dt>URL</dt><dd><code>{{.TorznabURL}}</code></dd>
+    <dt>API key</dt><dd><code class="secret">{{.APIKey}}</code></dd>
+  </dl>
+</section>
+{{end}}
