@@ -360,7 +360,14 @@ func TestNewestFirstAndPagination(t *testing.T) {
 
 	got = names(search(t, s, q))
 	want = want[1:3]
-	for i := range got {
+
+	// The length check is what fails when the offset is ignored: the loop
+	// below would pass on a short or empty page.
+	if len(got) != len(want) {
+		t.Fatalf("page = %v, want %v", got, want)
+	}
+
+	for i := range want {
 		if got[i] != want[i] {
 			t.Fatalf("page = %v, want %v", got, want)
 		}
@@ -933,5 +940,148 @@ func TestOpenRefusesShardFromANewerSchema(t *testing.T) {
 
 	if !strings.Contains(err.Error(), "newer than this build") {
 		t.Fatalf("error = %q, want a newer-schema refusal", err)
+	}
+}
+
+// TestLimitDefaultsWhenUnset documents the limit contract Search implements: a
+// non-positive limit means the default page size, and there is no upper clamp.
+// The store serves the number of rows it is asked for; the Torznab endpoint is
+// where a client-requested page size is capped by torznab.max_limit.
+func TestLimitDefaultsWhenUnset(t *testing.T) {
+	s, _ := newStore(t, Config{RetentionMonths: 12})
+	now := s.cfg.Now()
+
+	const rowCount = 120
+
+	rows := make([]Row, 0, rowCount)
+
+	for i := range rowCount {
+		rows = append(rows, Row{
+			InfoHash:  testHash(byte(i)),
+			Name:      fmt.Sprintf("Limit.Release.%03d", i),
+			CreatedAt: now,
+			Category:  2040,
+		})
+	}
+
+	put(t, s, rows...)
+
+	// Zero and negative limits both mean the documented default of 100.
+	for _, limit := range []int{0, -1} {
+		q := NewQuery()
+		q.Text = "limit release"
+		q.Limit = limit
+
+		res := search(t, s, q)
+		if len(res.Torrents) != 100 {
+			t.Fatalf("limit %d returned %d rows, want the default of 100", limit, len(res.Torrents))
+		}
+	}
+
+	// There is no maximum in the store, so a limit beyond the result count is
+	// honoured rather than truncated: all 120 rows come back.
+	q := NewQuery()
+	q.Text = "limit release"
+	q.Limit = 1_000_000
+
+	res := search(t, s, q)
+	if len(res.Torrents) != rowCount {
+		t.Fatalf("large limit returned %d rows, want all %d", len(res.Torrents), rowCount)
+	}
+}
+
+// TestHostileSearchQueries feeds FTS5 metacharacters and awkward text through
+// the query builder. It must never panic and, because the index is local, it
+// must never return an error from the FTS5 query parser: a user's search box
+// can contain any of these.
+func TestHostileSearchQueries(t *testing.T) {
+	s, _ := newStore(t, Config{RetentionMonths: 12})
+	now := s.cfg.Now()
+
+	put(t, s,
+		Row{InfoHash: testHash(110), Name: "The.Matrix.1999.1080p.BluRay", CreatedAt: now, Category: 2040},
+		Row{InfoHash: testHash(111), Name: "東京のリリース.2026.1080p", CreatedAt: now, Category: 2040},
+		Row{InfoHash: testHash(112), Name: "Rocket.🚀.Release.2026", CreatedAt: now, Category: 2040},
+	)
+
+	cases := []string{
+		`"`,                         // a lone quote
+		`*`,                         // a prefix marker with no term
+		`(`,                         // an unbalanced group
+		`AND`,                       // an FTS5 operator as a term
+		`NEAR("`,                    // an operator and a quote
+		`unbalanced "quote`,         // an unterminated phrase
+		`-`,                         // a dash with nothing to exclude
+		strings.Repeat("a", 10_000), // very long text
+		`東京`,                        // CJK
+		`🚀`,                         // emoji
+	}
+
+	for i, text := range cases {
+		var (
+			res       Result
+			err       error
+			recovered any
+		)
+
+		// Recover explicitly so a panic is reported as a failed assertion
+		// rather than tearing down the test binary.
+		func() {
+			defer func() { recovered = recover() }()
+
+			res, err = s.Search(context.Background(), Query{
+				Text: text, Limit: 10, Season: AnySeason, Episode: AnyEpisode,
+			})
+		}()
+
+		if recovered != nil {
+			t.Fatalf("case %d (%q) panicked: %v", i, text, recovered)
+		}
+
+		if err != nil {
+			t.Fatalf("case %d (%q) returned an error: %v", i, text, err)
+		}
+
+		if len(res.Torrents) > 10 {
+			t.Fatalf("case %d (%q) returned %d rows, more than the limit", i, text, len(res.Torrents))
+		}
+	}
+}
+
+// TestOffsetPastTheEndReturnsAnEmptyPage checks paging past the last result:
+// the page is empty, the query succeeds, and the count still reports the real
+// number of matches.
+func TestOffsetPastTheEndReturnsAnEmptyPage(t *testing.T) {
+	s, _ := newStore(t, Config{RetentionMonths: 12})
+	now := s.cfg.Now()
+
+	put(t, s,
+		Row{InfoHash: testHash(113), Name: "Offset.Release.One", CreatedAt: now, Category: 2040},
+		Row{InfoHash: testHash(114), Name: "Offset.Release.Two", CreatedAt: now, Category: 2040},
+	)
+
+	q := NewQuery()
+	q.Text = "offset release"
+	q.Limit = 10
+	q.Offset = 500
+	q.Count = true
+
+	res := search(t, s, q)
+
+	if len(res.Torrents) != 0 {
+		t.Fatalf("offset past the end returned %v", names(res))
+	}
+
+	if res.Total != 2 {
+		t.Fatalf("total = %d, want 2: the offset must not hide the matches", res.Total)
+	}
+
+	// The same query without the offset finds both rows, proving the empty
+	// page is paging and not a query that matches nothing.
+	q.Offset = 0
+
+	res = search(t, s, q)
+	if len(res.Torrents) != 2 {
+		t.Fatalf("unpaged query returned %d rows, want 2", len(res.Torrents))
 	}
 }
