@@ -37,6 +37,9 @@ type Setting struct {
 	Group string
 	// Usage is one sentence describing the setting.
 	Usage string
+	// Label is the field name shown in the settings page. Empty means derive
+	// one from the key.
+	Label string
 	// Default is the value a new installation starts with. Its concrete type
 	// matches Type.
 	Default any
@@ -46,6 +49,9 @@ type Setting struct {
 	Restart bool
 	// Secret marks a value that is not shown, printed or logged in full.
 	Secret bool
+	// Hidden marks a value the settings page does not render. It exists for
+	// internal state such as the password hash and the session key.
+	Hidden bool
 	// Persist reports whether the value is stored in the settings database.
 	// The data directory is the one setting that is not, because the database
 	// is found through it.
@@ -156,10 +162,12 @@ func newEntry(key string, field reflect.StructField, value reflect.Value, index 
 			Type:     typeOf(field.Type),
 			Group:    groupOf(key),
 			Usage:    field.Tag.Get("usage"),
+			Label:    field.Tag.Get("label"),
 			Default:  defaultValue(field.Type, value),
 			Advanced: field.Tag.Get("advanced") == "true",
 			Restart:  field.Tag.Get("restart") == "true",
 			Secret:   field.Tag.Get("secret") == "true",
+			Hidden:   field.Tag.Get("hidden") == "true",
 			Persist:  field.Tag.Get("persist") != "false",
 		},
 		index: index,
@@ -373,9 +381,9 @@ func parseValue(t Type, raw string) (any, error) {
 func Format(value any) string {
 	switch v := value.(type) {
 	case time.Duration:
-		return v.String()
+		return formatDuration(v)
 	case []string:
-		return strings.Join(v, ",")
+		return strings.Join(v, ", ")
 	case bool:
 		return strconv.FormatBool(v)
 	case int:
@@ -391,6 +399,33 @@ func Format(value any) string {
 	}
 }
 
+// formatDuration prints a duration the way a person would write it: "15m"
+// rather than "15m0s", and "45s" for something that is not a whole minute.
+func formatDuration(d time.Duration) string {
+	if d == 0 {
+		return "0s"
+	}
+
+	if d%time.Hour == 0 {
+		return fmt.Sprintf("%dh", d/time.Hour)
+	}
+
+	if d%time.Minute == 0 {
+		if d >= time.Hour {
+			return fmt.Sprintf("%dh%dm", d/time.Hour, (d%time.Hour)/time.Minute)
+		}
+
+		return fmt.Sprintf("%dm", d/time.Minute)
+	}
+
+	text := d.String()
+	if strings.HasSuffix(text, "m0s") {
+		text = strings.TrimSuffix(text, "0s")
+	}
+
+	return text
+}
+
 // splitList splits a comma separated list and drops empty entries.
 func splitList(raw string) []string {
 	out := make([]string, 0)
@@ -402,4 +437,48 @@ func splitList(raw string) []string {
 	}
 
 	return out
+}
+
+// Get returns a setting's typed value. Durations are time.Duration and string
+// lists are copies, so the caller cannot modify the configuration through them.
+func Get(cfg Config, key string) (any, bool) {
+	e, ok := lookup(key)
+	if !ok {
+		return nil, false
+	}
+
+	field := e.value(&cfg)
+
+	switch e.Type {
+	case TypeBool:
+		return field.Bool(), true
+	case TypeInt:
+		return int(field.Int()), true
+	case TypeFloat:
+		return field.Float(), true
+	case TypeString:
+		return field.String(), true
+	case TypeDuration:
+		return time.Duration(field.Int()), true
+	case TypeStrings:
+		return append([]string{}, field.Interface().([]string)...), true
+	default:
+		return nil, false
+	}
+}
+
+// Set parses a textual value, as a settings form submits it, and stores it in
+// cfg. Validation is the caller's job, because a group of settings only makes
+// sense together.
+func Set(cfg *Config, key, raw string) error {
+	e, ok := lookup(key)
+	if !ok {
+		return fmt.Errorf("unknown setting %q", key)
+	}
+
+	if !e.Persist {
+		return fmt.Errorf("setting %q is not stored in the settings database", key)
+	}
+
+	return e.set(cfg, raw)
 }

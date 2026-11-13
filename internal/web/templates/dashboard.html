@@ -1,0 +1,66 @@
+{{define "content"}}
+<header class="page-head">
+  <div>
+    <h1>Overview</h1>
+    <p class="page-sub">Torznab endpoint, crawler status and storage.</p>
+  </div>
+  <div class="page-actions">
+    {{if .Crawling}}
+    <form method="post" action="/crawl">
+      <input type="hidden" name="action" value="pause">
+      <button class="button secondary" type="submit">Pause Crawling</button>
+    </form>
+    {{else}}
+    <form method="post" action="/crawl">
+      <input type="hidden" name="action" value="resume">
+      <button class="button" type="submit">Resume Crawling</button>
+    </form>
+    {{end}}
+  </div>
+</header>
+
+<div class="grid two">
+  <section class="card">
+    <header class="card-head">
+      <h2>Torznab Endpoint</h2>
+      <p>Prowlarr and the Arr applications connect here.</p>
+    </header>
+    <div class="field-row">
+      <div class="field-label">URL</div>
+      <div class="copy-row">
+        <code class="code-block">{{.TorznabURL}}</code>
+        <button class="button secondary small" type="button" data-copy="{{.TorznabURL}}">Copy</button>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field-label">API Key</div>
+      <div class="copy-row">
+        <code class="code-block">{{.APIKey}}</code>
+        <button class="button secondary small" type="button" data-copy="{{.APIKey}}">Copy</button>
+      </div>
+    </div>
+    <p class="muted small">In Prowlarr, add a Torznab indexer and paste the URL and the key.</p>
+  </section>
+
+  <section class="card">
+    <header class="card-head">
+      <h2>Status</h2>
+      <p>Crawler, node and storage.</p>
+    </header>
+    <dl class="kv">
+      <dt>Crawler</dt>
+      <dd>{{if .Crawling}}<span class="pill live">Running</span>{{else}}<span class="pill">Paused</span>{{end}}</dd>
+      <dt>Uptime</dt>
+      <dd>{{.Uptime}}</dd>
+      <dt>Version</dt>
+      <dd>{{.Version}}{{if .Commit}} <span class="muted">({{.Commit}})</span>{{end}}</dd>
+      <dt>DHT Node</dt>
+      <dd><code>{{.DHTAddress}}</code></dd>
+      <dt>Retention</dt>
+      <dd>{{if .RetentionMonths}}{{.RetentionMonths}} months{{else}}Everything kept{{end}}</dd>
+      <dt>Data</dt>
+      <dd><code>{{.DataDirectory}}</code></dd>
+    </dl>
+  </section>
+</div>
+{{end}}

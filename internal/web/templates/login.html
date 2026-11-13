@@ -1,18 +1,22 @@
 {{define "content"}}
-<header class="head">
-  <p class="mark">BitTrawler</p>
-  <h1>Sign in</h1>
-</header>
+<section class="card auth-card auth-card-narrow">
+  <header class="auth-head">
+    <h1>Sign In</h1>
+    <p>The administrator account for this instance.</p>
+  </header>
 
-{{if .Error}}<p class="alert" role="alert">{{.Error}}</p>{{end}}
+  {{if .Error}}<p class="notice error" role="alert">{{.Error}}</p>{{end}}
 
-<form class="form" method="post" action="/login">
-  <label>Username
-    <input name="username" value="{{.Username}}" autocomplete="username" required autofocus>
-  </label>
-  <label>Password
-    <input type="password" name="password" autocomplete="current-password" required>
-  </label>
-  <button type="submit">Sign in</button>
-</form>
+  <form class="form" method="post" action="/login">
+    <label class="field">
+      <span class="field-label">Username</span>
+      <input name="username" value="{{.Username}}" autocomplete="username" required autofocus>
+    </label>
+    <label class="field">
+      <span class="field-label">Password</span>
+      <input type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <button class="button" type="submit">Sign In</button>
+  </form>
+</section>
 {{end}}

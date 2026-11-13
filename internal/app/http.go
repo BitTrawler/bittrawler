@@ -24,6 +24,11 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /login", a.handleLoginForm)
 	mux.HandleFunc("POST /login", a.handleLoginSubmit)
 	mux.HandleFunc("POST /logout", a.handleLogout)
+	mux.HandleFunc("GET /settings", a.handleSettings)
+	mux.HandleFunc("POST /settings", a.handleSettingsSave)
+	mux.HandleFunc("POST /settings/torznab/rotate", a.handleRotateAPIKey)
+	mux.HandleFunc("POST /settings/admin", a.handleAdminSave)
+	mux.HandleFunc("POST /crawl", a.handleCrawl)
 	mux.HandleFunc("GET /{$}", a.handleHome)
 
 	return mux
@@ -43,9 +48,10 @@ func (a *App) serveTorznab(w http.ResponseWriter, r *http.Request) {
 	endpoint.ServeHTTP(w, r)
 }
 
-// staticHandler serves the embedded stylesheet.
+// staticHandler serves the embedded stylesheet and icons. The file server needs
+// the mount prefix removed from the path.
 func staticHandler() http.Handler {
-	files := http.FileServerFS(web.Static())
+	files := http.StripPrefix("/static/", http.FileServerFS(web.Static()))
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=3600")
@@ -53,33 +59,28 @@ func staticHandler() http.Handler {
 	})
 }
 
-// handleHome renders the status page once setup is finished.
+// handleHome renders the dashboard.
 func (a *App) handleHome(w http.ResponseWriter, r *http.Request) {
-	if !a.Configured() {
-		http.Redirect(w, r, "/setup", http.StatusSeeOther)
-
-		return
-	}
-
-	if !a.validSession(r) {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-
+	if !a.authorised(w, r) {
 		return
 	}
 
 	status := a.Status()
+	cfg := a.currentConfig()
 
-	a.renderPage(w, "home", web.HomeData{
-		Title:      "Dashboard",
-		Version:    status.Version,
-		Commit:     status.Commit,
-		BuildDate:  status.BuildDate,
-		Uptime:     status.Uptime.String(),
-		APIKey:     status.TorznabAPIKey,
-		TorznabURL: a.torznabURL(r),
-		DHTAddress: status.DHTAddress,
-		Crawling:   status.Crawling,
-	})
+	data := web.DashboardData{
+		Shell:           a.shell("dashboard", "Overview"),
+		Commit:          status.Commit,
+		BuildDate:       status.BuildDate,
+		APIKey:          status.TorznabAPIKey,
+		TorznabURL:      a.torznabURL(r),
+		DHTAddress:      status.DHTAddress,
+		DataDirectory:   a.dataDir,
+		RetentionMonths: cfg.Store.RetentionMonths,
+		CrawlEnabled:    cfg.Crawler.Enabled,
+	}
+
+	a.renderPage(w, "dashboard", data)
 }
 
 // handleHealth is the liveness and readiness endpoint. It does no database

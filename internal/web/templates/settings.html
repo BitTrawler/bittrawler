@@ -1,0 +1,155 @@
+{{define "content"}}
+<header class="page-head">
+  <div>
+    <h1>Settings</h1>
+    <p class="page-sub">Changes save immediately. Those marked restart apply after a restart.</p>
+  </div>
+  <div class="page-actions">
+    <a class="button secondary" href="{{if .Advanced}}/settings{{else}}/settings?advanced=1{{end}}">{{if .Advanced}}Hide Advanced{{else}}Show Advanced{{end}}</a>
+  </div>
+</header>
+
+{{if .Notice}}<p class="notice" role="status">{{.Notice}}</p>{{end}}
+{{if .Error}}<p class="notice error" role="alert">{{.Error}}</p>{{end}}
+
+<nav class="jump" aria-label="Settings groups">
+  {{range .Groups}}<a href="#{{.Slug}}">{{.Name}}</a>
+  {{end}}<a href="#indexer-key">API Key</a>
+  <a href="#administrator">Administrator</a>
+</nav>
+
+{{range .Groups}}
+<section class="card" id="{{.Slug}}">
+  <header class="card-head">
+    <h2>{{.Name}}</h2>
+    <p>{{.Description}}</p>
+  </header>
+  <form method="post" action="/settings">
+    <input type="hidden" name="group" value="{{.Slug}}">
+    <input type="hidden" name="advanced" value="{{if $.Advanced}}1{{else}}0{{end}}">
+    <div class="settings-list">
+      {{range .Fields}}
+      {{if eq .Type "readonly"}}
+      <div class="setting">
+        <div class="setting-text">
+          <span class="setting-label">{{.Label}}{{if .SourceLabel}}<span class="tag">{{.SourceLabel}}</span>{{end}}</span>
+          <p class="setting-help">{{.Usage}}</p>
+        </div>
+        <div class="setting-control">
+          <code class="value-static">{{.Value}}</code>
+        </div>
+      </div>
+      {{else if eq .Type "bool"}}
+      <label class="setting">
+        <div class="setting-text">
+          <span class="setting-label">{{.Label}}{{if .Restart}}<span class="tag warn">restart</span>{{end}}</span>
+          <p class="setting-help">{{.Usage}}</p>
+        </div>
+        <div class="setting-control">
+          <input class="switch" type="checkbox" name="{{.Key}}" value="true"{{if .Checked}} checked{{end}}>
+        </div>
+      </label>
+      {{else if eq .Type "enum"}}
+      <label class="setting">
+        <div class="setting-text">
+          <span class="setting-label">{{.Label}}{{if .Restart}}<span class="tag warn">restart</span>{{end}}</span>
+          <p class="setting-help">{{.Usage}}</p>
+        </div>
+        <div class="setting-control">
+          <select name="{{.Key}}">
+            {{$field := .}}{{range .Options}}<option value="{{.}}"{{if eq . $field.Value}} selected{{end}}>{{.}}</option>{{end}}
+          </select>
+        </div>
+      </label>
+      {{else if eq .Type "textarea"}}
+      <label class="setting">
+        <div class="setting-text">
+          <span class="setting-label">{{.Label}}{{if .Restart}}<span class="tag warn">restart</span>{{end}}</span>
+          <p class="setting-help">{{.Usage}}</p>
+        </div>
+        <div class="setting-control">
+          <textarea name="{{.Key}}" rows="2" spellcheck="false">{{.Value}}</textarea>
+        </div>
+      </label>
+      {{else}}
+      <label class="setting">
+        <div class="setting-text">
+          <span class="setting-label">{{.Label}}{{if .Restart}}<span class="tag warn">restart</span>{{end}}</span>
+          <p class="setting-help">{{.Usage}}</p>
+        </div>
+        <div class="setting-control">
+          <input type="{{.Type}}" name="{{.Key}}" value="{{.Value}}"{{if .Placeholder}} placeholder="{{.Placeholder}}"{{end}} spellcheck="false" autocomplete="off">
+        </div>
+      </label>
+      {{end}}
+      {{end}}
+    </div>
+    <footer class="card-foot">
+      <button class="button secondary" type="submit">Save</button>
+    </footer>
+  </form>
+</section>
+{{end}}
+
+<section class="card" id="indexer-key">
+  <header class="card-head">
+    <h2>API Key</h2>
+    <p>Prowlarr authenticates with this key. Rotating it breaks every configured client until you update them.</p>
+  </header>
+  <div class="key-row">
+    <code class="code-block">{{.APIKey}}</code>
+    <button class="button secondary" type="button" data-copy="{{.APIKey}}">Copy</button>
+    <form method="post" action="/settings/torznab/rotate">
+      <button class="button secondary" type="submit">Rotate Key</button>
+    </form>
+  </div>
+</section>
+
+<section class="card" id="administrator">
+  <header class="card-head">
+    <h2>Administrator Account</h2>
+    <p>The account that signs in to this interface. Changing the password signs out other browsers.</p>
+  </header>
+  <form method="post" action="/settings/admin">
+    <div class="settings-list">
+      <label class="setting">
+        <div class="setting-text">
+          <span class="setting-label">Username</span>
+        </div>
+        <div class="setting-control">
+          <input type="text" name="username" value="{{.AdminUsername}}" required maxlength="64" autocomplete="username" spellcheck="false">
+        </div>
+      </label>
+      <label class="setting">
+        <div class="setting-text">
+          <span class="setting-label">Current Password</span>
+          <p class="setting-help">Required to change anything on this card.</p>
+        </div>
+        <div class="setting-control">
+          <input type="password" name="current_password" required autocomplete="current-password">
+        </div>
+      </label>
+      <label class="setting">
+        <div class="setting-text">
+          <span class="setting-label">New Password</span>
+          <p class="setting-help">Leave blank to keep the current password.</p>
+        </div>
+        <div class="setting-control">
+          <input type="password" name="new_password" autocomplete="new-password" minlength="10" placeholder="Unchanged">
+        </div>
+      </label>
+      <label class="setting">
+        <div class="setting-text">
+          <span class="setting-label">Confirm New Password</span>
+        </div>
+        <div class="setting-control">
+          <input type="password" name="new_password_confirm" autocomplete="new-password">
+        </div>
+      </label>
+    </div>
+    <footer class="card-foot">
+      <button class="button secondary" type="submit">Save</button>
+    </footer>
+  </form>
+</section>
+{{end}}

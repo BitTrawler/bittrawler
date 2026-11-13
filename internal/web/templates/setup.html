@@ -1,35 +1,58 @@
 {{define "content"}}
-<header class="head">
-  <p class="mark">BitTrawler</p>
-  <h1>First run</h1>
-  <p class="lede">Choose the administrator account for this instance. You can change it later from the settings page.</p>
-</header>
+<div class="auth-columns">
+  <section class="card auth-card">
+    <header class="auth-head">
+      <h1>Set Up BitTrawler</h1>
+      <p>Create the administrator account. It signs in to the web interface and can be changed later in Settings.</p>
+    </header>
 
-{{if .Error}}<p class="alert" role="alert">{{.Error}}</p>{{end}}
+    {{if .Error}}<p class="notice error" role="alert">{{.Error}}</p>{{end}}
 
-<form class="form" method="post" action="/setup">
-  <label>Username
-    <input name="username" value="{{.Username}}" autocomplete="username" required maxlength="64" autofocus>
-  </label>
-  <label>Password
-    <input type="password" name="password" autocomplete="new-password" required minlength="10">
-    <span class="hint">At least 10 characters. Store it in your password manager.</span>
-  </label>
-  <label>Confirm password
-    <input type="password" name="password_confirm" autocomplete="new-password" required minlength="10">
-  </label>
-  <label>TMDB token <span class="hint">Optional. A read access token from themoviedb.org lets BitTrawler confirm film and television classifications.</span>
-    <input type="password" name="tmdb_token" autocomplete="off" spellcheck="false">
-  </label>
-  <button type="submit">Finish setup</button>
-</form>
+    <form class="form" method="post" action="/setup">
+      <label class="field">
+        <span class="field-label">Username</span>
+        <input name="username" value="{{.Username}}" autocomplete="username" required maxlength="64" autofocus>
+      </label>
+      <label class="field">
+        <span class="field-label">Password</span>
+        <input type="password" name="password" autocomplete="new-password" required minlength="10">
+        <span class="field-help">Ten characters or more. Keep it in your password manager.</span>
+      </label>
+      <label class="field">
+        <span class="field-label">Confirm Password</span>
+        <input type="password" name="password_confirm" autocomplete="new-password" required minlength="10">
+      </label>
+      <label class="field">
+        <span class="field-label">TMDB Token <span class="tag optional">optional</span></span>
+        <input type="password" name="tmdb_token" autocomplete="off" spellcheck="false">
+        <span class="field-help">Used to confirm film and television classifications. Create a read access token in your TMDB account settings.</span>
+      </label>
+      <button class="button" type="submit">Finish Setup</button>
+    </form>
+  </section>
 
-<section class="panel">
-  <h2>Indexer endpoint</h2>
-  <p class="hint">Prowlarr and the Arr applications use these. The key was generated for you.</p>
-  <dl class="keyvalue">
-    <dt>URL</dt><dd><code>{{.TorznabURL}}</code></dd>
-    <dt>API key</dt><dd><code class="secret">{{.APIKey}}</code></dd>
-  </dl>
-</section>
+  <aside class="card auth-card">
+    <header class="card-head">
+      <h2>Torznab Endpoint</h2>
+      <p>Prowlarr connects here.</p>
+    </header>
+    <div class="endpoint">
+      <div class="endpoint-row">
+        <span class="field-label">URL</span>
+        <div class="copy-row">
+          <code class="code-block">{{.TorznabURL}}</code>
+          <button class="button secondary small" type="button" data-copy="{{.TorznabURL}}">Copy</button>
+        </div>
+      </div>
+      <div class="endpoint-row">
+        <span class="field-label">API Key</span>
+        <div class="copy-row">
+          <code class="code-block">{{.APIKey}}</code>
+          <button class="button secondary small" type="button" data-copy="{{.APIKey}}">Copy</button>
+        </div>
+      </div>
+    </div>
+    <p class="muted small">Copy or rotate the key later in Settings.</p>
+  </aside>
+</div>
 {{end}}

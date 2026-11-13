@@ -393,6 +393,12 @@ func (a *App) DataDirectory() string {
 	return a.dataDir
 }
 
+// SettingValue returns a setting's current value. It exists for the interface
+// and for tests that need to observe a saved change.
+func (a *App) SettingValue(key string) (any, bool) {
+	return config.Get(a.currentConfig(), key)
+}
+
 // LogLevel returns the configured log level.
 func (a *App) LogLevel() string {
 	return a.currentConfig().Log.Level
@@ -416,6 +422,32 @@ func (a *App) setConfig(change func(*config.Config)) {
 	change(&cfg)
 
 	a.loaded.Config = cfg
+}
+
+// replaceConfig installs a validated configuration and records the settings
+// that were written to the database.
+func (a *App) replaceConfig(cfg config.Config, written []string) {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
+
+	a.loaded.Config = cfg
+
+	for _, key := range written {
+		a.loaded.Sources[key] = config.SourceDatabase
+	}
+}
+
+// sourceSnapshot returns where each setting's current value came from.
+func (a *App) sourceSnapshot() map[string]config.Source {
+	a.configMu.RLock()
+	defer a.configMu.RUnlock()
+
+	sources := make(map[string]config.Source, len(a.loaded.Sources))
+	for key, source := range a.loaded.Sources {
+		sources[key] = source
+	}
+
+	return sources
 }
 
 // ensureSecrets generates the values a new installation needs: the Torznab API

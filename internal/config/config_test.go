@@ -129,6 +129,7 @@ func TestSettingsRegistry(t *testing.T) {
 
 	for _, setting := range settings {
 		assert.NotEmpty(t, setting.Usage, "%s has no usage text", setting.Key)
+		assert.NotContains(t, setting.Usage, "label:", "%s has a mangled tag", setting.Key)
 		assert.NotEmpty(t, setting.Group, "%s has no group", setting.Key)
 
 		_, duplicate := keys[setting.Key]
@@ -236,6 +237,8 @@ func TestFormat(t *testing.T) {
 	assert.Equal(t, "0.5", config.Format(0.5))
 	assert.Equal(t, "true", config.Format(true))
 	assert.Equal(t, "45s", config.Format(45*time.Second))
-	assert.Equal(t, "a,b", config.Format([]string{"a", "b"}))
+	assert.Equal(t, "15m", config.Format(15*time.Minute))
+	assert.Equal(t, "1h30m", config.Format(90*time.Minute))
+	assert.Equal(t, "a, b", config.Format([]string{"a", "b"}))
 	assert.Equal(t, "text", config.Format("text"))
 }
