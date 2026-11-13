@@ -256,6 +256,22 @@ type SettingsData struct {
 	Groups        []SettingsGroup
 	APIKey        string
 	AdminUsername string
+	Reclassify    ReclassifyStatus
+}
+
+// ReclassifyStatus is the state of the maintenance pass shown on the settings
+// page.
+type ReclassifyStatus struct {
+	Running     bool
+	Apply       bool
+	Scanned     int
+	Matched     int
+	Changed     int
+	Written     int
+	Transitions []string
+	Samples     []string
+	Finished    string
+	Failure     string
 }
 
 // SettingsGroup is one card of related settings.

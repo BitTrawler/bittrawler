@@ -22,7 +22,6 @@
 <section class="card" id="{{.Slug}}">
   <header class="card-head">
     <h2>{{.Name}}</h2>
-    <p>{{.Description}}</p>
   </header>
   <form method="post" action="/settings">
     <input type="hidden" name="group" value="{{.Slug}}">
@@ -103,6 +102,40 @@
       <button class="button secondary" type="submit">Rotate Key</button>
     </form>
   </div>
+</section>
+
+<section class="card" id="reclassify">
+  <header class="card-head">
+    <h2>Reclassify Index</h2>
+  </header>
+  {{if .Reclassify.Running}}
+  <p class="notice" data-reclassify-running>Reclassifying: {{.Reclassify.Scanned}} scanned, {{.Reclassify.Changed}} changed{{if .Reclassify.Apply}}, {{.Reclassify.Written}} written{{end}}.</p>
+  {{else}}
+  <div class="key-row">
+    <form method="post" action="/settings/reclassify">
+      <input type="hidden" name="action" value="preview">
+      <button class="button secondary" type="submit">Preview Changes</button>
+    </form>
+    <form method="post" action="/settings/reclassify">
+      <input type="hidden" name="action" value="apply">
+      <button class="button secondary" type="submit">Apply Reclassification</button>
+    </form>
+  </div>
+  {{end}}
+  {{if .Reclassify.Finished}}
+  <p class="muted small">Last pass {{.Reclassify.Finished}}: {{.Reclassify.Scanned}} scanned, {{.Reclassify.Changed}} changed, {{.Reclassify.Written}} written.</p>
+  {{end}}
+  {{if .Reclassify.Failure}}<p class="notice">{{.Reclassify.Failure}}</p>{{end}}
+  {{if .Reclassify.Transitions}}
+  <ul class="changes">
+    {{range .Reclassify.Transitions}}<li>{{.}}</li>{{end}}
+  </ul>
+  {{end}}
+  {{if .Reclassify.Samples}}
+  <ul class="changes">
+    {{range .Reclassify.Samples}}<li>{{.}}</li>{{end}}
+  </ul>
+  {{end}}
 </section>
 
 <section class="card" id="administrator">

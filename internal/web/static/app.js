@@ -387,6 +387,12 @@ async function refreshFeed() {
   }
 }
 
+// A reclassification pass runs in the background; keep the page current until
+// it finishes.
+if (document.querySelector('[data-reclassify-running]')) {
+  window.setTimeout(() => window.location.reload(), 3000);
+}
+
 if (document.getElementById('feed')) {
   refreshFeed();
   window.setInterval(refreshFeed, 3000);

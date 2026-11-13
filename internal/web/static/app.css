@@ -860,6 +860,13 @@ input::placeholder {
   flex: none;
 }
 
+.changes {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
 .button.is-copied {
   color: var(--accent);
   border-color: var(--accent-line);

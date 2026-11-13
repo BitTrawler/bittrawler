@@ -136,6 +136,14 @@ func TestStateChangingPostsRefuseForeignOrigins(t *testing.T) {
 			genuineCode: http.StatusSeeOther,
 		},
 		{
+			name:        "reclassify",
+			path:        "/settings/reclassify",
+			refusedForm: url.Values{"action": {"preview"}},
+			genuineForm: url.Values{"action": {"preview"}},
+			withSession: true,
+			genuineCode: http.StatusSeeOther,
+		},
+		{
 			// Last: saving the admin account rotates the session key and signs
 			// this browser in again, which would invalidate the cookie used by
 			// every route after it.

@@ -34,6 +34,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /settings", a.handleSettingsSave)
 	mux.HandleFunc("POST /settings/torznab/rotate", a.handleRotateAPIKey)
 	mux.HandleFunc("POST /settings/admin", a.handleAdminSave)
+	mux.HandleFunc("POST /settings/reclassify", a.handleReclassify)
 	mux.HandleFunc("POST /crawl", a.handleCrawl)
 	mux.HandleFunc("GET /{$}", a.handleOverview)
 

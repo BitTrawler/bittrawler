@@ -81,6 +81,10 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 		notice = "The API key was rotated. Update Prowlarr and any other client."
 	case r.URL.Query().Get("admin") == "1":
 		notice = "The administrator account was updated and other sessions were signed out."
+	case r.URL.Query().Get("reclassify") == "started":
+		notice = "Reclassification started. The page refreshes when it finishes."
+	case r.URL.Query().Get("reclassify") == "busy":
+		notice = "A reclassification pass is already running."
 	}
 
 	data := a.buildSettingsData(a.currentConfig(), a.sourceSnapshot(), advanced, notice, "")
@@ -249,6 +253,7 @@ func (a *App) buildSettingsData(cfg config.Config, sources map[string]config.Sou
 		Error:         problem,
 		APIKey:        cfg.Torznab.APIKey,
 		AdminUsername: cfg.Web.AdminUsername,
+		Reclassify:    a.settingsReclassify(),
 	}
 
 	for _, spec := range settingsGroups {

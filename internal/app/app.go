@@ -75,6 +75,8 @@ type App struct {
 	crawler atomic.Pointer[dhtcrawler.Crawler]
 	stats   statsCache
 
+	reclassify reclassifyState
+
 	crawlMu      sync.Mutex
 	crawlCancel  context.CancelFunc
 	crawlDone    chan struct{}
