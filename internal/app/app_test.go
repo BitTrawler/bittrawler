@@ -26,7 +26,10 @@ func noRedirect() *http.Client {
 		CheckRedirect: func(*http.Request, []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
-		Timeout: 5 * time.Second,
+		// Generous: some handlers run bcrypt at cost 12, and a loaded CI
+		// runner (or the race detector) makes that slow. A real hang still
+		// fails the test's own deadline.
+		Timeout: 30 * time.Second,
 	}
 }
 
