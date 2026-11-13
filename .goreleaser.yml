@@ -1,0 +1,86 @@
+# GoReleaser v2 configuration: archives, checksums, the GitHub release and the
+# multi-arch image on GHCR. It runs only from .github/workflows/release.yml, on a
+# version tag.
+
+version: 2
+
+project_name: bittrawler
+
+builds:
+  - id: bittrawler
+    main: .
+    binary: bittrawler
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    # Version, commit and date are read by `bittrawler version` and /version.
+    ldflags:
+      - -s -w
+      - -X github.com/BitTrawler/bittrawler/internal/version.Version={{ .Version }}
+      - -X github.com/BitTrawler/bittrawler/internal/version.Commit={{ .FullCommit }}
+      - -X github.com/BitTrawler/bittrawler/internal/version.Date={{ .Date }}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # Reproducible archives: stamp the commit time rather than the build time.
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: bittrawler
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    format_overrides:
+      # Windows users expect a zip.
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+      - LICENSE
+      - NOTICE
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+# The multi-arch image. This uses dockers_v2, the v2 schema's buildx-based
+# multi-platform build: the older dockers section (deprecated since v2.12)
+# builds one platform per entry and cannot produce a manifest list in one build.
+#
+# The Dockerfile is multi-stage and compiles from source, but goreleaser's
+# Docker context normally holds only the prebuilt binaries, so the source the
+# build stage needs is listed under extra_files. That means the image build
+# repeats the Go compile; the alternative is a second Dockerfile that copies the
+# binary goreleaser already built.
+dockers_v2:
+  - id: bittrawler
+    dockerfile: Dockerfile
+    images:
+      - ghcr.io/bittrawler/bittrawler
+    tags:
+      - latest
+      - "v{{ .Version }}"
+      - "{{ .Major }}.{{ .Minor }}"
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    build_args:
+      VERSION: "{{ .Version }}"
+      COMMIT: "{{ .FullCommit }}"
+      DATE: "{{ .Date }}"
+    # No SBOM is attached: the release does not install syft.
+    sbom: false
+    extra_files:
+      - go.mod
+      - go.sum
+      - main.go
+      - commands.go
+      - doctor.go
+      - diskfree_other.go
+      - diskfree_unix.go
+      - internal

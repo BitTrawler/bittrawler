@@ -1,0 +1,26 @@
+# Keep the build context small, and never bake local state into an image.
+
+# Version control and CI metadata are not build input.
+.git
+.github
+
+# Build output.
+/bittrawler
+/dist/
+
+# Runtime state. The image must never contain a data directory or a database.
+/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Local and temporary material.
+.env
+.DS_Store
+*.log
+*.tmp
+*.test
+*.prof
+coverage.*
+/screens/
+/screenshots/

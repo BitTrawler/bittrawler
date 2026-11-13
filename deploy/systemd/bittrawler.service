@@ -1,0 +1,51 @@
+# BitTrawler systemd unit for the bare-binary deployment.
+#
+# Install:
+#   1. Create the dedicated account:
+#        useradd --system --home /var/lib/bittrawler --shell /usr/sbin/nologin bittrawler
+#   2. Put the binary at /usr/local/bin/bittrawler (owned by root, mode 0755) and
+#      check it against checksums.txt from the release archive before enabling
+#      the unit.
+#   3. cp bittrawler.service /etc/systemd/system/ && systemctl daemon-reload
+#   4. systemctl enable --now bittrawler
+#
+# Data lives in /var/lib/bittrawler. StateDirectory creates that directory and
+# hands it to the service account, so it survives package removal and is the
+# only path the process may write to.
+
+[Unit]
+Description=BitTrawler DHT crawler and indexer
+Documentation=https://github.com/BitTrawler/bittrawler
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bittrawler
+Group=bittrawler
+
+# The bootstrap flag points the process at the state directory; the default
+# ./data would otherwise resolve relative to the working directory.
+ExecStart=/usr/local/bin/bittrawler run -data /var/lib/bittrawler
+WorkingDirectory=/var/lib/bittrawler
+
+StateDirectory=bittrawler
+StateDirectoryMode=0700
+
+# Uncomment to pin the log level instead of setting it in the web interface.
+# Environment=BITTRAWLER_LOG_LEVEL=info
+
+Restart=on-failure
+RestartSec=5s
+# The process drains the crawler for up to thirty seconds on SIGTERM.
+TimeoutStopSec=35s
+
+# Hardening: the process needs to write only its own data directory.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/bittrawler
+
+[Install]
+WantedBy=multi-user.target

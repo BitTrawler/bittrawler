@@ -1,0 +1,35 @@
+# Example Docker Compose service for BitTrawler. It is the primary deployment:
+# one image, one volume, one process. Copy the file to the Docker host and
+# adjust the volume path.
+
+services:
+  bittrawler:
+    image: ghcr.io/bittrawler/bittrawler:latest
+    container_name: bittrawler
+    restart: unless-stopped
+    # The application stops cleanly and waits for the crawler's last batches;
+    # allow it the same thirty seconds the image is built around.
+    stop_grace_period: 30s
+    # The image runs as 65532; a bind mount keeps the host's ownership, so run as
+    # the host user that owns the directory instead.
+    user: "1000:1000"
+    ports:
+      - "6684:6684/tcp"
+      # Forwarding the UDP port is not required to crawl, but it makes this node
+      # useful to the DHT.
+      - "6684:6684/udp"
+    volumes:
+      # The host directory must exist before the first start, must be writable by
+      # uid/gid 1000:1000, and must be on a local filesystem. SQLite locking over
+      # SMB or NFS is not reliable and can corrupt the store; never use a network
+      # mount here.
+      - /volume2/bittrawler:/data
+    environment:
+      TZ: Europe/London
+      # Optional: pin a value from the deployment instead of the web interface.
+      # BITTRAWLER_STORE_RETENTION_MONTHS: "12"
+    healthcheck:
+      test: ["CMD", "/bittrawler", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
