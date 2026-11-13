@@ -1,72 +1,60 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="bittrawler app icon">
-<title>bittrawler — app icon</title>
-<rect width="1024" height="1024" fill="#071426"/>
-<rect x="66" y="66" width="892" height="892" rx="159" fill="none" stroke="#18DCC7" stroke-width="18"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="BitTrawler app icon">
+<title>BitTrawler — app icon</title>
+<rect width="1024" height="1024" fill="#071426" />
+<rect x="66" y="66" width="892" height="892" rx="159" fill="none" stroke="#18DCC7" stroke-width="18" />
 <g transform="translate(123 300) scale(1.125)"><g id="trawler-mark" stroke-linejoin="round" stroke-linecap="round">
-  <!-- Horizon / twin waves -->
-  <path fill="#18DCC7" d="M 28 361 C 104 360 128 328 188 332 C 254 336 279 377 382 363 C 323 390 278 383 214 361 C 141 339 105 382 28 361 Z"/>
-  <path fill="#18DCC7" d="M 174 392 C 237 373 277 409 343 392 C 295 418 242 391 174 392 Z"/>
-
-  <!-- Classic original net: curved suspended DHT mesh, manually redrawn
-       to match the first visual concept. No pixel tracing. -->
-  <g id="classic-network-net" fill="none" stroke="#18DCC7" stroke-width="7.1" stroke-linecap="round" stroke-linejoin="round">
-    <!-- Suspension from crane ring, three graceful strands -->
-    <path d="M 459 104 C 461 162 462 205 455 250"/>
-    <path d="M 459 104 C 468 157 490 197 513 222"/>
-    <path d="M 459 104 C 485 156 523 198 556 210"/>
-
-    <!-- Draped upper rim of the net -->
-    <path d="M 405 315 C 427 296 443 268 455 250"/>
-    <path d="M 455 250 Q 483 232 513 222 Q 539 210 556 210"/>
-    <path d="M 556 210 Q 590 223 619 252 Q 656 280 684 317"/>
-
-    <!-- Rounded, sagging lower rim -->
-    <path d="M 405 315 Q 447 335 482 326 Q 538 359 582 356 Q 636 351 684 317"/>
-
-    <!-- Mesh with the irregular, flowing pattern of the original -->
-    <path d="M 455 250 C 462 288 469 305 482 326"/>
-    <path d="M 513 222 C 514 246 508 274 505 296"/>
-    <path d="M 505 296 L 482 326"/>
-    <path d="M 513 222 C 531 241 547 271 565 286"/>
-    <path d="M 556 210 Q 559 247 565 286"/>
-    <path d="M 619 252 L 565 286"/>
-    <path d="M 565 286 Q 525 308 482 326"/>
-    <path d="M 565 286 Q 577 324 582 356"/>
-    <path d="M 565 286 Q 625 310 684 317"/>
+      
+      <path fill="#18DCC7" d="M 28 361 C 104 360 128 328 188 332 C 254 336 279 377 382 363 C 323 390 278 383 214 361 C 141 339 105 382 28 361 Z" id="path1" />
+      <path fill="#18DCC7" d="M 174 392 C 237 373 277 409 343 392 C 295 418 242 391 174 392 Z" id="path2" />
+      
+      <g id="classic-network-net" fill="none" stroke="#18DCC7" stroke-width="7.1" stroke-linecap="round" stroke-linejoin="round">
+        
+        <path d="M 459 104 C 461 162 462 205 455 250" id="path3" />
+        <path d="M 459 104 C 468 157 490 197 513 222" id="path4" />
+        <path d="M 459 104 C 485 156 523 198 556 210" id="path5" />
+        
+        <path d="M 405 315 C 427 296 443 268 455 250" id="path6" />
+        <path d="M 455 250 Q 483 232 513 222 Q 539 210 556 210" id="path7" />
+        <path d="M 556 210 Q 590 223 619 252 Q 656 280 684 317" id="path8" />
+        
+        <path d="M 405 315 Q 447 335 482 326 Q 538 359 582 356 Q 636 351 684 317" id="path9" />
+        
+        <path d="M 455 250 C 462 288 469 305 482 326" id="path10" />
+        <path d="M 513 222 C 514 246 508 274 505 296" id="path11" />
+        <path d="M 505 296 L 482 326" id="path12" />
+        <path d="M 513 222 C 531 241 547 271 565 286" id="path13" />
+        <path d="M 556 210 Q 559 247 565 286" id="path14" />
+        <path d="M 619 252 L 565 286" id="path15" />
+        <path d="M 565 286 Q 525 308 482 326" id="path16" />
+        <path d="M 565 286 Q 577 324 582 356" id="path17" />
+        <path d="M 565 286 Q 625 310 684 317" id="path18" />
+      </g>
+      <g fill="#18DCC7" id="network-nodes">
+        <circle cx="405" cy="315" r="11.5" id="circle18" />
+        <circle cx="455" cy="250" r="12" id="circle19" />
+        <circle cx="513" cy="222" r="12" id="circle20" />
+        <circle cx="556" cy="210" r="12" id="circle21" />
+        <circle cx="619" cy="252" r="12" id="circle22" />
+        <circle cx="684" cy="317" r="12" id="circle23" />
+        <circle cx="482" cy="326" r="12" id="circle24" />
+        <circle cx="505" cy="296" r="11" id="circle25" />
+        <circle cx="565" cy="286" r="12" id="circle26" />
+        <circle cx="582" cy="356" r="12" id="circle27" />
+      </g>
+      
+      <path fill="#F8FAFD" d="M 46 219 L 145 229 L 164 178 L 285 178 L 295 263 L 376 285 L 351 309 L 89 257 L 113 323 L 87 334 Z" id="path27" />
+      
+      <path fill="#F8FAFD" d="M 149 165 H 295 L 303 178 H 145 Z" id="path28" />
+      <g fill="#071426" id="g31">
+        <path d="M 175 190 L 206 190 L 196 218 L 165 218 Z" id="path29" />
+        <path d="M 214 190 L 245 190 L 235 218 L 204 218 Z" id="path30" />
+        <path d="M 253 190 L 282 190 L 281 218 L 243 218 Z" id="path31" />
+      </g>
+      
+      <path id="mast-radar" fill="#F8FAFD" d="M 201 101 H 246 V 111 H 229 L 240 166 H 229 L 218 111 H 201 Z" /><path fill="#F8FAFD" d="M 300 236 L 446 96 L 461 113 L 309 260 Z" id="path36" />
+      <path fill="#F8FAFD" d="M 351 285 L 451 107 L 466 114 L 370 290 Z" id="path37" />
+      <circle cx="459" cy="104" r="21" fill="#F8FAFD" id="circle37" />
+      <circle cx="459" cy="104" r="11" fill="#071426" id="circle38" />
+    </g>
   </g>
-  <g fill="#18DCC7" id="network-nodes">
-    <circle cx="405" cy="315" r="11.5"/>
-    <circle cx="455" cy="250" r="12"/>
-    <circle cx="513" cy="222" r="12"/>
-    <circle cx="556" cy="210" r="12"/>
-    <circle cx="619" cy="252" r="12"/>
-    <circle cx="684" cy="317" r="12"/>
-    <circle cx="482" cy="326" r="12"/>
-    <circle cx="505" cy="296" r="11"/>
-    <circle cx="565" cy="286" r="12"/>
-    <circle cx="582" cy="356" r="12"/>
-  </g>
-
-  <!-- Boat hull, with pronounced bow and clean stern -->
-  <path fill="#F8FAFD" d="M 46 219 L 145 229 L 164 178 L 285 178 L 295 263 L 376 285 L 351 309 L 89 257 L 113 323 L 87 334 Z"/>
-  <!-- Cabin lintel, three consistent angled windows -->
-  <path fill="#F8FAFD" d="M 149 165 H 295 L 303 177 H 145 Z"/>
-  <g fill="#071426">
-    <path d="M 175 190 L 206 190 L 196 218 L 165 218 Z"/>
-    <path d="M 214 190 L 245 190 L 235 218 L 204 218 Z"/>
-    <path d="M 253 190 L 282 190 L 281 218 L 243 218 Z"/>
-  </g>
-  <!-- Mast and mastbar, square-ended like a pictogram -->
-  <g fill="#F8FAFD">
-    <path d="M 225 65 H 236 V 164 H 225 Z"/>
-    <path d="M 204 87 H 257 V 98 H 204 Z"/>
-    <path d="M 190 149 H 270 V 160 H 190 Z"/>
-    <path d="M 195 135 H 219 V 143 H 195 Z"/>
-  </g>
-  <!-- A-frame crane boom, high-contrast profile -->
-  <path fill="#F8FAFD" d="M 300 236 L 446 96 L 461 113 L 309 260 Z"/>
-  <path fill="#F8FAFD" d="M 351 285 L 451 107 L 466 114 L 370 290 Z"/>
-  <circle cx="459" cy="104" r="21" fill="#F8FAFD"/>
-  <circle cx="459" cy="104" r="11" fill="#071426"/>
-</g></g>
 </svg>
