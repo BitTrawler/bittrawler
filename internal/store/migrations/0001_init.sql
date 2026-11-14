@@ -57,3 +57,15 @@ CREATE TRIGGER torrents_ad AFTER DELETE ON torrents BEGIN
     VALUES ('delete', old.id, old.name, old.seasons, old.episodes, old.kind);
 END;
 -- +goose StatementEnd
+
+-- The search index is external content, so an UPDATE has to be mirrored into
+-- it explicitly: reclassifying a row changes its name, season, episode and kind
+-- tokens, and the old tokens must stop matching.
+-- +goose StatementBegin
+CREATE TRIGGER torrents_au AFTER UPDATE ON torrents BEGIN
+    INSERT INTO torrents_fts (torrents_fts, rowid, name, seasons, episodes, kind)
+    VALUES ('delete', old.id, old.name, old.seasons, old.episodes, old.kind);
+    INSERT INTO torrents_fts (rowid, name, seasons, episodes, kind)
+    VALUES (new.id, new.name, new.seasons, new.episodes, new.kind);
+END;
+-- +goose StatementEnd
