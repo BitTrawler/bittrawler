@@ -2,7 +2,7 @@
 <header class="page-head">
   <div>
     <h1>Search</h1>
-    <p class="page-sub">{{if .Error}}{{.Error}}{{else if .Query}}{{.Total}} torrents matched.{{else if .Results}}{{.Total}} torrents indexed.{{else}}Browse the index, or search by name, season or episode.{{end}}</p>
+    {{if .Error}}<p class="page-sub">{{.Error}}</p>{{else if .Query}}<p class="page-sub">{{.Total}} torrents matched.</p>{{else if .Results}}<p class="page-sub">{{.Total}} torrents indexed.</p>{{end}}
   </div>
 </header>
 

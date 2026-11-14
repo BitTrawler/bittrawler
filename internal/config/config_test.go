@@ -129,7 +129,6 @@ func TestSettingsRegistry(t *testing.T) {
 	envNames := make(map[string]struct{}, len(settings))
 
 	for _, setting := range settings {
-		assert.NotEmpty(t, setting.Usage, "%s has no usage text", setting.Key)
 		assert.NotContains(t, setting.Usage, "label:", "%s has a mangled tag", setting.Key)
 		assert.NotEmpty(t, setting.Group, "%s has no group", setting.Key)
 

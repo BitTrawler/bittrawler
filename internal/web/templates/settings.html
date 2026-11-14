@@ -2,7 +2,6 @@
 <header class="page-head">
   <div>
     <h1>Settings</h1>
-    <p class="page-sub">Changes save immediately. Those marked restart apply after a restart.</p>
   </div>
   <div class="page-actions">
     <a class="button secondary" href="{{if .Advanced}}/settings{{else}}/settings?advanced=1{{end}}">{{if .Advanced}}Hide Advanced{{else}}Show Advanced{{end}}</a>
@@ -32,7 +31,7 @@
       <div class="setting">
         <div class="setting-text">
           <span class="setting-label">{{.Label}}{{if .SourceLabel}}<span class="tag">{{.SourceLabel}}</span>{{end}}</span>
-          <p class="setting-help">{{.Usage}}</p>
+          {{if .Usage}}<p class="setting-help">{{.Usage}}</p>{{end}}
         </div>
         <div class="setting-control">
           <code class="value-static">{{.Value}}</code>
@@ -42,7 +41,7 @@
       <label class="setting">
         <div class="setting-text">
           <span class="setting-label">{{.Label}}{{if .Restart}}<span class="tag warn">restart</span>{{end}}</span>
-          <p class="setting-help">{{.Usage}}</p>
+          {{if .Usage}}<p class="setting-help">{{.Usage}}</p>{{end}}
         </div>
         <div class="setting-control">
           <input class="switch" type="checkbox" name="{{.Key}}" value="true"{{if .Checked}} checked{{end}}>
@@ -52,7 +51,7 @@
       <div class="setting">
         <div class="setting-text">
           <span class="setting-label">{{.Label}}{{if .Restart}}<span class="tag warn">restart</span>{{end}}</span>
-          <p class="setting-help">{{.Usage}}</p>
+          {{if .Usage}}<p class="setting-help">{{.Usage}}</p>{{end}}
         </div>
         <div class="setting-control checks">
           {{$field := .}}{{range .Choices}}
@@ -64,7 +63,7 @@
       <label class="setting">
         <div class="setting-text">
           <span class="setting-label">{{.Label}}{{if .Restart}}<span class="tag warn">restart</span>{{end}}</span>
-          <p class="setting-help">{{.Usage}}</p>
+          {{if .Usage}}<p class="setting-help">{{.Usage}}</p>{{end}}
         </div>
         <div class="setting-control">
           <select name="{{.Key}}">
@@ -76,7 +75,7 @@
       <label class="setting">
         <div class="setting-text">
           <span class="setting-label">{{.Label}}{{if .Restart}}<span class="tag warn">restart</span>{{end}}</span>
-          <p class="setting-help">{{.Usage}}</p>
+          {{if .Usage}}<p class="setting-help">{{.Usage}}</p>{{end}}
         </div>
         <div class="setting-control">
           <textarea name="{{.Key}}" rows="2" spellcheck="false">{{.Value}}</textarea>
@@ -86,7 +85,7 @@
       <label class="setting">
         <div class="setting-text">
           <span class="setting-label">{{.Label}}{{if .Restart}}<span class="tag warn">restart</span>{{end}}</span>
-          <p class="setting-help">{{.Usage}}</p>
+          {{if .Usage}}<p class="setting-help">{{.Usage}}</p>{{end}}
         </div>
         <div class="setting-control">
           <input type="{{.Type}}" name="{{.Key}}" value="{{.Value}}"{{if .Placeholder}} placeholder="{{.Placeholder}}"{{end}} spellcheck="false" autocomplete="off">

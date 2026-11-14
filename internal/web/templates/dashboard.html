@@ -73,7 +73,6 @@
         <button class="button secondary small" type="button" data-copy="{{.APIKey}}">Copy</button>
       </div>
     </div>
-    <p class="muted small">In Prowlarr, add a Torznab indexer and paste the URL and the key.</p>
   </section>
 
   <section class="card">
@@ -116,7 +115,6 @@
         {{range .History}}<span class="bar" style="height: {{.}}%"></span>{{end}}
       </div>
       {{if .History}}
-      <p class="muted small">One bar per five-second sample; taller bars mean more torrents written in that interval.</p>
       {{else}}
       <p class="muted small">Waiting for the crawler's first samples.</p>
       {{end}}
@@ -153,7 +151,6 @@
         </tbody>
       </table>
     </div>
-    <p class="muted small">An expired month is unlinked at the next retention pass.</p>
   </section>
 
   <section class="card">
@@ -174,7 +171,6 @@
         </tbody>
       </table>
     </div>
-    <p class="muted small">Category is advisory; it filters Torznab and search.</p>
   </section>
 </div>
 
