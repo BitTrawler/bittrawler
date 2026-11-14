@@ -48,6 +48,18 @@
           <input class="switch" type="checkbox" name="{{.Key}}" value="true"{{if .Checked}} checked{{end}}>
         </div>
       </label>
+      {{else if eq .Type "checks"}}
+      <div class="setting">
+        <div class="setting-text">
+          <span class="setting-label">{{.Label}}{{if .Restart}}<span class="tag warn">restart</span>{{end}}</span>
+          <p class="setting-help">{{.Usage}}</p>
+        </div>
+        <div class="setting-control checks">
+          {{$field := .}}{{range .Choices}}
+          <label class="check"><input type="checkbox" name="{{$field.Key}}" value="{{.Value}}"{{if .Checked}} checked{{end}}> {{.Label}}</label>
+          {{end}}
+        </div>
+      </div>
       {{else if eq .Type "enum"}}
       <label class="setting">
         <div class="setting-text">

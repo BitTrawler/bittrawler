@@ -15,6 +15,7 @@ import (
 
 	"github.com/BitTrawler/bittrawler/internal/config"
 	"github.com/BitTrawler/bittrawler/internal/web"
+	"slices"
 )
 
 // settingsGroupSpec describes one card of the settings page.
@@ -231,6 +232,13 @@ func formValue(setting config.Setting, form url.Values) (string, bool) {
 		return "false", true
 	}
 
+	if setting.Type == config.TypeStrings {
+		// A checkbox list posts one value per ticked box, and none when every
+		// box is cleared, so the absence of the key has to mean an empty list
+		// rather than "leave the setting alone".
+		return strings.Join(form[setting.Key], ", "), true
+	}
+
 	if !form.Has(setting.Key) {
 		return "", false
 	}
@@ -296,11 +304,16 @@ func settingsField(cfg config.Config, sources map[string]config.Source, setting 
 		Advanced: setting.Advanced,
 	}
 
+	value, _ := config.Get(cfg, setting.Key)
+
 	control := "text"
 
 	switch {
 	case setting.Type == config.TypeBool:
 		control = "bool"
+	case setting.Type == config.TypeStrings && len(setting.Enum) > 0:
+		control = "checks"
+		field.Choices = settingChoices(setting.Enum, value)
 	case len(setting.Enum) > 0:
 		control = "enum"
 		field.Options = setting.Enum
@@ -312,7 +325,6 @@ func settingsField(cfg config.Config, sources map[string]config.Source, setting 
 		control = "password"
 	}
 
-	value, _ := config.Get(cfg, setting.Key)
 	field.Value = config.Format(value)
 
 	if setting.Type == config.TypeBool {
@@ -355,6 +367,40 @@ func settingsField(cfg config.Config, sources map[string]config.Source, setting 
 	field.Type = control
 
 	return field
+}
+
+// scriptLabels are the display labels for the writing-system list.
+var scriptLabels = map[string]string{
+	"cjk":        "CJK",
+	"hangul":     "Hangul",
+	"cyrillic":   "Cyrillic",
+	"arabic":     "Arabic",
+	"hebrew":     "Hebrew",
+	"thai":       "Thai",
+	"devanagari": "Devanagari",
+	"greek":      "Greek",
+	"nonlatin":   "Non-Latin",
+}
+
+// settingChoices builds the checkbox list for a list setting.
+func settingChoices(options []string, value any) []web.SettingChoice {
+	selected, _ := value.([]string)
+	choices := make([]web.SettingChoice, 0, len(options))
+
+	for _, option := range options {
+		label := scriptLabels[option]
+		if label == "" {
+			label = strings.ToUpper(option[:1]) + option[1:]
+		}
+
+		choices = append(choices, web.SettingChoice{
+			Value:   option,
+			Label:   label,
+			Checked: slices.Contains(selected, option),
+		})
+	}
+
+	return choices
 }
 
 // labelOf turns the last part of a setting key into a label: workers.metadata

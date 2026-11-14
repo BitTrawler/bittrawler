@@ -529,6 +529,19 @@ code {
   font-size: 13.5px;
 }
 
+.setting-control.checks {
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
 .setting-control select {
   padding-right: 8px;
 }

@@ -105,7 +105,7 @@ type TMDB struct {
 // Classify configures what is dropped at intake instead of being indexed.
 type Classify struct {
 	DropAdult   bool     `key:"drop_adult" label:"Drop Adult Torrents"  usage:"Drop adult torrents instead of indexing them as XXX."`
-	DropScripts []string `key:"drop_scripts" usage:"Writing systems to drop: cjk, hangul, cyrillic, arabic, hebrew, thai, devanagari, greek, nonlatin. Empty keeps everything."`
+	DropScripts []string `key:"drop_scripts" usage:"Writing systems to drop. Empty keeps everything." enum:"cjk,hangul,cyrillic,arabic,hebrew,thai,devanagari,greek,nonlatin"`
 }
 
 // Default returns the settings new installations start with.
