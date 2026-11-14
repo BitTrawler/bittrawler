@@ -80,6 +80,12 @@ func Run(ctx context.Context, torrents *store.Store, classifier *classify.Classi
 
 		result := classifier.Classify(torrent.Name, storedFiles(torrent))
 
+		// Adult evidence can sit in the full file list, which the store does not
+		// keep. A pass can add adult evidence, but it cannot take it away.
+		if torrent.Category == classify.CategoryXXX && result.Category != classify.CategoryXXX {
+			return nil
+		}
+
 		if slices.Equal(result.Seasons, torrent.Seasons) &&
 			slices.Equal(result.Episodes, torrent.Episodes) &&
 			result.Category == torrent.Category &&

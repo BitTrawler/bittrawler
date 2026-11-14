@@ -145,7 +145,7 @@ var (
 		"slut*", "squirting", "squirt*", "strapon", "strap on", "submissive",
 		"swingers?", "tgirl", "threesome", "tits?", "tranny", "urine",
 		"vibrator*", "*wank*", "whore*", "hentai", "ecchi", "uncensored", "uncen*",
-		"babes ?com", "av ?joyuu",
+		"babes ?com", "av ?joyuu", "brutal ?invasion",
 		"ahegao", "yaoi", "yuri", "bbw", "gilf", "camgirl*",
 		// Studios and sites.
 		"adulttime", "anilos", "atkgalleria*", "blacked", "bongacams",
