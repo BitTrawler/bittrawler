@@ -72,7 +72,6 @@ func (a *App) handleOverview(w http.ResponseWriter, r *http.Request) {
 			BytesPerRow: humanBytes(int64(math.Round(snapshot.BytesPerRow))),
 			Nodes:       humanCount(snapshot.Nodes),
 			Crawled:     humanCount(int(snapshot.Counters.TorrentsPersisted)),
-			Shards:      len(snapshot.Months),
 		},
 		Recent:          a.recentTorrents(r.Context(), feedSize),
 		Pipeline:        pipelineGroups(snapshot),

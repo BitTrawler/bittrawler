@@ -35,12 +35,12 @@
   <div class="tile">
     <div class="tile-label">Database</div>
     <div class="tile-value" data-stat="database">{{.Stats.Database}}</div>
-    <div class="tile-note">{{.Stats.Shards}} {{if eq .Stats.Shards 1}}month{{else}}months{{end}}</div>
+    <div class="tile-note">on disk</div>
   </div>
   <div class="tile">
-    <div class="tile-label">Per Torrent</div>
+    <div class="tile-label">Stored Per Torrent</div>
     <div class="tile-value" data-stat="bytes-per-torrent">{{.Stats.BytesPerRow}}</div>
-    <div class="tile-note">written on average</div>
+    <div class="tile-note">on average</div>
   </div>
   <div class="tile">
     <div class="tile-label">DHT Nodes</div>

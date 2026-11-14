@@ -95,7 +95,6 @@ func TestRenderOverview(t *testing.T) {
 			Stored:   "12,345",
 			Rate:     "6.0",
 			Database: "1.2 GiB",
-			Shards:   2,
 			Crawled:  "120",
 		},
 		Recent: []web.TorrentRow{

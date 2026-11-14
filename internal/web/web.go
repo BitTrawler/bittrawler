@@ -131,7 +131,6 @@ type OverviewStats struct {
 	BytesPerRow string
 	Nodes       string
 	Crawled     string
-	Shards      int
 }
 
 // CounterItem is one named counter in a pipeline group or the runtime list.
@@ -296,4 +295,12 @@ type SettingsField struct {
 	Advanced    bool
 	Restart     bool
 	Options     []string
+	Choices     []SettingChoice
+}
+
+// SettingChoice is one checkbox of a list setting.
+type SettingChoice struct {
+	Value   string
+	Label   string
+	Checked bool
 }

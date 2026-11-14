@@ -140,6 +140,8 @@ func (a *App) refreshStats(ctx context.Context) {
 
 	snapshot.Months = a.torrentStore.ShardMonths()
 
+	lastDBBytes := int64(0)
+
 	stats, err := a.torrentStore.Stats(ctx)
 	if err != nil {
 		a.logger.Warn("count the store", "error", err)
@@ -147,12 +149,13 @@ func (a *App) refreshStats(ctx context.Context) {
 	} else {
 		snapshot.StoreRows = stats.Rows
 		snapshot.StoreBytes = stats.DBBytes + stats.WALBytes
+		lastDBBytes = stats.DBBytes
 		snapshot.Shards = append([]store.ShardStats{}, stats.Shards...)
 		snapshot.Categories = stats.Categories
 	}
 
-	if snapshot.StoreRows > 0 {
-		snapshot.BytesPerRow = float64(snapshot.StoreBytes) / float64(snapshot.StoreRows)
+	if snapshot.StoreRows > 0 && lastDBBytes > 0 {
+		snapshot.BytesPerRow = float64(lastDBBytes) / float64(snapshot.StoreRows)
 	} else if persisted > 0 {
 		snapshot.BytesPerRow = float64(snapshot.StoreBytes) / float64(persisted)
 	}
