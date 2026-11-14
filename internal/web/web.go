@@ -263,19 +263,32 @@ type SettingsData struct {
 // ReclassifyStatus is the state of the maintenance pass shown on the settings
 // page.
 type ReclassifyStatus struct {
-	Running     bool
-	Apply       bool
-	Cleanup     bool
-	Scanned     int
-	Matched     int
-	Changed     int
-	Written     int
-	Deleted     int
-	Transitions []string
-	Samples     []string
-	Rejected    []string
-	Finished    string
-	Failure     string
+	Running      bool
+	Apply        bool
+	Cleanup      bool
+	Scanned      int
+	Total        int
+	Percent      int
+	Matched      int
+	Changed      int
+	Written      int
+	Deleted      int
+	Transitions  []string
+	Samples      []ReclassifyRow
+	TokenUpdates []ReclassifyRow
+	Rejected     []ReclassifyRow
+	Finished     string
+	Failure      string
+}
+
+// ReclassifyRow is one torrent listed by the maintenance pass, linked back to
+// its detail page.
+type ReclassifyRow struct {
+	Hash   string
+	Name   string
+	From   string
+	To     string
+	Reason string
 }
 
 // SettingsGroup is one card of related settings.

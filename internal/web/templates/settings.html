@@ -120,8 +120,10 @@
     <h2>Reclassify Index</h2>
   </header>
   {{if .Reclassify.Running}}
-  <p class="notice" data-reclassify-running>{{if .Reclassify.Cleanup}}Removing rejected rows{{else}}Reclassifying{{end}}: {{.Reclassify.Scanned}} scanned, {{.Reclassify.Changed}} changed{{if .Reclassify.Apply}}, {{.Reclassify.Written}} written{{end}}{{if .Reclassify.Deleted}}, {{.Reclassify.Deleted}} deleted{{end}}{{if .Reclassify.Rejected}}, {{len .Reclassify.Rejected}} rejected{{end}}.</p>
+  <p class="notice" data-reclassify-running>{{if .Reclassify.Cleanup}}Removing rejected torrents{{else if .Reclassify.Apply}}Applying classifications{{else}}Scanning the index{{end}}{{if .Reclassify.Total}}: {{.Reclassify.Scanned}} of {{.Reclassify.Total}} rows, {{.Reclassify.Percent}}%{{else}}: {{.Reclassify.Scanned}} rows{{end}}{{if .Reclassify.Changed}}, {{.Reclassify.Changed}} changed{{end}}{{if .Reclassify.Deleted}}, {{.Reclassify.Deleted}} deleted{{end}}.</p>
+  {{if .Reclassify.Total}}<progress class="progress" value="{{.Reclassify.Scanned}}" max="{{.Reclassify.Total}}">{{.Reclassify.Percent}}%</progress>{{end}}
   {{else}}
+  <p class="muted small">Preview writes nothing, apply moves the categories, and removal deletes the rows the filtering rules reject.</p>
   <div class="key-row">
     <form method="post" action="/settings/reclassify">
       <input type="hidden" name="action" value="preview">
@@ -131,36 +133,43 @@
       <input type="hidden" name="action" value="apply">
       <button class="button secondary" type="submit">Apply Reclassification</button>
     </form>
-    <form method="post" action="/settings/reclassify" data-confirm="Delete every stored row the blocking rules now reject? This cannot be undone.">
+    {{if .Reclassify.Rejected}}
+    <form method="post" action="/settings/reclassify" data-confirm="Delete the {{len .Reclassify.Rejected}} rejected torrents from the index? This cannot be undone.">
       <input type="hidden" name="action" value="cleanup">
-      <button class="button secondary" type="submit">Remove Rejected Rows</button>
+      <button class="button secondary danger" type="submit">Remove {{len .Reclassify.Rejected}} Rejected Torrents</button>
     </form>
+    {{end}}
   </div>
   {{end}}
   {{if .Reclassify.Finished}}
-  <p class="muted small">Last pass {{.Reclassify.Finished}}: {{.Reclassify.Scanned}} scanned, {{.Reclassify.Changed}} changed, {{.Reclassify.Written}} written{{if .Reclassify.Deleted}}, {{.Reclassify.Deleted}} deleted{{end}}{{if .Reclassify.Rejected}}, {{len .Reclassify.Rejected}} rejected{{end}}.</p>
+  <p class="muted small">Last pass {{.Reclassify.Finished}}: {{.Reclassify.Scanned}} rows, {{.Reclassify.Changed}} changed, {{.Reclassify.Written}} written{{if .Reclassify.Deleted}}, {{.Reclassify.Deleted}} deleted{{end}}{{if .Reclassify.Rejected}}, {{len .Reclassify.Rejected}} rejected{{end}}.</p>
   {{end}}
-  {{if .Reclassify.Failure}}<p class="notice">{{.Reclassify.Failure}}</p>{{end}}
+  {{if .Reclassify.Failure}}<p class="notice error">{{.Reclassify.Failure}}</p>{{end}}
+  {{if and .Reclassify.Finished (not .Reclassify.Running) (not .Reclassify.Changed) (not .Reclassify.Rejected) (not .Reclassify.Deleted)}}
+  <p class="muted small">Nothing to change.</p>
+  {{end}}
   {{if .Reclassify.Transitions}}
   <ul class="changes">
     {{range .Reclassify.Transitions}}<li>{{.}}</li>{{end}}
   </ul>
   {{end}}
   {{if .Reclassify.Rejected}}
-  <details class="changes-block" open>
-    <summary>{{len .Reclassify.Rejected}} rows the blocking rules reject</summary>
-    <div class="report"><ul class="changes">
-      {{range .Reclassify.Rejected}}<li>{{.}}</li>{{end}}
-    </ul></div>
-  </details>
+  <h3 class="subhead">Rejected torrents</h3>
+  <div class="report"><ul class="torrent-rows">
+    {{range .Reclassify.Rejected}}<li><a href="/torrent/{{.Hash}}">{{.Name}}</a><span class="row-meta">{{.From}} · {{.Reason}}</span></li>{{end}}
+  </ul></div>
   {{end}}
   {{if .Reclassify.Samples}}
-  <details class="changes-block">
-    <summary>{{len .Reclassify.Samples}} category changes</summary>
-    <div class="report"><ul class="changes">
-      {{range .Reclassify.Samples}}<li>{{.}}</li>{{end}}
-    </ul></div>
-  </details>
+  <h3 class="subhead">Category changes</h3>
+  <div class="report"><ul class="torrent-rows">
+    {{range .Reclassify.Samples}}<li><a href="/torrent/{{.Hash}}">{{.Name}}</a><span class="row-meta">{{.From}} &rarr; {{.To}}</span></li>{{end}}
+  </ul></div>
+  {{end}}
+  {{if .Reclassify.TokenUpdates}}
+  <h3 class="subhead">Search token updates</h3>
+  <div class="report"><ul class="torrent-rows">
+    {{range .Reclassify.TokenUpdates}}<li><a href="/torrent/{{.Hash}}">{{.Name}}</a><span class="row-meta">{{.From}}</span></li>{{end}}
+  </ul></div>
   {{end}}
 </section>
 

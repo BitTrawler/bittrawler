@@ -41,15 +41,19 @@ type Sample struct {
 }
 
 // Rejected is a stored row that the blocking rules would reject now, with the
-// reason the classifier gave.
+// category it is stored under and the reason the classifier gave.
 type Rejected struct {
 	InfoHash [20]byte
 	Name     string
+	From     int
 	Reason   string
 }
 
 // Progress is a snapshot of a pass.
 type Progress struct {
+	// Total is the number of rows in the store when the pass started, for a
+	// progress bar. Zero when the count could not be read.
+	Total   int
 	Scanned int
 	Matched int
 	Changed int
@@ -71,6 +75,10 @@ func Run(ctx context.Context, torrents *store.Store, classifier *classify.Classi
 	progress := Progress{ByTransition: make(map[string]int)}
 	changes := make([]store.Classified, 0)
 	removals := make([]store.Removal, 0)
+
+	if stats, err := torrents.Stats(ctx); err == nil {
+		progress.Total = stats.Rows
+	}
 
 	emit := func(done bool) {
 		progress.Done = done
@@ -101,6 +109,7 @@ func Run(ctx context.Context, torrents *store.Store, classifier *classify.Classi
 			progress.Rejected = append(progress.Rejected, Rejected{
 				InfoHash: torrent.InfoHash,
 				Name:     torrent.Name,
+				From:     torrent.Category,
 				Reason:   result.Drop.String(),
 			})
 
@@ -182,6 +191,9 @@ func Run(ctx context.Context, torrents *store.Store, classifier *classify.Classi
 		if err != nil {
 			return snapshot(progress), err
 		}
+
+		// The rows are gone; listing them again would only offer dead links.
+		progress.Rejected = nil
 	}
 
 	emit(true)

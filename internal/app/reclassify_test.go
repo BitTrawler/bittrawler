@@ -102,6 +102,9 @@ func TestReclassifyFromTheSettingsPage(t *testing.T) {
 	assert.Contains(t, page, "0 written")
 	assert.Contains(t, page, "Other -&gt; XXX")
 	assert.Contains(t, page, "Cory.Chase.And.Friend.2024.1080p")
+	assert.Contains(t, page, `href="/torrent/`, "the changed row links to its detail page")
+	assert.NotContains(t, page, "Rejected torrents")
+	assert.NotContains(t, page, "Remove ", "nothing can be removed before a pass reports rejected rows")
 	assert.Equal(t, 0, torrentCount(t, baseURL, apiKey, classify.CategoryXXX))
 
 	// Apply writes it, and the row moves to XXX.
@@ -146,16 +149,30 @@ func TestCleanupRemovesRejectedRows(t *testing.T) {
 	session := signIn(t, baseURL, "admin", "correct-horse-battery")
 	apiKey := application.Status().TorznabAPIKey
 
+	// A preview reports the row and offers the removal only once it knows there
+	// is something to remove.
 	response := postForm(t, noRedirect(), baseURL, "/settings/reclassify",
-		url.Values{"action": {"cleanup"}}, session)
+		url.Values{"action": {"preview"}}, session)
 	require.Equal(t, http.StatusSeeOther, response.StatusCode)
 	response.Body.Close()
 
 	page := waitForReclassify(t, baseURL, session)
-	assert.Contains(t, page, "1 deleted")
-	assert.Contains(t, page, "1 rejected")
+	assert.Contains(t, page, "Rejected torrents")
 	assert.Contains(t, page, "cjhildporn")
-	assert.Contains(t, page, "(banned)")
+	assert.Contains(t, page, "banned")
+	assert.Contains(t, page, "Remove 1 Rejected Torrents")
+
+	// Removing deletes it and clears the list, so the action cannot be repeated
+	// against rows that are already gone.
+	response = postForm(t, noRedirect(), baseURL, "/settings/reclassify",
+		url.Values{"action": {"cleanup"}}, session)
+	require.Equal(t, http.StatusSeeOther, response.StatusCode)
+	response.Body.Close()
+
+	page = waitForReclassify(t, baseURL, session)
+	assert.Contains(t, page, "1 deleted")
+	assert.NotContains(t, page, "cjhildporn")
+	assert.NotContains(t, page, "Remove 1 Rejected Torrents")
 
 	assert.Equal(t, 0, torrentCount(t, baseURL, apiKey, classify.CategoryXXX))
 	assert.Equal(t, 1, torrentCount(t, baseURL, apiKey, classify.CategoryMoviesHD))

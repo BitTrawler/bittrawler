@@ -1,9 +1,11 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -86,10 +88,15 @@ func (a *App) startReclassify(apply, deleteRejected bool) bool {
 		return false
 	}
 
+	total := 0
+	if stats, err := a.torrentStore.Stats(context.Background()); err == nil {
+		total = stats.Rows
+	}
+
 	a.reclassify.running = true
 	a.reclassify.apply = apply
 	a.reclassify.deleteRejected = deleteRejected
-	a.reclassify.progress = reclassify.Progress{}
+	a.reclassify.progress = reclassify.Progress{Total: total}
 	a.reclassify.started = time.Now()
 	a.reclassify.finished = time.Time{}
 	a.reclassify.failure = ""
@@ -134,6 +141,8 @@ func (a *App) settingsReclassify() web.ReclassifyStatus {
 		Apply:    a.reclassify.apply,
 		Cleanup:  a.reclassify.deleteRejected,
 		Scanned:  progress.Scanned,
+		Total:    progress.Total,
+		Percent:  reclassifyPercent(progress.Scanned, progress.Total),
 		Matched:  progress.Matched,
 		Changed:  progress.Changed,
 		Written:  progress.Written,
@@ -147,7 +156,7 @@ func (a *App) settingsReclassify() web.ReclassifyStatus {
 	}
 
 	status.Transitions = reclassifyTransitions(progress.ByTransition)
-	status.Samples = reclassifySamples(progress.Samples)
+	status.Samples, status.TokenUpdates = reclassifySamples(progress.Samples)
 
 	return status
 }
@@ -173,33 +182,78 @@ func reclassifyTransitions(byChange map[string]int) []string {
 
 	out := make([]string, 0, min(len(keys), 8))
 
-	for _, key := range keys[:min(len(keys), 8)] {
+	for _, key := range keys {
+		// A row can change its season or episode tokens without changing
+		// category; "TV/HD -> TV/HD" says nothing, and those rows are listed
+		// separately.
+		from, to, ok := strings.Cut(key, " -> ")
+		if ok && from == to {
+			continue
+		}
+
 		out = append(out, fmt.Sprintf("%s: %d", key, byChange[key]))
 	}
 
+	if len(out) > 8 {
+		out = out[:8]
+	}
+
 	return out
 }
 
-// reclassifySamples formats every changed row for the page.
-func reclassifySamples(samples []reclassify.Sample) []string {
-	out := make([]string, 0, len(samples))
+// reclassifySamples splits the changed rows into category changes and rows that
+// kept their category but got new search tokens, which are different enough to
+// list separately.
+func reclassifySamples(samples []reclassify.Sample) ([]web.ReclassifyRow, []web.ReclassifyRow) {
+	changes := make([]web.ReclassifyRow, 0, len(samples))
+	tokens := make([]web.ReclassifyRow, 0)
 
 	for _, sample := range samples {
-		out = append(out, fmt.Sprintf("%x  %s -> %s  %s", sample.InfoHash,
-			classify.CategoryName(sample.From), classify.CategoryName(sample.To), sample.Name))
+		row := web.ReclassifyRow{
+			Hash: fmt.Sprintf("%x", sample.InfoHash),
+			Name: sample.Name,
+			From: classify.CategoryName(sample.From),
+			To:   classify.CategoryName(sample.To),
+		}
+
+		if sample.From == sample.To {
+			tokens = append(tokens, row)
+
+			continue
+		}
+
+		changes = append(changes, row)
+	}
+
+	return changes, tokens
+}
+
+// reclassifyRejected formats every rejected row for the page.
+func reclassifyRejected(rejected []reclassify.Rejected) []web.ReclassifyRow {
+	out := make([]web.ReclassifyRow, 0, len(rejected))
+
+	for _, row := range rejected {
+		out = append(out, web.ReclassifyRow{
+			Hash:   fmt.Sprintf("%x", row.InfoHash),
+			Name:   row.Name,
+			From:   classify.CategoryName(row.From),
+			Reason: row.Reason,
+		})
 	}
 
 	return out
 }
 
-// reclassifyRejected formats every rejected row for the page, with the
-// infohash so a row can be found in the store.
-func reclassifyRejected(rejected []reclassify.Rejected) []string {
-	out := make([]string, 0, len(rejected))
-
-	for _, row := range rejected {
-		out = append(out, fmt.Sprintf("%x  %s  (%s)", row.InfoHash, row.Name, row.Reason))
+// reclassifyPercent is the completed share of the pass, for the progress bar.
+func reclassifyPercent(scanned, total int) int {
+	if total <= 0 {
+		return 0
 	}
 
-	return out
+	percent := scanned * 100 / total
+	if percent > 100 {
+		percent = 100
+	}
+
+	return percent
 }
