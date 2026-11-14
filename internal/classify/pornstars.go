@@ -1,145 +1,39 @@
 package classify
 
 import (
+	_ "embed"
 	"slices"
 	"strings"
 	"unicode"
 )
 
 // pornstarNames are performers whose full name identifies a release as adult.
-// Only full names are listed: a first or last name alone collides with ordinary
-// words and mainstream titles. The list is deliberately a seed for measured
-// tuning: add names here as the instance's Other rows show them, and remove any
-// that turn out to collide with legitimate releases. Matching ignores case and
-// the separators release names use, so "Cory.Chase", "Cory_Chase" and
-// "Cory Chase" all match. The index is built once at start up.
-var pornstarNames = []string{
-	"Cory Chase",
-	"Mia Khalifa",
-	"Riley Reid",
-	"Lana Rhoades",
-	"Abella Danger",
-	"Angela White",
-	"Brandi Love",
-	"Lisa Ann",
-	"Sasha Grey",
-	"Tori Black",
-	"Jenna Jameson",
-	"Asa Akira",
-	"Adriana Chechik",
-	"Alexis Texas",
-	"Bree Olson",
-	"Bonnie Rotten",
-	"Dani Daniels",
-	"Dillion Harper",
-	"Elsa Jean",
-	"Eva Lovia",
-	"Gina Gerson",
-	"India Summer",
-	"Jada Stevens",
-	"Janice Griffith",
-	"Jenna Haze",
-	"Kendra Lust",
-	"Kayden Kross",
-	"Lexi Belle",
-	"Little Caprice",
-	"Madison Ivy",
-	"Mia Malkova",
-	"Nicole Aniston",
-	"Peta Jensen",
-	"Phoenix Marie",
-	"Piper Perri",
-	"Rachel Starr",
-	"Romi Rain",
-	"Sara Jay",
-	"Skin Diamond",
-	"Stoya",
-	"Sunny Leone",
-	"Tera Patrick",
-	"Valentina Nappi",
-	"Veronica Avluv",
-	"Ava Addams",
-	"Aidra Fox",
-	"August Ames",
-	"Autumn Falls",
-	"Anikka Albrite",
-	"Ariana Marie",
-	"Keisha Grey",
-	"Christy Mack",
-	"Chanel Preston",
-	"Holly Michaels",
-	"Kendra Sunderland",
-	"Jillian Janson",
-	"Jayden Jaymes",
-	"Jade Nile",
-	"Jasmine Jae",
-	"Katrina Jade",
-	"Kleio Valentien",
-	"Malena Morgan",
-	"Marica Hase",
-	"Mila Azul",
-	"Natalia Starr",
-	"Nina Hartley",
-	"Rebeca Linares",
-	"Savannah Bond",
-	"Whitney Westgate",
-	"Yurizan Beltran",
-	"AJ Applegate",
-	"Alina Li",
-	"Abigail Mac",
-	"Adria Rae",
-	"Alexa Grace",
-	"Alice March",
-	"Amara Romani",
-	"Anya Olsen",
-	"Aria Alexander",
-	"Aubrey Kate",
-	"Bella Rolland",
-	"Cecilia Lion",
-	"Chloe Cherry",
-	"Gabbie Carter",
-	"Gia Paige",
-	"Gianna Dior",
-	"Gianna Michaels",
-	"Harley Dean",
-	"Holly Hendrix",
-	"Jia Lissa",
-	"Jill Kassidy",
-	"Joanna Angel",
-	"Karma Rx",
-	"Kelsi Monroe",
-	"Kenna James",
-	"Kristina Rose",
-	"Larkin Love",
-	"Lena Paul",
-	"Lily Labeau",
-	"Luna Star",
-	"Mandy Muse",
-	"Megan Rain",
-	"Mia Melano",
-	"Nicole Doshi",
-	"Nicolette Shea",
-	"Saya Song",
-	"Scarlett Sage",
-	"Siri Dahl",
-	"Veronica Rodriguez",
-	"Vina Sky",
-	"Winter Jade",
-	"James Deen",
-	"Johnny Sins",
-	"Manuel Ferrara",
-	"Mick Blue",
-	"Keiran Lee",
-	"Rocco Siffredi",
-	"Nacho Vidal",
-	"Markus Dupree",
-	"Xander Corvus",
-	"Steve Holmes",
-	"Erik Everhard",
-	"Lexington Steele",
-	"Ramon Nomar",
-	"Toni Ribas",
-	"Jordi El Nino Polla",
+// The list lives in data/pornstars.txt so it can grow without touching code:
+// full names only, matched case-insensitively with any separator, and one name
+// per line. A first or last name alone is not listed, because it collides with
+// ordinary words and mainstream titles.
+//
+//go:embed data/pornstars.txt
+var pornstarList string
+
+// pornstarNames is the parsed list.
+var pornstarNames = parsePornstarNames(pornstarList)
+
+// parsePornstarNames reads one name per line and ignores blank lines and #
+// comments.
+func parsePornstarNames(text string) []string {
+	var names []string
+
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		names = append(names, line)
+	}
+
+	return names
 }
 
 // pornstarIndex maps a first token to the token sequences that start with it,

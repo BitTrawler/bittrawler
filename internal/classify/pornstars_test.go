@@ -1,6 +1,9 @@
 package classify
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // TestPornstarText checks the performer matcher's separators and its limits.
 func TestPornstarText(t *testing.T) {
@@ -113,6 +116,54 @@ func TestOrdinaryNamesAreNotAdult(t *testing.T) {
 	} {
 		if result := classifier.Classify(title, filesOf("mkv", 8<<30)); result.Category == CategoryXXX {
 			t.Errorf("%q classified XXX, want a film or television", title)
+		}
+	}
+}
+
+// TestPornstarListIsBroad checks the list's shape: it is large, every entry is
+// a full name the matcher can use, and no two entries canonicalise alike.
+func TestPornstarListIsBroad(t *testing.T) {
+	t.Parallel()
+
+	if len(pornstarNames) < 1000 {
+		t.Fatalf("pornstarNames has %d entries, want a broad list", len(pornstarNames))
+	}
+
+	seen := make(map[string]bool, len(pornstarNames))
+
+	for _, name := range pornstarNames {
+		tokens := nameTokens(name)
+
+		if len(tokens) < 2 {
+			t.Errorf("%q is a single token and can never match", name)
+		}
+
+		key := strings.Join(tokens, " ")
+		if seen[key] {
+			t.Errorf("%q appears twice", name)
+		}
+
+		seen[key] = true
+	}
+}
+
+// TestAdultInternetCreatorsAreAdult checks that the creators added alongside the
+// performer list are recognised.
+func TestAdultInternetCreatorsAreAdult(t *testing.T) {
+	t.Parallel()
+
+	classifier := New(Config{})
+
+	for _, title := range []string{
+		"Belle.Delphine.Photo.Set.2024",
+		"Sophie.Rain.2024.1080p",
+		"Corinna.Kopf.OnlyFans.2023",
+	} {
+		result := classifier.Classify(title, filesOf("jpg", 200<<20))
+
+		if result.Category != CategoryXXX || result.AdultEvidence != AdultEvidenceStrong {
+			t.Errorf("%q classified as %s with evidence %v, want adult strong",
+				title, CategoryName(result.Category), result.AdultEvidence)
 		}
 	}
 }
