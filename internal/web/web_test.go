@@ -140,6 +140,7 @@ func TestRenderOverview(t *testing.T) {
 	assert.Contains(t, body, `data-counter="nodes_discovered">1,204<`)
 	assert.Contains(t, body, `data-runtime="heap">24.1 MiB<`)
 	assert.Contains(t, body, `id="shards"`)
+	assert.Contains(t, body, `action="/settings/reclassify"`)
 	assert.Contains(t, body, "2026-11")
 	assert.Contains(t, body, "Movies/HD")
 	assert.Contains(t, body, `class="bar"`)
