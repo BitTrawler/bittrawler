@@ -84,6 +84,8 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 		notice = "Account updated. Other sessions are signed out."
 	case r.URL.Query().Get("reclassify") == "started":
 		notice = "Reclassifying."
+	case r.URL.Query().Get("reclassify") == "cleanup":
+		notice = "Removing rejected rows."
 	case r.URL.Query().Get("reclassify") == "busy":
 		notice = "A pass is already running."
 	}

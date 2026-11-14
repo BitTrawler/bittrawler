@@ -1537,3 +1537,76 @@ func TestForEachAndUpdateClassifications(t *testing.T) {
 		t.Fatalf("untouched category = %d, want 2040", untouched.Category)
 	}
 }
+
+func TestDeleteRemovesRowsSearchAndCounts(t *testing.T) {
+	s, _ := newStore(t, Config{RetentionMonths: 12})
+	ctx := context.Background()
+	now := s.cfg.Now()
+
+	removed := Row{InfoHash: testHash(1), Name: "Some.Malware.Bundle",
+		CreatedAt: now, Category: 6000, FilesCount: 1, PrimaryFile: "payload.rar"}
+	kept := Row{InfoHash: testHash(2), Name: "Some.Movie.2020.1080p.BluRay.x264-GRP",
+		CreatedAt: now, Category: 2040, FilesCount: 1}
+
+	put(t, s, removed)
+	put(t, s, kept)
+
+	before, err := s.Stats(ctx)
+	if err != nil {
+		t.Fatalf("stats: %v", err)
+	}
+
+	deleted, err := s.Delete(ctx, []Removal{{
+		InfoHash: removed.InfoHash, CreatedAt: removed.CreatedAt, Category: removed.Category,
+	}})
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+
+	if deleted != 1 {
+		t.Fatalf("deleted %d rows, want 1", deleted)
+	}
+
+	if _, ok, err := s.Get(ctx, removed.InfoHash); err != nil || ok {
+		t.Fatalf("deleted row still readable: ok=%v err=%v", ok, err)
+	}
+
+	if res := search(t, s, Query{Text: "some malware", Limit: 10, Season: AnySeason, Episode: AnyEpisode}); len(res.Torrents) != 0 {
+		t.Fatalf("search still finds the deleted row: %d", len(res.Torrents))
+	}
+
+	if res := search(t, s, Query{Text: "some movie", Limit: 10, Season: AnySeason, Episode: AnyEpisode}); len(res.Torrents) != 1 {
+		t.Fatalf("search lost the kept row: %d", len(res.Torrents))
+	}
+
+	after, err := s.Stats(ctx)
+	if err != nil {
+		t.Fatalf("stats: %v", err)
+	}
+
+	if after.Rows != before.Rows-1 {
+		t.Fatalf("rows = %d, want %d", after.Rows, before.Rows-1)
+	}
+
+	if after.Categories[6000] != before.Categories[6000]-1 {
+		t.Fatalf("XXX count = %d, want %d", after.Categories[6000], before.Categories[6000]-1)
+	}
+
+	if after.Categories[2040] != before.Categories[2040] {
+		t.Fatalf("kept category count changed: %d -> %d", before.Categories[2040], after.Categories[2040])
+	}
+}
+
+func TestDeleteOfAMissingRowIsNotCounted(t *testing.T) {
+	s, _ := newStore(t, Config{RetentionMonths: 12})
+	now := s.cfg.Now()
+
+	deleted, err := s.Delete(context.Background(), []Removal{{InfoHash: testHash(9), CreatedAt: now}})
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+
+	if deleted != 0 {
+		t.Fatalf("deleted %d rows, want 0", deleted)
+	}
+}

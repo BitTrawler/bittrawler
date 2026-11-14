@@ -54,6 +54,31 @@ func (s *Store) addCounts(key string, rows int, added map[int]int) {
 	}
 }
 
+// removeCounts records rows deleted from a shard by a maintenance pass. Unlike
+// subtractCounts it keeps the shard itself.
+func (s *Store) removeCounts(key string, removed map[int]int, rows int) {
+	if rows == 0 {
+		return
+	}
+
+	s.countsMu.Lock()
+	defer s.countsMu.Unlock()
+
+	s.shardRows[key] -= rows
+
+	if s.shardRows[key] <= 0 {
+		delete(s.shardRows, key)
+	}
+
+	for category, count := range removed {
+		s.categories[category] -= count
+
+		if s.categories[category] <= 0 {
+			delete(s.categories, category)
+		}
+	}
+}
+
 // subtractCounts forgets a shard removed by retention.
 func (s *Store) subtractCounts(key string, removed map[int]int) {
 	s.countsMu.Lock()

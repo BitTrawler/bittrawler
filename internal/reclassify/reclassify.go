@@ -14,12 +14,8 @@ import (
 	"github.com/BitTrawler/bittrawler/internal/store"
 )
 
-const (
-	// reportEvery is how many scanned rows pass between progress reports.
-	reportEvery = 1000
-	// sampleLimit is how many changed rows are kept as examples.
-	sampleLimit = 20
-)
+// reportEvery is how many scanned rows pass between progress reports.
+const reportEvery = 1000
 
 // Options controls one pass.
 type Options struct {
@@ -30,6 +26,10 @@ type Options struct {
 	Limit int
 	// Apply writes the changes. Without it the pass is a dry run.
 	Apply bool
+	// DeleteRejected removes the rows the blocking rules now reject. It is
+	// independent of Apply so a cleanup does not have to rewrite categories, and
+	// it needs Apply for nothing.
+	DeleteRejected bool
 }
 
 // Sample is one row whose classification would change.
@@ -40,12 +40,25 @@ type Sample struct {
 	To       int
 }
 
+// Rejected is a stored row that the blocking rules would reject now, with the
+// reason the classifier gave.
+type Rejected struct {
+	InfoHash [20]byte
+	Name     string
+	Reason   string
+}
+
 // Progress is a snapshot of a pass.
 type Progress struct {
-	Scanned      int
-	Matched      int
-	Changed      int
-	Written      int
+	Scanned int
+	Matched int
+	Changed int
+	Written int
+	// Rejected lists the rows whose name or stored file now matches a blocking
+	// rule. They are never rewritten: a pass either deletes them or reports them.
+	Rejected []Rejected
+	// Deleted counts the rejected rows removed by this pass.
+	Deleted      int
 	ByTransition map[string]int
 	Samples      []Sample
 	Done         bool
@@ -57,6 +70,7 @@ type Progress struct {
 func Run(ctx context.Context, torrents *store.Store, classifier *classify.Classifier, opts Options, report func(Progress)) (Progress, error) {
 	progress := Progress{ByTransition: make(map[string]int)}
 	changes := make([]store.Classified, 0)
+	removals := make([]store.Removal, 0)
 
 	emit := func(done bool) {
 		progress.Done = done
@@ -80,6 +94,27 @@ func Run(ctx context.Context, torrents *store.Store, classifier *classify.Classi
 
 		result := classifier.Classify(torrent.Name, storedFiles(torrent))
 
+		// Writing a dropped classification would set the row's category to the
+		// zero value, so these rows are either removed by the cleanup or
+		// reported for someone to look at.
+		if result.Drop != classify.DropNone {
+			progress.Rejected = append(progress.Rejected, Rejected{
+				InfoHash: torrent.InfoHash,
+				Name:     torrent.Name,
+				Reason:   result.Drop.String(),
+			})
+
+			if opts.DeleteRejected {
+				removals = append(removals, store.Removal{
+					InfoHash:  torrent.InfoHash,
+					CreatedAt: torrent.CreatedAt,
+					Category:  torrent.Category,
+				})
+			}
+
+			return nil
+		}
+
 		// Adult evidence can sit in the full file list, which the store does not
 		// keep. A pass can add adult evidence, but it cannot take it away.
 		if torrent.Category == classify.CategoryXXX && result.Category != classify.CategoryXXX {
@@ -98,14 +133,12 @@ func Run(ctx context.Context, torrents *store.Store, classifier *classify.Classi
 		key := fmt.Sprintf("%s -> %s", classify.CategoryName(torrent.Category), classify.CategoryName(result.Category))
 		progress.ByTransition[key]++
 
-		if len(progress.Samples) < sampleLimit {
-			progress.Samples = append(progress.Samples, Sample{
-				InfoHash: torrent.InfoHash,
-				Name:     torrent.Name,
-				From:     torrent.Category,
-				To:       result.Category,
-			})
-		}
+		progress.Samples = append(progress.Samples, Sample{
+			InfoHash: torrent.InfoHash,
+			Name:     torrent.Name,
+			From:     torrent.Category,
+			To:       result.Category,
+		})
 
 		if opts.Apply {
 			changes = append(changes, store.Classified{
@@ -142,6 +175,15 @@ func Run(ctx context.Context, torrents *store.Store, classifier *classify.Classi
 		progress.Written = written
 	}
 
+	if opts.DeleteRejected && len(removals) > 0 {
+		deleted, err := torrents.Delete(ctx, removals)
+		progress.Deleted = deleted
+
+		if err != nil {
+			return snapshot(progress), err
+		}
+	}
+
 	emit(true)
 
 	return snapshot(progress), nil
@@ -166,6 +208,7 @@ func snapshot(progress Progress) Progress {
 	}
 
 	out.Samples = append([]Sample{}, progress.Samples...)
+	out.Rejected = append([]Rejected{}, progress.Rejected...)
 
 	return out
 }

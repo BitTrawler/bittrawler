@@ -265,12 +265,15 @@ type SettingsData struct {
 type ReclassifyStatus struct {
 	Running     bool
 	Apply       bool
+	Cleanup     bool
 	Scanned     int
 	Matched     int
 	Changed     int
 	Written     int
+	Deleted     int
 	Transitions []string
 	Samples     []string
+	Rejected    []string
 	Finished    string
 	Failure     string
 }

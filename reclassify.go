@@ -24,6 +24,7 @@ func runReclassify(args []string) int {
 	fs := flag.NewFlagSet("reclassify", flag.ContinueOnError)
 	flags := addCommonFlags(fs)
 	apply := fs.Bool("apply", false, "write the changes; without it this is a dry run")
+	deleteRejected := fs.Bool("delete-rejected", false, "delete rows the blocking rules now reject")
 	onlyCurrent := fs.Int("cat", 0, "only rows currently in this category; 0 means every row")
 	limit := fs.Int("limit", 0, "scan at most this many rows; 0 means all of them")
 
@@ -66,9 +67,15 @@ func runReclassify(args []string) int {
 	defer torrents.Close()
 
 	printed := 0
+	rejected := 0
 
 	progress, err := reclassify.Run(context.Background(), torrents, classify.New(classify.Config{}),
-		reclassify.Options{OnlyCategory: *onlyCurrent, Limit: *limit, Apply: *apply},
+		reclassify.Options{
+			OnlyCategory:   *onlyCurrent,
+			Limit:          *limit,
+			Apply:          *apply,
+			DeleteRejected: *deleteRejected,
+		},
 		func(p reclassify.Progress) {
 			for ; printed < len(p.Samples); printed++ {
 				sample := p.Samples[printed]
@@ -76,8 +83,13 @@ func runReclassify(args []string) int {
 					classify.CategoryName(sample.From), classify.CategoryName(sample.To))
 			}
 
+			for ; rejected < len(p.Rejected); rejected++ {
+				row := p.Rejected[rejected]
+				fmt.Printf("  %x  %s\n      rejected: %s\n", row.InfoHash, row.Name, row.Reason)
+			}
+
 			if !p.Done && p.Scanned%10000 == 0 {
-				fmt.Fprintf(os.Stderr, "scanned %d rows, %d changed\n", p.Scanned, p.Changed)
+				fmt.Fprintf(os.Stderr, "scanned %d rows, %d changed, %d rejected\n", p.Scanned, p.Changed, len(p.Rejected))
 			}
 		})
 	if err != nil {
@@ -86,15 +98,22 @@ func runReclassify(args []string) int {
 		return 1
 	}
 
-	fmt.Printf("Scanned %d rows, %d in the selected category, %d changed.\n", progress.Scanned, progress.Matched, progress.Changed)
+	fmt.Printf("Scanned %d rows, %d in the selected category, %d changed, %d rejected.\n",
+		progress.Scanned, progress.Matched, progress.Changed, len(progress.Rejected))
 
-	if !*apply {
-		fmt.Println("Dry run: nothing was written. Run again with -apply to write the changes.")
+	if !*apply && !*deleteRejected {
+		fmt.Println("Dry run: nothing was written. Run again with -apply to write the changes, or -delete-rejected to remove the rejected rows.")
 
 		return 0
 	}
 
-	fmt.Printf("Wrote %d rows.\n", progress.Written)
+	if *apply {
+		fmt.Printf("Wrote %d rows.\n", progress.Written)
+	}
+
+	if *deleteRejected {
+		fmt.Printf("Deleted %d rows.\n", progress.Deleted)
+	}
 
 	printChanges(progress.ByTransition)
 

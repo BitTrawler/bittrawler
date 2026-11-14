@@ -9,10 +9,66 @@ import (
 	"github.com/BitTrawler/bittrawler/internal/store"
 )
 
-// TestRunKeepsAdultAndAddsNewEvidence covers the pass's two rules: a row already
+// TestRunDeletesRejectedRows covers the cleanup: rows the blocking rules reject
+// are removed from the store and counted, without rewriting categories.
+func TestRunDeletesRejectedRows(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Now().UTC()
+
+	torrents, err := store.Open(store.Config{Dir: dir})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+
+	t.Cleanup(func() { _ = torrents.Close() })
+
+	rows := []store.Row{
+		{
+			InfoHash:    hash(1),
+			Name:        "(lolsonly) child cjhildporn hairless",
+			Size:        25 << 20,
+			CreatedAt:   now,
+			Category:    classify.CategoryXXX,
+			FilesCount:  1,
+			PrimaryFile: "(lolsonly) child cjhildporn hairless.rar",
+		},
+		{
+			InfoHash:    hash(2),
+			Name:        "Some.Movie.2020.1080p.BluRay.x264-GRP",
+			Size:        8 << 30,
+			CreatedAt:   now,
+			Category:    classify.CategoryOther,
+			FilesCount:  1,
+			PrimaryFile: "some.movie.2020.mkv",
+		},
+	}
+
+	if _, err := torrents.PutBatch(context.Background(), rows); err != nil {
+		t.Fatalf("put: %v", err)
+	}
+
+	progress, err := Run(context.Background(), torrents, classify.New(classify.Config{}), Options{DeleteRejected: true}, nil)
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	if progress.Deleted != 1 {
+		t.Fatalf("deleted = %d, want 1", progress.Deleted)
+	}
+
+	if _, ok, err := torrents.Get(context.Background(), hash(1)); err != nil || ok {
+		t.Fatalf("rejected row still stored: ok=%v err=%v", ok, err)
+	}
+
+	if _, ok, err := torrents.Get(context.Background(), hash(2)); err != nil || !ok {
+		t.Fatalf("kept row was removed: ok=%v err=%v", ok, err)
+	}
+}
+
+// TestRunKeepsAdultAndAddsNewEvidence covers the pass's rules: a row already
 // classified adult keeps that category, because the evidence may have been in
-// the full file list the store no longer has, and a row the new rules identify
-// is upgraded.
+// the full file list the store no longer has; a row the new rules identify is
+// upgraded; and a row they would now block is reported without being written.
 func TestRunKeepsAdultAndAddsNewEvidence(t *testing.T) {
 	dir := t.TempDir()
 	now := time.Now().UTC()
@@ -52,6 +108,15 @@ func TestRunKeepsAdultAndAddsNewEvidence(t *testing.T) {
 			FilesCount:  1,
 			PrimaryFile: "some.movie.2020.mkv",
 		},
+		{
+			InfoHash:    hash(4),
+			Name:        "(lolsonly) child cjhildporn hairless",
+			Size:        25 << 20,
+			CreatedAt:   now,
+			Category:    classify.CategoryOther,
+			FilesCount:  1,
+			PrimaryFile: "(lolsonly) child cjhildporn hairless.rar",
+		},
 	}
 
 	inserted, err := torrents.PutBatch(context.Background(), rows)
@@ -63,15 +128,25 @@ func TestRunKeepsAdultAndAddsNewEvidence(t *testing.T) {
 		t.Fatalf("inserted %d rows, want %d", inserted, len(rows))
 	}
 
-	_, err = Run(context.Background(), torrents, classify.New(classify.Config{}), Options{Apply: true}, nil)
+	progress, err := Run(context.Background(), torrents, classify.New(classify.Config{}), Options{Apply: true}, nil)
 	if err != nil {
 		t.Fatalf("run: %v", err)
+	}
+
+	// A row that now matches a blocking rule is reported, not rewritten.
+	if len(progress.Rejected) != 1 {
+		t.Fatalf("rejected = %d, want 1", len(progress.Rejected))
+	}
+
+	if progress.Rejected[0].Name != "(lolsonly) child cjhildporn hairless" || progress.Rejected[0].Reason != "banned" {
+		t.Fatalf("rejected row = %+v", progress.Rejected[0])
 	}
 
 	expectations := map[[20]byte]int{
 		hash(1): classify.CategoryXXX,
 		hash(2): classify.CategoryXXX,
 		hash(3): classify.CategoryMoviesHD,
+		hash(4): classify.CategoryOther,
 	}
 
 	for infoHash, want := range expectations {

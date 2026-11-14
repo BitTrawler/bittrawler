@@ -478,6 +478,14 @@ if (document.querySelector('[data-reclassify-running]')) {
   window.setTimeout(() => window.location.reload(), 3000);
 }
 
+for (const form of document.querySelectorAll('form[data-confirm]')) {
+  form.addEventListener('submit', (event) => {
+    if (!window.confirm(form.dataset.confirm)) {
+      event.preventDefault();
+    }
+  });
+}
+
 if (document.getElementById('feed')) {
   refreshFeed();
   window.setInterval(refreshFeed, 3000);

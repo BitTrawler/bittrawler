@@ -120,7 +120,7 @@
     <h2>Reclassify Index</h2>
   </header>
   {{if .Reclassify.Running}}
-  <p class="notice" data-reclassify-running>Reclassifying: {{.Reclassify.Scanned}} scanned, {{.Reclassify.Changed}} changed{{if .Reclassify.Apply}}, {{.Reclassify.Written}} written{{end}}.</p>
+  <p class="notice" data-reclassify-running>{{if .Reclassify.Cleanup}}Removing rejected rows{{else}}Reclassifying{{end}}: {{.Reclassify.Scanned}} scanned, {{.Reclassify.Changed}} changed{{if .Reclassify.Apply}}, {{.Reclassify.Written}} written{{end}}{{if .Reclassify.Deleted}}, {{.Reclassify.Deleted}} deleted{{end}}{{if .Reclassify.Rejected}}, {{len .Reclassify.Rejected}} rejected{{end}}.</p>
   {{else}}
   <div class="key-row">
     <form method="post" action="/settings/reclassify">
@@ -131,10 +131,14 @@
       <input type="hidden" name="action" value="apply">
       <button class="button secondary" type="submit">Apply Reclassification</button>
     </form>
+    <form method="post" action="/settings/reclassify" data-confirm="Delete every stored row the blocking rules now reject? This cannot be undone.">
+      <input type="hidden" name="action" value="cleanup">
+      <button class="button secondary" type="submit">Remove Rejected Rows</button>
+    </form>
   </div>
   {{end}}
   {{if .Reclassify.Finished}}
-  <p class="muted small">Last pass {{.Reclassify.Finished}}: {{.Reclassify.Scanned}} scanned, {{.Reclassify.Changed}} changed, {{.Reclassify.Written}} written.</p>
+  <p class="muted small">Last pass {{.Reclassify.Finished}}: {{.Reclassify.Scanned}} scanned, {{.Reclassify.Changed}} changed, {{.Reclassify.Written}} written{{if .Reclassify.Deleted}}, {{.Reclassify.Deleted}} deleted{{end}}{{if .Reclassify.Rejected}}, {{len .Reclassify.Rejected}} rejected{{end}}.</p>
   {{end}}
   {{if .Reclassify.Failure}}<p class="notice">{{.Reclassify.Failure}}</p>{{end}}
   {{if .Reclassify.Transitions}}
@@ -142,10 +146,21 @@
     {{range .Reclassify.Transitions}}<li>{{.}}</li>{{end}}
   </ul>
   {{end}}
+  {{if .Reclassify.Rejected}}
+  <details class="changes-block" open>
+    <summary>{{len .Reclassify.Rejected}} rows the blocking rules reject</summary>
+    <div class="report"><ul class="changes">
+      {{range .Reclassify.Rejected}}<li>{{.}}</li>{{end}}
+    </ul></div>
+  </details>
+  {{end}}
   {{if .Reclassify.Samples}}
-  <ul class="changes">
-    {{range .Reclassify.Samples}}<li>{{.}}</li>{{end}}
-  </ul>
+  <details class="changes-block">
+    <summary>{{len .Reclassify.Samples}} category changes</summary>
+    <div class="report"><ul class="changes">
+      {{range .Reclassify.Samples}}<li>{{.}}</li>{{end}}
+    </ul></div>
+  </details>
   {{end}}
 </section>
 

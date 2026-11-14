@@ -891,6 +891,26 @@ input::placeholder {
   font-size: 12.5px;
 }
 
+.changes-block {
+  margin-top: 10px;
+}
+
+.changes-block summary {
+  cursor: pointer;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.report {
+  max-height: 24rem;
+  margin-top: 6px;
+  overflow-y: auto;
+}
+
+.report .changes {
+  margin-top: 0;
+}
+
 .button.is-copied {
   color: var(--accent);
   border-color: var(--accent-line);

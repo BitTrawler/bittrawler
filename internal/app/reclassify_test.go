@@ -113,3 +113,50 @@ func TestReclassifyFromTheSettingsPage(t *testing.T) {
 	assert.Equal(t, 1, torrentCount(t, baseURL, apiKey, classify.CategoryXXX))
 	assert.Equal(t, 0, torrentCount(t, baseURL, apiKey, classify.CategoryOther))
 }
+
+// TestCleanupRemovesRejectedRows checks the maintenance card's destructive
+// action: rows the blocking rules now reject are deleted from the index, and
+// the page lists exactly which ones.
+func TestCleanupRemovesRejectedRows(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Now().UTC()
+
+	seedStore(t, dir, func() time.Time { return now },
+		store.Row{
+			InfoHash:    lifecycleHash(50),
+			Name:        "(lolsonly) child cjhildporn hairless",
+			Size:        25 << 20,
+			CreatedAt:   now,
+			Category:    classify.CategoryXXX,
+			FilesCount:  1,
+			PrimaryFile: "(lolsonly) child cjhildporn hairless.rar",
+		},
+		store.Row{
+			InfoHash:  lifecycleHash(51),
+			Name:      "Sunset.Drive.2019.1080p.BluRay.x264-GRP",
+			Size:      1 << 30,
+			CreatedAt: now,
+			Category:  classify.CategoryMoviesHD,
+		},
+	)
+
+	application, baseURL := startOnDataDirectory(t, dir)
+
+	completeSetup(t, baseURL)
+	session := signIn(t, baseURL, "admin", "correct-horse-battery")
+	apiKey := application.Status().TorznabAPIKey
+
+	response := postForm(t, noRedirect(), baseURL, "/settings/reclassify",
+		url.Values{"action": {"cleanup"}}, session)
+	require.Equal(t, http.StatusSeeOther, response.StatusCode)
+	response.Body.Close()
+
+	page := waitForReclassify(t, baseURL, session)
+	assert.Contains(t, page, "1 deleted")
+	assert.Contains(t, page, "1 rejected")
+	assert.Contains(t, page, "cjhildporn")
+	assert.Contains(t, page, "(banned)")
+
+	assert.Equal(t, 0, torrentCount(t, baseURL, apiKey, classify.CategoryXXX))
+	assert.Equal(t, 1, torrentCount(t, baseURL, apiKey, classify.CategoryMoviesHD))
+}

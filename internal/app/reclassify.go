@@ -14,13 +14,14 @@ import (
 
 // reclassifyState is the maintenance pass's shared state.
 type reclassifyState struct {
-	mu       sync.Mutex
-	running  bool
-	apply    bool
-	progress reclassify.Progress
-	started  time.Time
-	finished time.Time
-	failure  string
+	mu             sync.Mutex
+	running        bool
+	apply          bool
+	deleteRejected bool
+	progress       reclassify.Progress
+	started        time.Time
+	finished       time.Time
+	failure        string
 }
 
 // handleReclassify starts a pass in the background. A dry run only reads; the
@@ -43,19 +44,40 @@ func (a *App) handleReclassify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !a.startReclassify(r.PostFormValue("action") == "apply") {
-		http.Redirect(w, r, "/settings?reclassify=busy", http.StatusSeeOther)
+	switch r.PostFormValue("action") {
+	case "preview":
+		if !a.startReclassify(false, false) {
+			http.Redirect(w, r, "/settings?reclassify=busy#reclassify", http.StatusSeeOther)
 
-		return
+			return
+		}
+
+		http.Redirect(w, r, "/settings?reclassify=started#reclassify", http.StatusSeeOther)
+	case "apply":
+		if !a.startReclassify(true, false) {
+			http.Redirect(w, r, "/settings?reclassify=busy#reclassify", http.StatusSeeOther)
+
+			return
+		}
+
+		http.Redirect(w, r, "/settings?reclassify=started#reclassify", http.StatusSeeOther)
+	case "cleanup":
+		if !a.startReclassify(false, true) {
+			http.Redirect(w, r, "/settings?reclassify=busy#reclassify", http.StatusSeeOther)
+
+			return
+		}
+
+		http.Redirect(w, r, "/settings?reclassify=cleanup#reclassify", http.StatusSeeOther)
+	default:
+		a.renderSettings(w, a.buildSettingsData(a.currentConfig(), a.sourceSnapshot(), false, "", "Unknown reclassification action."), http.StatusBadRequest)
 	}
-
-	http.Redirect(w, r, "/settings?reclassify=started", http.StatusSeeOther)
 }
 
 // startReclassify launches a pass, or reports that one is already running. The
 // pass runs on the application's context, so stopping the process ends it
 // before the store closes.
-func (a *App) startReclassify(apply bool) bool {
+func (a *App) startReclassify(apply, deleteRejected bool) bool {
 	a.reclassify.mu.Lock()
 
 	if a.reclassify.running {
@@ -66,6 +88,7 @@ func (a *App) startReclassify(apply bool) bool {
 
 	a.reclassify.running = true
 	a.reclassify.apply = apply
+	a.reclassify.deleteRejected = deleteRejected
 	a.reclassify.progress = reclassify.Progress{}
 	a.reclassify.started = time.Now()
 	a.reclassify.finished = time.Time{}
@@ -78,7 +101,7 @@ func (a *App) startReclassify(apply bool) bool {
 		defer a.wg.Done()
 
 		progress, err := reclassify.Run(a.ctx, a.torrentStore, classify.New(classify.Config{}),
-			reclassify.Options{Apply: apply}, func(p reclassify.Progress) {
+			reclassify.Options{Apply: apply, DeleteRejected: deleteRejected}, func(p reclassify.Progress) {
 				a.reclassify.mu.Lock()
 				a.reclassify.progress = p
 				a.reclassify.mu.Unlock()
@@ -107,13 +130,16 @@ func (a *App) settingsReclassify() web.ReclassifyStatus {
 	progress := a.reclassify.progress
 
 	status := web.ReclassifyStatus{
-		Running: a.reclassify.running,
-		Apply:   a.reclassify.apply,
-		Scanned: progress.Scanned,
-		Matched: progress.Matched,
-		Changed: progress.Changed,
-		Written: progress.Written,
-		Failure: a.reclassify.failure,
+		Running:  a.reclassify.running,
+		Apply:    a.reclassify.apply,
+		Cleanup:  a.reclassify.deleteRejected,
+		Scanned:  progress.Scanned,
+		Matched:  progress.Matched,
+		Changed:  progress.Changed,
+		Written:  progress.Written,
+		Deleted:  progress.Deleted,
+		Rejected: reclassifyRejected(progress.Rejected),
+		Failure:  a.reclassify.failure,
 	}
 
 	if !a.reclassify.finished.IsZero() {
@@ -154,12 +180,25 @@ func reclassifyTransitions(byChange map[string]int) []string {
 	return out
 }
 
-// reclassifySamples formats a few changed rows for the page.
+// reclassifySamples formats every changed row for the page.
 func reclassifySamples(samples []reclassify.Sample) []string {
-	out := make([]string, 0, min(len(samples), 5))
+	out := make([]string, 0, len(samples))
 
-	for _, sample := range samples[:min(len(samples), 5)] {
-		out = append(out, fmt.Sprintf("%s -> %s  %s", classify.CategoryName(sample.From), classify.CategoryName(sample.To), sample.Name))
+	for _, sample := range samples {
+		out = append(out, fmt.Sprintf("%x  %s -> %s  %s", sample.InfoHash,
+			classify.CategoryName(sample.From), classify.CategoryName(sample.To), sample.Name))
+	}
+
+	return out
+}
+
+// reclassifyRejected formats every rejected row for the page, with the
+// infohash so a row can be found in the store.
+func reclassifyRejected(rejected []reclassify.Rejected) []string {
+	out := make([]string, 0, len(rejected))
+
+	for _, row := range rejected {
+		out = append(out, fmt.Sprintf("%x  %s  (%s)", row.InfoHash, row.Name, row.Reason))
 	}
 
 	return out

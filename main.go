@@ -73,7 +73,8 @@ Commands:
   auth reset   clear the administrator account and run setup again
   settings reset <key>
                reset a stored setting to its default
-  reclassify   re-run the classifier over the stored rows (dry run unless -apply)
+  reclassify   re-run the classifier over the stored rows (dry run unless -apply;
+               -delete-rejected removes the rows the blocking rules now reject)
 
 Flags accepted by run, doctor, healthcheck, auth, settings and reclassify:
   -data string       data directory (default ./data)
