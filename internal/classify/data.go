@@ -144,7 +144,8 @@ var (
 		"pov", "pussy", "rimming", "rimjobs?", "scat", "seduc*", "sex*",
 		"slut*", "squirting", "squirt*", "strapon", "strap on", "submissive",
 		"swingers?", "tgirl", "threesome", "tits?", "tranny", "urine",
-		"vibrator*", "*wank*", "whore*", "hentai", "ecchi", "uncensored",
+		"vibrator*", "*wank*", "whore*", "hentai", "ecchi", "uncensored", "uncen*",
+		"babes ?com", "av ?joyuu",
 		"ahegao", "yaoi", "yuri", "bbw", "gilf", "camgirl*",
 		// Studios and sites.
 		"adulttime", "anilos", "atkgalleria*", "blacked", "bongacams",
@@ -199,6 +200,7 @@ var (
 		"e-books?",
 		"kindle",
 		"chm",
+		"fb2",
 	)
 
 	// comicKeywordsRegex marks comic releases by name.
@@ -211,6 +213,8 @@ var (
 		"comics?",
 		"manga",
 		"graphic novel",
+		"shonen jump",
+		"shounen jump",
 	)
 
 	// softwareKeywordsRegex marks application releases by name, used when the
@@ -332,6 +336,7 @@ var adultCJKTerms = []string{
 	"無修正", "无码", "無碼", "中出", "痴漢", "痴汉", "痴女", "素人",
 	"巨乳", "自慰", "女優", "女优", "淫", "熟女", "人妻", "色情",
 	"骚", "騷", "裸舞", "裸聊", "少妇",
+	"成年コミック", "18禁", "エロ",
 }
 
 // javLabels are the studio prefixes of Japanese adult releases, such as

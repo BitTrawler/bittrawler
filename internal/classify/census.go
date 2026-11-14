@@ -60,7 +60,7 @@ var extensionBuckets = map[string]bucket{
 	"heic": bucketImage, "avif": bucketImage, "raw": bucketImage,
 
 	// Ebook
-	"epub": bucketEbook, "mobi": bucketEbook, "azw": bucketEbook,
+	"epub": bucketEbook, "mobi": bucketEbook, "azw": bucketEbook, "fb2": bucketEbook,
 	"azw3": bucketEbook, "azw4": bucketEbook, "azw8": bucketEbook,
 	"chm": bucketEbook, "djvu": bucketEbook, "lit": bucketEbook,
 	"pdf": bucketEbook, "odt": bucketEbook, "rtf": bucketEbook,
