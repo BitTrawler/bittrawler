@@ -242,3 +242,122 @@ func TestTableCounts(t *testing.T) {
 		t.Fatalf("node count after drop = %d, want 1", got)
 	}
 }
+
+func TestClaimNodesForSampleInfoHashesClaimsEachNodeOnce(t *testing.T) {
+	tbl := New(testID(0))
+	id := testID(1)
+
+	tbl.PutNode(id, testAddr(1), NodeRestored(NodeState{LastRespondedAt: time.Now().Add(-time.Minute)}))
+
+	if claimed := tbl.ClaimNodesForSampleInfoHashes(10, time.Minute); len(claimed) != 1 {
+		t.Fatalf("claimed %d nodes, want 1", len(claimed))
+	}
+
+	if claimed := tbl.ClaimNodesForSampleInfoHashes(10, time.Minute); len(claimed) != 0 {
+		t.Fatalf("claimed %d nodes again before the lease expired, want 0", len(claimed))
+	}
+}
+
+func TestClaimNodesForSampleInfoHashesSkipsUnsupportedNodes(t *testing.T) {
+	tbl := New(testID(0))
+	id := testID(1)
+
+	tbl.PutNode(id, testAddr(1),
+		NodeRestored(NodeState{LastRespondedAt: time.Now().Add(-time.Minute)}),
+		NodeBep51Support(false),
+	)
+
+	if claimed := tbl.ClaimNodesForSampleInfoHashes(10, time.Minute); len(claimed) != 0 {
+		t.Fatalf("claimed %d unsupported nodes, want 0", len(claimed))
+	}
+}
+
+func TestClaimNodesForSampleInfoHashesPrefersProductiveNodes(t *testing.T) {
+	tbl := New(testID(0))
+	restored := NodeRestored(NodeState{LastRespondedAt: time.Now().Add(-time.Minute)})
+
+	for n := byte(1); n <= 5; n++ {
+		tbl.PutNode(testID(n), testAddr(n), restored)
+	}
+
+	productive := testID(9)
+	tbl.PutNode(productive, testAddr(9),
+		NodeRestored(NodeState{LastRespondedAt: time.Now().Add(-time.Minute), Sampled: 500}),
+	)
+
+	claimed := tbl.ClaimNodesForSampleInfoHashes(1, time.Minute)
+	if len(claimed) != 1 {
+		t.Fatalf("claimed %d nodes, want 1", len(claimed))
+	}
+
+	if claimed[0].ID() != productive {
+		t.Fatalf("claimed node %v, want the productive node %v", claimed[0].ID(), productive)
+	}
+}
+
+func TestFailedSampleBacksOffInsteadOfDisqualifyingNode(t *testing.T) {
+	tbl := New(testID(0))
+	id := testID(1)
+
+	tbl.PutNode(id, testAddr(1), NodeRestored(NodeState{LastRespondedAt: time.Now().Add(-time.Minute)}))
+
+	claimed := tbl.ClaimNodesForSampleInfoHashes(1, time.Minute)
+	if len(claimed) != 1 {
+		t.Fatalf("claimed %d nodes, want 1", len(claimed))
+	}
+
+	before := time.Now()
+	tbl.BatchCommand(PutNode{ID: id, Addr: testAddr(1), Options: []NodeOption{NodeSampleInfoHashesFailed()}})
+
+	if claimed := tbl.ClaimNodesForSampleInfoHashes(1, time.Minute); len(claimed) != 0 {
+		t.Fatalf("claimed %d nodes straight after a failure, want 0", len(claimed))
+	}
+
+	snapshot := tbl.SnapshotNodes(1)
+	if len(snapshot) != 1 {
+		t.Fatalf("snapshot has %d nodes, want 1", len(snapshot))
+	}
+
+	// The first failure backs the node off for a minute and leaves its support
+	// unknown, so a lost packet does not stop it being sampled for good.
+	if snapshot[0].Support != NodeSupportUnknown {
+		t.Fatalf("support = %v, want unknown", snapshot[0].Support)
+	}
+
+	delay := snapshot[0].NextSampleAt.Sub(before)
+	if delay < 55*time.Second || delay > 65*time.Second {
+		t.Fatalf("next sample in %v, want about a minute", delay)
+	}
+}
+
+func TestSnapshotNodesKeepsSampleLearning(t *testing.T) {
+	tbl := New(testID(0))
+	id := testID(1)
+	nextSample := time.Now().Add(30 * time.Minute).Round(time.Second)
+
+	tbl.PutNode(id, testAddr(1), NodeRestored(NodeState{
+		Support:         NodeSupportYes,
+		LastRespondedAt: time.Now().Add(-time.Minute).Round(time.Second),
+		NextSampleAt:    nextSample,
+		Sampled:         120,
+		Total:           4000,
+	}))
+
+	states := tbl.SnapshotNodes(0)
+	if len(states) != 1 {
+		t.Fatalf("snapshot has %d nodes, want 1", len(states))
+	}
+
+	state := states[0]
+	if state.ID != id || state.Addr != testAddr(1) {
+		t.Fatalf("snapshot node = %v at %v", state.ID, state.Addr)
+	}
+
+	if state.Support != NodeSupportYes || state.Sampled != 120 || state.Total != 4000 {
+		t.Fatalf("snapshot learning = %+v", state)
+	}
+
+	if !state.NextSampleAt.Equal(nextSample) {
+		t.Fatalf("next sample = %v, want %v", state.NextSampleAt, nextSample)
+	}
+}

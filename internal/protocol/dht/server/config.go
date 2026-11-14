@@ -26,14 +26,17 @@ type Config struct {
 	OutboundTTL   time.Duration
 }
 
-// NewDefaultConfig returns the defaults inherited from bitmagnet.
+// NewDefaultConfig returns the DHT server defaults. The per-address outgoing
+// rate is bitmagnet's four times over: peer lookups are addressed at the node
+// that reported the hash, and the crawl's rate is bounded by how fast those
+// nodes answer, not by the socket.
 func NewDefaultConfig() Config {
 	return Config{
 		ListenAddr:       netip.AddrPortFrom(netip.IPv4Unspecified(), 3334),
 		QueryTimeout:     4 * time.Second,
 		ResponderTimeout: 5 * time.Second,
-		OutboundRate:     rate.Every(time.Second),
-		OutboundBurst:    4,
+		OutboundRate:     4,
+		OutboundBurst:    8,
 		OutboundSize:     1000,
 		OutboundTTL:      20 * time.Second,
 	}

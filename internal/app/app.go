@@ -22,6 +22,7 @@ import (
 
 	"github.com/BitTrawler/bittrawler/internal/blocking"
 	"github.com/BitTrawler/bittrawler/internal/config"
+	"github.com/BitTrawler/bittrawler/internal/crawlstate"
 	"github.com/BitTrawler/bittrawler/internal/dhtcrawler"
 	"github.com/BitTrawler/bittrawler/internal/protocol"
 	"github.com/BitTrawler/bittrawler/internal/protocol/dht/ktable"
@@ -49,6 +50,7 @@ type App struct {
 	settingsStore *settings.Store
 	torrentStore  *store.Store
 	blocklist     *blocking.Blocklist
+	crawlState    *crawlstate.Store
 	dht           server.Server
 	table         ktable.Table
 	nodeID        protocol.ID
@@ -165,6 +167,11 @@ func New(ctx context.Context, overrides config.Overrides, info version.Info, log
 	a.blocklist, err = blocking.Open(blocking.Config{Dir: dataDir})
 	if err != nil {
 		return nil, fmt.Errorf("app: open blocklist: %w", err)
+	}
+
+	a.crawlState, err = crawlstate.Open(dataDir)
+	if err != nil {
+		return nil, fmt.Errorf("app: open crawl state: %w", err)
 	}
 
 	a.nodeID = protocol.RandomNodeID()
@@ -549,6 +556,14 @@ func (a *App) closeResources() error {
 		}
 
 		a.blocklist = nil
+	}
+
+	if a.crawlState != nil {
+		if err := a.crawlState.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("app: close crawl state: %w", err))
+		}
+
+		a.crawlState = nil
 	}
 
 	if a.torrentStore != nil {

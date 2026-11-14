@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/BitTrawler/bittrawler/internal/classify"
+	"github.com/BitTrawler/bittrawler/internal/dhtcrawler"
 	"github.com/BitTrawler/bittrawler/internal/store"
 )
 
@@ -45,6 +46,7 @@ func (a *App) handleStatsAPI(w http.ResponseWriter, r *http.Request) {
 		},
 		Categories: statsAPICategories(snapshot.Categories),
 		Counters:   feedCountersFrom(snapshot.Counters),
+		Pipeline:   statsAPIPipelineFrom(snapshot.Counters.Pipeline),
 		Runtime: feedRuntime{
 			HeapBytes:  snapshot.HeapAlloc,
 			RSSBytes:   snapshot.RSSBytes,
@@ -145,10 +147,47 @@ type statsAPIResponse struct {
 	Store           statsAPIStore      `json:"store"`
 	Categories      []statsAPICategory `json:"categories"`
 	Counters        feedCounters       `json:"counters"`
+	Pipeline        statsAPIPipeline   `json:"pipeline"`
 	Runtime         feedRuntime        `json:"runtime"`
 	// History is a pointer so a requested but empty history still encodes as
 	// an array instead of being left out.
 	History *[]statsAPIHistory `json:"history,omitempty"`
+}
+
+// statsAPIPipeline is the crawl pipeline's queue and worker state.
+type statsAPIPipeline struct {
+	Ping     statsAPIStage `json:"ping"`
+	FindNode statsAPIStage `json:"find_node"`
+	Sample   statsAPIStage `json:"sample"`
+	GetPeers statsAPIStage `json:"get_peers"`
+	Metadata statsAPIStage `json:"metadata"`
+	TMDB     statsAPIStage `json:"tmdb"`
+	Triage   statsAPIStage `json:"triage"`
+	Persist  statsAPIStage `json:"persist"`
+}
+
+// statsAPIStage is one stage of the pipeline.
+type statsAPIStage struct {
+	Workers  int `json:"workers"`
+	Queued   int `json:"queued"`
+	InFlight int `json:"in_flight"`
+}
+
+func statsAPIPipelineFrom(pipeline dhtcrawler.PipelineStats) statsAPIPipeline {
+	stage := func(stage dhtcrawler.StageStats) statsAPIStage {
+		return statsAPIStage{Workers: stage.Workers, Queued: stage.Queued, InFlight: stage.InFlight}
+	}
+
+	return statsAPIPipeline{
+		Ping:     stage(pipeline.Ping),
+		FindNode: stage(pipeline.FindNode),
+		Sample:   stage(pipeline.Sample),
+		GetPeers: stage(pipeline.GetPeers),
+		Metadata: stage(pipeline.Metadata),
+		TMDB:     stage(pipeline.TMDB),
+		Triage:   stage(pipeline.Triage),
+		Persist:  stage(pipeline.Persist),
+	}
 }
 
 // statsAPIStore is the store's footprint.

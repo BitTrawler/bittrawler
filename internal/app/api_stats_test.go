@@ -71,12 +71,12 @@ func TestStatsAPIKeyAndContract(t *testing.T) {
 	var document map[string]json.RawMessage
 	require.NoError(t, json.Unmarshal([]byte(raw), &document))
 
-	// Eleven top-level fields: the optional history is absent.
-	assert.Len(t, document, 11)
+	// Twelve top-level fields: the optional history is absent.
+	assert.Len(t, document, 12)
 
 	for _, key := range []string{
 		"version", "uptime_seconds", "configured", "crawling", "crawl_enabled",
-		"ingest_per_minute", "dht", "store", "categories", "counters", "runtime",
+		"ingest_per_minute", "dht", "store", "categories", "counters", "pipeline", "runtime",
 	} {
 		assert.Contains(t, document, key)
 	}
@@ -131,7 +131,7 @@ func TestStatsAPIKeyAndContract(t *testing.T) {
 	assert.GreaterOrEqual(t, stats.Store.BytesPerRow, 0.0)
 	assert.NotNil(t, stats.Store.Shards, "shards is an array even when empty")
 	assert.NotNil(t, stats.Categories, "categories is an array even when empty")
-	assert.Len(t, stats.Counters, 20)
+	assert.Len(t, stats.Counters, 22)
 
 	for _, key := range []string{"torrents_persisted", "hashes_triaged", "metadata_fetched"} {
 		assert.Contains(t, stats.Counters, key)

@@ -137,14 +137,14 @@ func Default() Config {
 			TriageBatchWait:             time.Second * 5,
 			PersistBatchSize:            100,
 			PersistBatchWait:            time.Second * 5,
-			PeersPerInfoHash:            4,
+			PeersPerInfoHash:            32,
 			MetadataTimeout:             time.Second * 45,
 			Workers: Workers{
-				Ping:             4,
-				FindNode:         8,
-				SampleInfoHashes: 8,
-				GetPeers:         16,
-				Metadata:         32,
+				Ping:             16,
+				FindNode:         64,
+				SampleInfoHashes: 64,
+				GetPeers:         100,
+				Metadata:         200,
 			},
 		},
 		DHT: DHT{
@@ -156,8 +156,8 @@ func Default() Config {
 			OverallQueryBurst:        20,
 			PerIPQueryRate:           1,
 			PerIPQueryBurst:          10,
-			OutboundRate:             1,
-			OutboundBurst:            4,
+			OutboundRate:             4,
+			OutboundBurst:            8,
 		},
 		Torznab: Torznab{
 			Title:        "BitTrawler",
@@ -165,9 +165,9 @@ func Default() Config {
 			MaxLimit:     100,
 		},
 		TMDB: TMDB{
-			Workers:   4,
+			Workers:   8,
 			Timeout:   time.Second * 5,
-			RateLimit: 4,
+			RateLimit: 20,
 		},
 	}
 }

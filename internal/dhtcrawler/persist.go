@@ -26,7 +26,9 @@ func (c *Crawler) runPersist(ctx context.Context) {
 			return
 		}
 
+		c.inFlight.persist.Add(1)
 		c.persistBatch(batch)
+		c.inFlight.persist.Add(-1)
 		batch = batch[:0]
 	}
 

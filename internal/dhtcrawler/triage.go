@@ -30,12 +30,16 @@ func (c *Crawler) runTriage(ctx context.Context) {
 			batch = append(batch, item)
 
 			if len(batch) >= c.cfg.TriageBatchSize {
+				c.inFlight.triage.Add(1)
 				c.triageBatch(ctx, batch)
+				c.inFlight.triage.Add(-1)
 				batch = batch[:0]
 			}
 		case <-ticker.C:
 			if len(batch) > 0 {
+				c.inFlight.triage.Add(1)
 				c.triageBatch(ctx, batch)
+				c.inFlight.triage.Add(-1)
 				batch = batch[:0]
 			}
 		}

@@ -11,6 +11,12 @@ type Stats struct {
 	NodesDiscovered uint64
 	// SamplesReceived counts BEP 51 replies.
 	SamplesReceived uint64
+	// SampleFailures counts sample_infohashes queries that failed for a reason
+	// other than the node not supporting them, such as a lost packet.
+	SampleFailures uint64
+	// SampleUnsupported counts nodes that answered sample_infohashes with a
+	// method unknown error. They are not asked again.
+	SampleUnsupported uint64
 	// HashesDiscovered counts infohashes in those replies, including ones this
 	// process had already seen.
 	HashesDiscovered uint64
@@ -55,6 +61,30 @@ type Stats struct {
 	TMDBAdult uint64
 	// TMDBFailures counts lookups that could not be completed.
 	TMDBFailures uint64
+	// Pipeline is the state of every crawl stage at the moment of the snapshot.
+	Pipeline PipelineStats
+}
+
+// StageStats describes one crawl stage: how many workers it has, how many items
+// are waiting for one and how many are being worked on.
+type StageStats struct {
+	Workers  int
+	Queued   int
+	InFlight int
+}
+
+// PipelineStats is a snapshot of the whole crawl pipeline. A stage whose queue
+// keeps filling and whose workers are all busy is the stage holding the crawl
+// back.
+type PipelineStats struct {
+	Ping     StageStats
+	FindNode StageStats
+	Sample   StageStats
+	GetPeers StageStats
+	Metadata StageStats
+	TMDB     StageStats
+	Triage   StageStats
+	Persist  StageStats
 }
 
 // crawlerStats holds the live counters behind Stats. Every field is incremented
@@ -63,6 +93,8 @@ type Stats struct {
 type crawlerStats struct {
 	nodesDiscovered       atomic.Uint64
 	samplesReceived       atomic.Uint64
+	sampleFailures        atomic.Uint64
+	sampleUnsupported     atomic.Uint64
 	hashesDiscovered      atomic.Uint64
 	hashesTriaged         atomic.Uint64
 	peerLookups           atomic.Uint64
@@ -89,6 +121,8 @@ func (c *Crawler) Stats() Stats {
 	return Stats{
 		NodesDiscovered:       c.stats.nodesDiscovered.Load(),
 		SamplesReceived:       c.stats.samplesReceived.Load(),
+		SampleFailures:        c.stats.sampleFailures.Load(),
+		SampleUnsupported:     c.stats.sampleUnsupported.Load(),
 		HashesDiscovered:      c.stats.hashesDiscovered.Load(),
 		HashesTriaged:         c.stats.hashesTriaged.Load(),
 		PeerLookups:           c.stats.peerLookups.Load(),
@@ -107,5 +141,52 @@ func (c *Crawler) Stats() Stats {
 		TMDBCorrected:         c.stats.tmdbCorrected.Load(),
 		TMDBAdult:             c.stats.tmdbAdult.Load(),
 		TMDBFailures:          c.stats.tmdbFailures.Load(),
+		Pipeline:              c.pipelineStats(),
+	}
+}
+
+// pipelineStats reads the current queue depths and worker occupancy.
+func (c *Crawler) pipelineStats() PipelineStats {
+	return PipelineStats{
+		Ping: StageStats{
+			Workers:  c.cfg.Workers.Ping,
+			Queued:   len(c.forPing),
+			InFlight: int(c.inFlight.ping.Load()),
+		},
+		FindNode: StageStats{
+			Workers:  c.cfg.Workers.FindNode,
+			Queued:   len(c.forFind),
+			InFlight: int(c.inFlight.findNode.Load()),
+		},
+		Sample: StageStats{
+			Workers:  c.cfg.Workers.SampleInfoHashes,
+			Queued:   len(c.forSample),
+			InFlight: int(c.inFlight.sample.Load()),
+		},
+		GetPeers: StageStats{
+			Workers:  c.cfg.Workers.GetPeers,
+			Queued:   len(c.forPeers),
+			InFlight: int(c.inFlight.getPeers.Load()),
+		},
+		Metadata: StageStats{
+			Workers:  c.cfg.Workers.Metadata,
+			Queued:   len(c.forFetch),
+			InFlight: int(c.inFlight.metadata.Load()),
+		},
+		TMDB: StageStats{
+			Workers:  c.cfg.TMDBWorkers,
+			Queued:   len(c.forTMDB),
+			InFlight: int(c.inFlight.tmdb.Load()),
+		},
+		Triage: StageStats{
+			Workers:  1,
+			Queued:   len(c.forTriage),
+			InFlight: int(c.inFlight.triage.Load()),
+		},
+		Persist: StageStats{
+			Workers:  1,
+			Queued:   len(c.forPersist),
+			InFlight: int(c.inFlight.persist.Load()),
+		},
 	}
 }

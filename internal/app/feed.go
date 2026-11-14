@@ -572,6 +572,8 @@ type feedStats struct {
 type feedCounters struct {
 	NodesDiscovered       uint64 `json:"nodes_discovered"`
 	SamplesReceived       uint64 `json:"samples_received"`
+	SampleFailures        uint64 `json:"sample_failures"`
+	SampleUnsupported     uint64 `json:"sample_unsupported"`
 	HashesDiscovered      uint64 `json:"hashes_discovered"`
 	HashesTriaged         uint64 `json:"hashes_triaged"`
 	PeerLookups           uint64 `json:"peer_lookups"`
@@ -596,6 +598,8 @@ func feedCountersFrom(counters dhtcrawler.Stats) feedCounters {
 	return feedCounters{
 		NodesDiscovered:       counters.NodesDiscovered,
 		SamplesReceived:       counters.SamplesReceived,
+		SampleFailures:        counters.SampleFailures,
+		SampleUnsupported:     counters.SampleUnsupported,
 		HashesDiscovered:      counters.HashesDiscovered,
 		HashesTriaged:         counters.HashesTriaged,
 		PeerLookups:           counters.PeerLookups,

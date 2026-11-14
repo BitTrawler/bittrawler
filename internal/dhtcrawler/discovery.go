@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/BitTrawler/bittrawler/internal/protocol"
+	"github.com/BitTrawler/bittrawler/internal/protocol/dht"
 	"github.com/BitTrawler/bittrawler/internal/protocol/dht/client"
 	"github.com/BitTrawler/bittrawler/internal/protocol/dht/ktable"
 )
@@ -35,6 +36,10 @@ const (
 	findNodeBatch = 10
 	// sampleInfoHashesBatch bounds how many nodes one scan queues for BEP 51.
 	sampleInfoHashesBatch = 60
+	// sampleClaimLease is how long a claimed node is treated as sampled while
+	// its request is in flight. It only has to outlast the queue wait plus one
+	// query timeout.
+	sampleClaimLease = 2 * time.Minute
 )
 
 // startDiscovery starts the node side of the crawl: bootstrap, node intake and
@@ -47,11 +52,11 @@ func (c *Crawler) startDiscovery(ctx context.Context, wg *sync.WaitGroup) {
 	startWorker(ctx, wg, c.runInboundNodes)
 	startWorker(ctx, wg, c.runDiscoveredNodes)
 	startWorker(ctx, wg, c.runPingScheduler)
-	startPool(ctx, wg, c.cfg.Workers.Ping, c.forPing, c.pingNode)
+	startPool(ctx, wg, c.cfg.Workers.Ping, c.forPing, &c.inFlight.ping, c.pingNode)
 	startWorker(ctx, wg, c.runFindNodeScheduler)
-	startPool(ctx, wg, c.cfg.Workers.FindNode, c.forFind, c.findNode)
+	startPool(ctx, wg, c.cfg.Workers.FindNode, c.forFind, &c.inFlight.findNode, c.findNode)
 	startWorker(ctx, wg, c.runSampleInfoHashesScheduler)
-	startPool(ctx, wg, c.cfg.Workers.SampleInfoHashes, c.forSample, c.sampleInfoHashes)
+	startPool(ctx, wg, c.cfg.Workers.SampleInfoHashes, c.forSample, &c.inFlight.sample, c.sampleInfoHashes)
 }
 
 func (c *Crawler) runSoughtNodeIDRotation(ctx context.Context) {
@@ -265,6 +270,8 @@ func (c *Crawler) findNode(ctx context.Context, node ktable.Node) {
 }
 
 // runSampleInfoHashesScheduler queues nodes that are due for a BEP 51 sample.
+// Each candidate is claimed until the request finishes, so a slow reply cannot
+// cause the same node to be queued again on the next tick.
 func (c *Crawler) runSampleInfoHashesScheduler(ctx context.Context) {
 	ticker := time.NewTicker(nodeMaintenanceSchedule)
 	defer ticker.Stop()
@@ -276,7 +283,13 @@ func (c *Crawler) runSampleInfoHashesScheduler(ctx context.Context) {
 		case <-ticker.C:
 		}
 
-		for _, node := range c.kTable.GetNodesForSampleInfoHashes(sampleInfoHashesBatch) {
+		room := cap(c.forSample) - len(c.forSample)
+		if room <= 0 {
+			continue
+		}
+
+		claimed := c.kTable.ClaimNodesForSampleInfoHashes(min(sampleInfoHashesBatch, room), sampleClaimLease)
+		for _, node := range claimed {
 			if !send(ctx, c.forSample, node) {
 				return
 			}
@@ -287,25 +300,42 @@ func (c *Crawler) runSampleInfoHashesScheduler(ctx context.Context) {
 // sampleInfoHashes asks one node for a sample of the infohashes it knows about
 // and queues the ones this process has not seen before for triage.
 func (c *Crawler) sampleInfoHashes(ctx context.Context, node ktable.Node) {
-	if !node.IsSampleInfoHashesCandidate() {
-		return
-	}
-
 	res, err := c.client.SampleInfoHashes(ctx, node.Addr(), c.soughtNodeID.Get())
 	if err != nil {
+		if ctx.Err() != nil {
+			return
+		}
+
 		// A node that answers ping and find_node but not sample_infohashes is
 		// alive and useful; the bootstrap routers are exactly that. Marking it
-		// as unsupported stops the sample scheduler queuing it again without
-		// losing a node the routing table needs.
-		if ctx.Err() == nil {
+		// as unsupported stops the scheduler queuing it again without losing a
+		// node the routing table needs.
+		if methodUnknown(err) {
+			c.stats.sampleUnsupported.Add(1)
+
 			c.kTable.BatchCommand(ktable.PutNode{
 				ID:      node.ID(),
 				Addr:    node.Addr(),
 				Options: []ktable.NodeOption{ktable.NodeBep51Support(false)},
 			})
-			c.logger.Debug("node does not answer sample_infohashes",
+			c.logger.Debug("node does not support sample_infohashes",
 				"node_id", node.ID().String(), "address", node.Addr().String(), "error", err)
+
+			return
 		}
+
+		// A timeout is not evidence that the node cannot answer BEP 51: it is
+		// far more likely the query or its reply was lost. The node is retried
+		// later with a backoff instead of being disqualified.
+		c.stats.sampleFailures.Add(1)
+
+		c.kTable.BatchCommand(ktable.PutNode{
+			ID:      node.ID(),
+			Addr:    node.Addr(),
+			Options: []ktable.NodeOption{ktable.NodeSampleInfoHashesFailed()},
+		})
+		c.logger.Debug("failed to sample node",
+			"node_id", node.ID().String(), "address", node.Addr().String(), "error", err)
 
 		return
 	}
@@ -313,17 +343,25 @@ func (c *Crawler) sampleInfoHashes(ctx context.Context, node ktable.Node) {
 	c.stats.samplesReceived.Add(1)
 	c.stats.hashesDiscovered.Add(uint64(len(res.Samples)))
 
-	var discovered []protocol.ID
+	// Hand over what fits in the triage queue and drop the rest. Blocking here
+	// would stop this worker sampling, and with it the node discovery that the
+	// next sample depends on; the dropped hashes are not marked seen, so another
+	// node's sample can offer them again once lookups have caught up.
+	discovered := 0
 
 	for _, hash := range res.Samples {
-		if !c.seenHashes.testAndAdd(hash) {
-			discovered = append(discovered, hash)
+		if c.seenHashes.seen(hash) {
+			continue
 		}
-	}
 
-	for _, hash := range discovered {
-		if !send(ctx, c.forTriage, hashAndNode{infoHash: hash, node: node.Addr()}) {
+		discovered++
+
+		select {
+		case c.forTriage <- hashAndNode{infoHash: hash, node: node.Addr()}:
+			c.seenHashes.add(hash)
+		case <-ctx.Done():
 			return
+		default:
 		}
 	}
 
@@ -333,7 +371,7 @@ func (c *Crawler) sampleInfoHashes(ctx context.Context, node ktable.Node) {
 		Options: []ktable.NodeOption{
 			ktable.NodeResponded(),
 			ktable.NodeBep51Support(true),
-			ktable.NodeSampleInfoHashesRes(len(discovered), res.Num, time.Now().Add(c.sampleInterval(res.Interval, len(discovered) > 0))),
+			ktable.NodeSampleInfoHashesRes(discovered, res.Num, time.Now().Add(c.sampleInterval(res.Interval, discovered > 0))),
 		},
 	})
 	c.addDiscovered(ctx, res.Nodes)
@@ -378,6 +416,16 @@ func (c *Crawler) addDiscovered(ctx context.Context, nodes []client.NodeInfo) {
 			return
 		}
 	}
+}
+
+// methodUnknown reports a KRPC error response saying the node does not
+// understand the query. It is the only reliable sign that a node does not
+// support BEP 51: nodes that ignore an unknown query simply time out, which
+// looks the same as a lost packet.
+func methodUnknown(err error) bool {
+	var krpcError *dht.Error
+
+	return errors.As(err, &krpcError) && krpcError.Code == dht.ErrorCodeMethodUnknown
 }
 
 // dropUnansweredNode removes a node that did not answer. A cancellation of the

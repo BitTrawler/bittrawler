@@ -509,7 +509,7 @@ func TestSavingRespectsOverridesAndAdvanced(t *testing.T) {
 	assert.Equal(t, false, enabled, "an environment override is not written by the form")
 
 	workers, _ := application.SettingValue("crawler.workers.metadata")
-	assert.Equal(t, 32, workers, "an advanced setting is not written by the basic form")
+	assert.Equal(t, 200, workers, "an advanced setting is not written by the basic form")
 
 	timeout, _ := application.SettingValue("crawler.metadata_timeout")
 	assert.Equal(t, 50*time.Second, timeout)

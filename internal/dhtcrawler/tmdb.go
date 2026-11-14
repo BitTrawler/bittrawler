@@ -30,7 +30,7 @@ func (c *Crawler) startTMDB(ctx context.Context, wg *sync.WaitGroup) {
 		return
 	}
 
-	startPool(ctx, wg, c.cfg.TMDBWorkers, c.forTMDB, c.confirm)
+	startPool(ctx, wg, c.cfg.TMDBWorkers, c.forTMDB, &c.inFlight.tmdb, c.confirm)
 }
 
 // tmdbCandidate reports whether a classification is one TMDB can confirm or

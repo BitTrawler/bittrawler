@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"net/netip"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/BitTrawler/bittrawler/internal/blocking"
 	"github.com/BitTrawler/bittrawler/internal/classify"
@@ -17,6 +19,17 @@ import (
 	"github.com/BitTrawler/bittrawler/internal/protocol/metainfo/metainforequester"
 	"github.com/BitTrawler/bittrawler/internal/store"
 	"github.com/bits-and-blooms/bloom/v3"
+	lru "github.com/hashicorp/golang-lru/v2/expirable"
+)
+
+const (
+	// failedPeerTTL is how long a peer that did not supply metadata is skipped.
+	// It keeps a timeout on a blackholed address from being paid again for every
+	// torrent that lists it, without writing off a peer that is restarting.
+	failedPeerTTL = 15 * time.Minute
+	// failedPeerCapacity bounds the memory spent on that cache: a few megabytes
+	// at tens of bytes per address.
+	failedPeerCapacity = 100_000
 )
 
 // hashAndNode is a discovered infohash together with the node that reported it.
@@ -43,6 +56,7 @@ type Crawler struct {
 	tmdb       TMDBSearcher
 	blocklist  *blocking.Blocklist
 	store      *store.Store
+	state      StateStore
 	logger     *slog.Logger
 	stats      crawlerStats
 
@@ -59,6 +73,21 @@ type Crawler struct {
 
 	seenHashes   *seenHashes
 	soughtNodeID *concurrency.AtomicValue[protocol.ID]
+	failedPeers  *lru.LRU[netip.AddrPort, struct{}]
+
+	inFlight inFlightCounters
+}
+
+// inFlightCounters is how many workers of each stage are busy at this instant.
+type inFlightCounters struct {
+	ping     atomic.Int64
+	findNode atomic.Int64
+	sample   atomic.Int64
+	getPeers atomic.Int64
+	metadata atomic.Int64
+	tmdb     atomic.Int64
+	triage   atomic.Int64
+	persist  atomic.Int64
 }
 
 // New validates the dependencies and returns a crawler. It starts no
@@ -106,6 +135,7 @@ func New(cfg Config) (*Crawler, error) {
 		tmdb:         cfg.TMDB,
 		blocklist:    cfg.Blocklist,
 		store:        cfg.Store,
+		state:        cfg.State,
 		logger:       cfg.Logger,
 		inbound:      cfg.DiscoveredNodes,
 		discovered:   make(chan ktable.Node, 1024),
@@ -119,6 +149,7 @@ func New(cfg Config) (*Crawler, error) {
 		forPersist:   make(chan store.Row, 1024),
 		seenHashes:   newSeenHashes(cfg.SeenHashesSize, cfg.SeenHashesFalsePositiveRate),
 		soughtNodeID: &concurrency.AtomicValue[protocol.ID]{},
+		failedPeers:  lru.NewLRU[netip.AddrPort, struct{}](failedPeerCapacity, nil, failedPeerTTL),
 	}, nil
 }
 
@@ -130,8 +161,11 @@ func (c *Crawler) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	c.restoreState(ctx)
+
 	var wg sync.WaitGroup
 
+	startWorker(ctx, &wg, c.runStateSaver)
 	c.startDiscovery(ctx, &wg)
 	c.startTriage(ctx, &wg)
 	c.startFetch(ctx, &wg)
@@ -163,6 +197,7 @@ func startPool[T any](
 	wg *sync.WaitGroup,
 	n int,
 	in <-chan T,
+	inFlight *atomic.Int64,
 	fn func(context.Context, T),
 ) {
 	for range n {
@@ -173,7 +208,9 @@ func startPool[T any](
 					return
 				}
 
+				inFlight.Add(1)
 				fn(ctx, item)
+				inFlight.Add(-1)
 			}
 		})
 	}
@@ -218,10 +255,20 @@ func newSeenHashes(size uint, falsePositiveRate float64) *seenHashes {
 	return &seenHashes{bloom: bloom.NewWithEstimates(size, falsePositiveRate)}
 }
 
-// testAndAdd reports whether the hash was already in the filter and records it.
-func (s *seenHashes) testAndAdd(hash protocol.ID) bool {
+// seen reports whether the hash is already in the filter.
+func (s *seenHashes) seen(hash protocol.ID) bool {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	return s.bloom.TestAndAdd(hash[:])
+	return s.bloom.Test(hash[:])
+}
+
+// add records the hash. It is called once the hash has been accepted for
+// triage, not when it is first seen: a hash dropped under back-pressure is left
+// out of the filter so another node's sample can offer it again later.
+func (s *seenHashes) add(hash protocol.ID) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.bloom.Add(hash[:])
 }

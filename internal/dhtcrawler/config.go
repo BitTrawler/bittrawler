@@ -29,6 +29,9 @@ type Config struct {
 	Blocklist *blocking.Blocklist
 	// Store receives the crawled torrents.
 	Store *store.Store
+	// State keeps the routing table between runs. It is optional: nil starts
+	// every crawl from the bootstrap nodes.
+	State StateStore
 	// Classification controls what happens to torrents the classifier rejects.
 	Classification classify.Config
 	// TMDB confirms and corrects film and television classifications. It is
@@ -114,16 +117,16 @@ func DefaultConfig() Config {
 		TriageBatchWait:             5 * time.Second,
 		PersistBatchSize:            100,
 		PersistBatchWait:            5 * time.Second,
-		PeersPerInfoHash:            4,
+		PeersPerInfoHash:            32,
 		MetadataTimeout:             45 * time.Second,
-		TMDBWorkers:                 4,
+		TMDBWorkers:                 8,
 		TMDBTimeout:                 5 * time.Second,
 		Workers: WorkerCounts{
-			Ping:             4,
-			FindNode:         8,
-			SampleInfoHashes: 8,
-			GetPeers:         16,
-			Metadata:         32,
+			Ping:             16,
+			FindNode:         64,
+			SampleInfoHashes: 64,
+			GetPeers:         100,
+			Metadata:         200,
 		},
 	}
 }

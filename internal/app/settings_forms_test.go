@@ -158,7 +158,7 @@ func TestSettingsSaveRejectsBadValues(t *testing.T) {
 
 	workersBefore, ok := application.SettingValue("crawler.workers.metadata")
 	require.True(t, ok)
-	assert.Equal(t, 32, workersBefore, "the default metadata worker count")
+	assert.Equal(t, 200, workersBefore, "the default metadata worker count")
 
 	timeoutBefore, ok := application.SettingValue("crawler.metadata_timeout")
 	require.True(t, ok)

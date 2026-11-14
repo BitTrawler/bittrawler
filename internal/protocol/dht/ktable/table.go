@@ -25,6 +25,11 @@ type TableQuery interface {
 	GetClosestNodes(id ID) []Node
 	GetOldestNodes(cutoff time.Time, n int) []Node
 	GetNodesForSampleInfoHashes(n int) []Node
+	// ClaimNodesForSampleInfoHashes returns up to n nodes due for a BEP 51
+	// sample and reserves each one until lease expires.
+	ClaimNodesForSampleInfoHashes(n int, lease time.Duration) []Node
+	// SnapshotNodes returns up to n nodes with their sample learning state.
+	SnapshotNodes(n int) []NodeState
 	FilterKnownAddrs(addrs []netip.Addr) []netip.Addr
 	GetHashOrClosestNodes(id ID) GetHashOrClosestNodesResult
 	// SampleHashesAndNodes returns a random sample of up to 8 hashes and nodes, and the total hashes count.
@@ -133,6 +138,25 @@ func (t *table) GetNodesForSampleInfoHashes(n int) []Node {
 	defer t.mutex.RUnlock()
 
 	return GetNodesForSampleInfoHashes{
+		N: n,
+	}.execReturn(t)
+}
+
+func (t *table) ClaimNodesForSampleInfoHashes(n int, lease time.Duration) []Node {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	return ClaimNodesForSampleInfoHashes{
+		N:     n,
+		Lease: lease,
+	}.execReturn(t)
+}
+
+func (t *table) SnapshotNodes(n int) []NodeState {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	return SnapshotNodes{
 		N: n,
 	}.execReturn(t)
 }

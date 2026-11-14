@@ -19,7 +19,7 @@ func TestDefaultIsValid(t *testing.T) {
 	assert.Equal(t, "0.0.0.0:6684", cfg.Web.Address)
 	assert.Equal(t, "0.0.0.0:6684", cfg.DHT.ListenAddress)
 	assert.Equal(t, 12, cfg.Store.RetentionMonths)
-	assert.Equal(t, 32, cfg.Crawler.Workers.Metadata)
+	assert.Equal(t, 200, cfg.Crawler.Workers.Metadata)
 	assert.Equal(t, 30, cfg.Web.SessionDays)
 	assert.True(t, cfg.Crawler.Enabled)
 	assert.Empty(t, cfg.Web.AdminUsername)

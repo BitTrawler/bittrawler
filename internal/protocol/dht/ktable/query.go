@@ -76,6 +76,103 @@ func (c GetNodesForSampleInfoHashes) execReturn(t *table) []Node {
 	return peers
 }
 
+var _ Query[[]Node] = ClaimNodesForSampleInfoHashes{}
+
+// ClaimNodesForSampleInfoHashes returns nodes that are due for a BEP 51 sample
+// and marks each one as sampled until the lease expires. Without the claim the
+// scheduler would queue every candidate again on its next tick, and a slow
+// sample reply would let a queue of duplicates build that the workers never
+// catch up with.
+type ClaimNodesForSampleInfoHashes struct {
+	N     int
+	Lease time.Duration
+}
+
+func (c ClaimNodesForSampleInfoHashes) execReturn(t *table) []Node {
+	now := time.Now()
+	threshold := now.Add(-(5 * time.Second))
+
+	candidates := make([]*node, 0, c.N)
+
+	for _, it := range t.nodes.items {
+		if it.bep51Support == protocolSupportNo ||
+			!it.nextSampleInfoHashesTime.Before(now) ||
+			!it.lastRespondedAt.Before(threshold) {
+			continue
+		}
+
+		candidates = append(candidates, it)
+	}
+
+	// Nodes that supplied new hashes last time are asked again first, so a
+	// crawl spends its sample budget where it has been productive.
+	sort.SliceStable(candidates, func(i, j int) bool {
+		productiveI := candidates[i].lastDiscoveredNum > 0
+		productiveJ := candidates[j].lastDiscoveredNum > 0
+
+		if productiveI != productiveJ {
+			return productiveI
+		}
+
+		return candidates[i].sampledNum > candidates[j].sampledNum
+	})
+
+	if len(candidates) > c.N {
+		candidates = candidates[:c.N]
+	}
+
+	claimed := make([]Node, len(candidates))
+
+	for i, it := range candidates {
+		it.nextSampleInfoHashesTime = now.Add(c.Lease)
+		claimed[i] = it.snapshot()
+	}
+
+	return claimed
+}
+
+var _ Query[[]NodeState] = SnapshotNodes{}
+
+// SnapshotNodes returns up to n nodes with their learning state, for saving
+// across a restart.
+type SnapshotNodes struct {
+	N int
+}
+
+func (c SnapshotNodes) execReturn(t *table) []NodeState {
+	states := make([]NodeState, 0, t.nodes.count())
+
+	for _, it := range t.nodes.items {
+		if it.dropReason != nil || it.id.IsZero() || !it.addr.IsValid() {
+			continue
+		}
+
+		states = append(states, NodeState{
+			ID:              it.id,
+			Addr:            it.addr,
+			Support:         nodeSupport(it.bep51Support),
+			LastRespondedAt: it.lastRespondedAt,
+			NextSampleAt:    it.nextSampleInfoHashesTime,
+			Sampled:         it.sampledNum,
+			Total:           it.totalNum,
+		})
+	}
+
+	sort.Slice(states, func(i, j int) bool {
+		if states[i].Sampled != states[j].Sampled {
+			return states[i].Sampled > states[j].Sampled
+		}
+
+		return states[i].LastRespondedAt.After(states[j].LastRespondedAt)
+	})
+
+	if c.N > 0 && len(states) > c.N {
+		states = states[:c.N]
+	}
+
+	return states
+}
+
 var _ Query[GetHashOrClosestNodesResult] = GetHashOrClosestNodes{}
 
 type GetHashOrClosestNodes struct {

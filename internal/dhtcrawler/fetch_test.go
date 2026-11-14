@@ -141,3 +141,34 @@ func TestUniquePeers(t *testing.T) {
 		}
 	}
 }
+
+func TestUsablePeersSkipsPeersThatFailedRecently(t *testing.T) {
+	tc := newTestCrawler(t, &fakeDHT{}, &scriptedRequester{}, Config{})
+
+	dead := testAddr(2)
+	alive := testAddr(3)
+
+	tc.crawler.peerFailed(dead)
+
+	peers := tc.crawler.usablePeers([]netip.AddrPort{dead, alive}, 10)
+	if len(peers) != 1 || peers[0] != alive {
+		t.Fatalf("usable peers = %v, want just %v", peers, alive)
+	}
+}
+
+func TestFailedMetadataRequestRemembersThePeer(t *testing.T) {
+	requester := &scriptedRequester{failures: 1, info: metainfo.Info{Name: "Valid.Torrent", Length: 4096}}
+	tc := newTestCrawler(t, &fakeDHT{}, requester, Config{})
+
+	dead := testAddr(2)
+
+	_, _ = tc.crawler.fetchMetainfo(context.Background(), infoHashWithPeers{
+		infoHash: testHash(1),
+		node:     testAddr(1),
+		peers:    []netip.AddrPort{dead, testAddr(3)},
+	})
+
+	if _, failed := tc.crawler.failedPeers.Get(dead); !failed {
+		t.Fatal("the peer that failed was not remembered")
+	}
+}

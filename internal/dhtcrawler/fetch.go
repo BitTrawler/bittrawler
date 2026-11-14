@@ -27,8 +27,8 @@ var errDeceptiveContent = errors.New("deceptive content")
 
 // startFetch starts the peer lookup and metadata fetch stages.
 func (c *Crawler) startFetch(ctx context.Context, wg *sync.WaitGroup) {
-	startPool(ctx, wg, c.cfg.Workers.GetPeers, c.forPeers, c.getPeers)
-	startPool(ctx, wg, c.cfg.Workers.Metadata, c.forFetch, c.metadata)
+	startPool(ctx, wg, c.cfg.Workers.GetPeers, c.forPeers, &c.inFlight.getPeers, c.getPeers)
+	startPool(ctx, wg, c.cfg.Workers.Metadata, c.forFetch, &c.inFlight.metadata, c.metadata)
 }
 
 // getPeers looks up the peers for an unseen infohash. The peers are remembered
@@ -49,6 +49,7 @@ func (c *Crawler) getPeers(ctx context.Context, item hashAndNode) {
 	}
 
 	c.rememberNode(ctx, res.ID, item.node)
+	c.addDiscovered(ctx, res.Nodes)
 
 	if len(res.Values) == 0 {
 		c.stats.peerLookupsEmpty.Add(1)
@@ -65,7 +66,7 @@ func (c *Crawler) getPeers(ctx context.Context, item hashAndNode) {
 
 	c.kTable.BatchCommand(ktable.PutHash{ID: item.infoHash, Peers: hashPeers})
 
-	peers := uniquePeers(res.Values, c.cfg.PeersPerInfoHash)
+	peers := c.usablePeers(res.Values, c.cfg.PeersPerInfoHash)
 	if len(peers) == 0 {
 		return
 	}
@@ -144,6 +145,8 @@ func (c *Crawler) fetchMetainfo(ctx context.Context, job infoHashWithPeers) (met
 	for _, peer := range job.peers {
 		res, err := c.requester.Request(ctx, job.infoHash, peer)
 		if err != nil {
+			c.peerFailed(peer)
+
 			c.logger.Debug("metadata request failed",
 				"info_hash", job.infoHash.String(), "peer", peer.String(), "error", err)
 
@@ -200,8 +203,31 @@ func (c *Crawler) scrapePeers(ctx context.Context, node netip.AddrPort, hash pro
 	return int(res.BfSeeders.ApproximatedSize()), int(res.BfPeers.ApproximatedSize())
 }
 
+// usablePeers removes duplicate, invalid and recently dead addresses and keeps
+// at most limit of them. The DHT frequently returns the same address several
+// times, and the same unreachable peers turn up for many torrents: dialling
+// them again costs a timeout on a metadata worker every time.
+func (c *Crawler) usablePeers(addrs []netip.AddrPort, limit int) []netip.AddrPort {
+	usable := make([]netip.AddrPort, 0, len(addrs))
+
+	for _, addr := range addrs {
+		if _, failed := c.failedPeers.Get(addr); !failed {
+			usable = append(usable, addr)
+		}
+	}
+
+	return uniquePeers(usable, limit)
+}
+
+// peerFailed remembers a peer that did not supply metadata, so it is skipped
+// for a while. A peer that is merely restarting gets another chance when the
+// entry expires.
+func (c *Crawler) peerFailed(peer netip.AddrPort) {
+	c.failedPeers.Add(peer, struct{}{})
+}
+
 // uniquePeers removes duplicate and invalid addresses and keeps at most limit
-// of them. The DHT frequently returns the same address several times.
+// of them.
 func uniquePeers(addrs []netip.AddrPort, limit int) []netip.AddrPort {
 	seen := make(map[netip.AddrPort]struct{}, len(addrs))
 	peers := make([]netip.AddrPort, 0, min(len(addrs), limit))

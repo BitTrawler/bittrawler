@@ -125,6 +125,7 @@ func (a *App) crawlerConfig() dhtcrawler.Config {
 	crawler.Banning = banning.New()
 	crawler.Blocklist = a.blocklist
 	crawler.Store = a.torrentStore
+	crawler.State = a.crawlState
 	crawler.Classification = classify.Config{
 		DropAdult:   cfg.Classify.DropAdult,
 		DropScripts: cfg.Classify.DropScripts,

@@ -92,8 +92,31 @@ type node struct {
 	lastDiscoveredNum        int
 	totalNum                 int
 	nextSampleInfoHashesTime time.Time
+	sampleFailures           int
 
 	reverseMap *reverseMap
+}
+
+// NodeSupport records whether a node has been seen answering BEP 51
+// sample_infohashes queries.
+type NodeSupport int
+
+const (
+	NodeSupportUnknown NodeSupport = iota
+	NodeSupportYes
+	NodeSupportNo
+)
+
+// NodeState is a routing table node as restored from or saved for an earlier
+// run.
+type NodeState struct {
+	ID              ID
+	Addr            netip.AddrPort
+	Support         NodeSupport
+	LastRespondedAt time.Time
+	NextSampleAt    time.Time
+	Sampled         int
+	Total           int
 }
 
 type NodeOption interface {
@@ -221,6 +244,7 @@ func NodeSampleInfoHashesRes(discoveredNum int, totalNum int, nextSampleTime tim
 			n.sampledNum += discoveredNum
 			n.lastDiscoveredNum = discoveredNum
 			n.totalNum += totalNum
+			n.sampleFailures = 0
 			// a crude way of deprioritizing nodes that gave us no new samples:
 			if discoveredNum == 0 {
 				now := time.Now()
@@ -231,5 +255,64 @@ func NodeSampleInfoHashesRes(discoveredNum int, totalNum int, nextSampleTime tim
 			}
 			n.nextSampleInfoHashesTime = nextSampleTime
 		},
+	}
+}
+
+// NodeSampleInfoHashesFailed records a failed sample attempt and schedules the
+// node for another try. A failure is often a lost packet rather than a node
+// that cannot answer BEP 51, so it must not disqualify the node for good.
+func NodeSampleInfoHashesFailed() NodeOption {
+	return nodeOption{
+		fn: func(n *node) {
+			n.sampleFailures++
+			n.nextSampleInfoHashesTime = time.Now().Add(sampleFailureDelay(n.sampleFailures))
+		},
+	}
+}
+
+// sampleFailureDelay backs off over the first few failures and then holds at six
+// hours, so a node that silently ignores sample_infohashes costs little.
+func sampleFailureDelay(failures int) time.Duration {
+	delay := time.Minute
+
+	for range min(failures-1, 6) {
+		delay *= 2
+	}
+
+	return min(delay, 6*time.Hour)
+}
+
+// NodeRestored applies state saved from an earlier run.
+func NodeRestored(state NodeState) NodeOption {
+	return nodeOption{
+		fn: func(n *node) {
+			n.bep51Support = state.Support.protocolSupport()
+			n.lastRespondedAt = state.LastRespondedAt
+			n.nextSampleInfoHashesTime = state.NextSampleAt
+			n.sampledNum = state.Sampled
+			n.totalNum = state.Total
+		},
+	}
+}
+
+func (s NodeSupport) protocolSupport() protocolSupport {
+	switch s {
+	case NodeSupportYes:
+		return protocolSupportYes
+	case NodeSupportNo:
+		return protocolSupportNo
+	default:
+		return protocolSupportUnknown
+	}
+}
+
+func nodeSupport(p protocolSupport) NodeSupport {
+	switch p {
+	case protocolSupportYes:
+		return NodeSupportYes
+	case protocolSupportNo:
+		return NodeSupportNo
+	default:
+		return NodeSupportUnknown
 	}
 }
