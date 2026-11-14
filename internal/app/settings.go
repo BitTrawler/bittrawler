@@ -76,16 +76,16 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 	case r.URL.Query().Get("saved") == "1":
 		notice = "Saved."
 		if r.URL.Query().Get("restart") == "1" {
-			notice = "Saved. Some changes take effect after a restart."
+			notice = "Saved. Restart to apply."
 		}
 	case r.URL.Query().Get("rotated") == "1":
-		notice = "The API key was rotated. Update Prowlarr and any other client."
+		notice = "Key rotated. Prowlarr needs the new one."
 	case r.URL.Query().Get("admin") == "1":
-		notice = "The administrator account was updated and other sessions were signed out."
+		notice = "Account updated. Other sessions are signed out."
 	case r.URL.Query().Get("reclassify") == "started":
-		notice = "Reclassification started. The page refreshes when it finishes."
+		notice = "Reclassifying."
 	case r.URL.Query().Get("reclassify") == "busy":
-		notice = "A reclassification pass is already running."
+		notice = "A pass is already running."
 	}
 
 	data := a.buildSettingsData(a.currentConfig(), a.sourceSnapshot(), advanced, notice, "")
@@ -457,7 +457,7 @@ func (a *App) handleRotateAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	if err := a.rotateAPIKey(r.Context()); err != nil {
 		a.logger.Error("rotate the API key", "error", err)
-		a.renderSettings(w, a.buildSettingsData(a.currentConfig(), a.sourceSnapshot(), false, "", "The key could not be rotated."), http.StatusInternalServerError)
+		a.renderSettings(w, a.buildSettingsData(a.currentConfig(), a.sourceSnapshot(), false, "", "Could not rotate the key."), http.StatusInternalServerError)
 
 		return
 	}

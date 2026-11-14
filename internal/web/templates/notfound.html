@@ -2,9 +2,9 @@
 <section class="card empty-card">
   <h1>Torrent Not Found</h1>
   {{if .Hash}}
-  <p>Nothing with info hash <code>{{.Hash}}</code> is in the index. It may never have been indexed, or it may have been dropped by retention.</p>
+  <p>No torrent with hash <code>{{.Hash}}</code>. It was never indexed, or retention dropped it.</p>
   {{else}}
-  <p>That is not a valid info hash.</p>
+  <p>Not a valid info hash.</p>
   {{end}}
   <p><a class="button secondary" href="/search">Back to search</a></p>
 </section>

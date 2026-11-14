@@ -159,6 +159,17 @@ body {
   border-top: 1px solid rgb(255 255 255 / 7%);
 }
 
+.crawler-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.crawler-line form {
+  margin: 0;
+}
+
 .crawl-state {
   display: flex;
   align-items: center;

@@ -53,9 +53,9 @@ func (a *App) handleOverview(w http.ResponseWriter, r *http.Request) {
 
 	switch r.URL.Query().Get("crawl") {
 	case "started":
-		notice = "Crawling started. The first torrents usually appear within a minute."
+		notice = "Crawling started."
 	case "paused":
-		notice = "Crawling paused. The index keeps serving while it is paused."
+		notice = "Crawling paused."
 	}
 
 	data := web.OverviewData{

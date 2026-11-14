@@ -8,13 +8,7 @@ document.addEventListener('click', async (event) => {
   }
   event.preventDefault();
 
-  const copied = await copyText(button.dataset.copy ?? '');
-  if (!copied) {
-    // The clipboard could not be written: select the value so the keyboard
-    // shortcut still works. This is the normal case on a plain HTTP page,
-    // where the Clipboard API is unavailable.
-    selectValue(button);
-  }
+  const copied = await copyText(button);
 
   const label = button.textContent;
   button.textContent = copied ? 'Copied' : 'Selected';
@@ -25,6 +19,85 @@ document.addEventListener('click', async (event) => {
   }, 1400);
 });
 
+// Clicking a value selects all of it, so a manual copy is one click and one
+// keyboard shortcut. A long key is otherwise awkward to select by dragging.
+document.addEventListener('click', (event) => {
+  const block = event.target.closest('.code-block');
+  if (block) {
+    selectText(block);
+  }
+});
+
+// copyText writes the button's value to the clipboard. The Clipboard API needs
+// a secure context, so on a plain-HTTP page it selects the visible value and
+// copies the selection, which is what Safari accepts.
+async function copyText(button) {
+  const value = button.dataset.copy ?? '';
+
+  if (window.isSecureContext && navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(value);
+
+      return true;
+    } catch {
+      // Fall through: the permission may have been refused.
+    }
+  }
+
+  const block = findValue(button);
+  if (block) {
+    selectText(block);
+  }
+
+  try {
+    if (document.execCommand('copy')) {
+      return true;
+    }
+  } catch {
+    // Fall through to the control method.
+  }
+
+  try {
+    const area = document.createElement('textarea');
+    area.value = value;
+    area.setAttribute('readonly', '');
+    area.style.position = 'fixed';
+    area.style.top = '0';
+    area.style.left = '-1000px';
+    document.body.appendChild(area);
+    area.select();
+    const copied = document.execCommand('copy');
+    area.remove();
+
+    return copied;
+  } catch {
+    return false;
+  }
+}
+
+// findValue is the code block a copy button belongs to.
+function findValue(button) {
+  const row = button.closest('.copy-row, .key-row');
+
+  return row ? row.querySelector('.code-block') : null;
+}
+
+// selectValue selects the value for a manual copy when copying fails.
+function selectValue(button) {
+  const block = findValue(button);
+  if (block) {
+    selectText(block);
+  }
+}
+
+// selectText selects everything inside node.
+function selectText(node) {
+  const range = document.createRange();
+  range.selectNodeContents(node);
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
 // Clicking a value selects all of it, so a manual copy is one click and one
 // keyboard shortcut. A long key is otherwise awkward to select by dragging.
 document.addEventListener('click', (event) => {
@@ -317,19 +390,31 @@ function emptyRow(colspan, text) {
 }
 
 function updateCrawlState(running) {
-  const state = document.querySelector('[data-crawl-state]');
-  if (!state) {
+  for (const state of document.querySelectorAll('[data-crawl-state]')) {
+    const dot = state.querySelector('.dot');
+    if (dot) {
+      dot.classList.toggle('is-live', running);
+    }
+
+    const label = state.querySelector('.crawl-label');
+    if (label) {
+      label.textContent = running ? 'Crawling' : 'Paused';
+    }
+  }
+
+  const form = document.querySelector('[data-crawl-form]');
+  if (!form) {
     return;
   }
 
-  const dot = state.querySelector('.dot');
-  if (dot) {
-    dot.classList.toggle('is-live', running);
+  const action = form.querySelector('[data-crawl-action]');
+  if (action) {
+    action.value = running ? 'pause' : 'resume';
   }
 
-  const label = state.querySelector('.crawl-label');
-  if (label) {
-    label.textContent = running ? 'Crawling' : 'Paused';
+  const button = form.querySelector('[data-crawl-button]');
+  if (button) {
+    button.textContent = running ? 'Pause Crawling' : 'Resume Crawling';
   }
 }
 
@@ -374,7 +459,7 @@ async function refreshFeed() {
       const cell = document.createElement('td');
       cell.colSpan = 6;
       cell.className = 'empty';
-      cell.textContent = 'Nothing indexed yet. New torrents appear here as the crawler writes them.';
+      cell.textContent = 'No torrents yet.';
       row.append(cell);
       feed.replaceChildren(row);
 

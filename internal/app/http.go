@@ -61,7 +61,7 @@ func staticHandler() http.Handler {
 	files := http.StripPrefix("/static/", http.FileServerFS(web.Static()))
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "public, max-age=3600")
+		w.Header().Set("Cache-Control", "no-cache")
 		files.ServeHTTP(w, r)
 	})
 }

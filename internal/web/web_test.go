@@ -43,7 +43,7 @@ func TestRenderSetup(t *testing.T) {
 	assert.Contains(t, body, "/static/app.css")
 	assert.Contains(t, body, `class="auth-shell"`)
 	assert.NotContains(t, body, `class="sidebar"`)
-	assert.Contains(t, body, `src="/static/app.js"`)
+	assert.Contains(t, body, `src="/static/app.js?v=`)
 	assert.NotContains(t, body, "<script>", "the interface has no inline script")
 }
 
@@ -126,7 +126,7 @@ func TestRenderOverview(t *testing.T) {
 	body := recorder.Body.String()
 
 	assert.Contains(t, body, `class="sidebar"`)
-	assert.Contains(t, body, `src="/static/logo.svg"`)
+	assert.Contains(t, body, `src="/static/logo.svg?v=1.2.3"`)
 	assert.Contains(t, body, `href="/">Overview</a>`)
 	assert.Contains(t, body, `href="/search">Search</a>`)
 	assert.Contains(t, body, "Pause Crawling")
@@ -154,7 +154,7 @@ func TestRenderPausedOverview(t *testing.T) {
 
 	assert.Contains(t, body, "Resume Crawling")
 	assert.NotContains(t, body, "Pause Crawling")
-	assert.Contains(t, body, "Nothing indexed yet")
+	assert.Contains(t, body, "No torrents yet")
 }
 
 func TestRenderSearch(t *testing.T) {
@@ -191,7 +191,7 @@ func TestRenderSearchEmpty(t *testing.T) {
 
 	body := recorder.Body.String()
 
-	assert.Contains(t, body, "The index is empty so far.")
+	assert.Contains(t, body, "No torrents yet.")
 	assert.NotContains(t, body, "<table")
 }
 

@@ -3,19 +3,6 @@
   <div>
     <h1>Overview</h1>
   </div>
-  <div class="page-actions">
-    {{if .Crawling}}
-    <form method="post" action="/crawl">
-      <input type="hidden" name="action" value="pause">
-      <button class="button secondary" type="submit">Pause Crawling</button>
-    </form>
-    {{else}}
-    <form method="post" action="/crawl">
-      <input type="hidden" name="action" value="resume">
-      <button class="button" type="submit">Resume Crawling</button>
-    </form>
-    {{end}}
-  </div>
 </header>
 
 {{if .Notice}}<p class="notice" role="status">{{.Notice}}</p>{{end}}
@@ -81,7 +68,15 @@
     </header>
     <dl class="kv">
       <dt>Crawler</dt>
-      <dd>{{if .Crawling}}<span class="pill live">Running</span>{{else}}<span class="pill">Paused</span>{{end}}</dd>
+      <dd class="crawler-line">
+        <span class="crawl-state" data-crawl-state>
+          <span class="dot{{if .Crawling}} is-live{{end}}"></span><span class="crawl-label">{{if .Crawling}}Crawling{{else}}Paused{{end}}</span>
+        </span>
+        <form method="post" action="/crawl" data-crawl-form>
+          <input type="hidden" name="action" value="{{if .Crawling}}pause{{else}}resume{{end}}" data-crawl-action>
+          <button class="button secondary small" type="submit" data-crawl-button>{{if .Crawling}}Pause Crawling{{else}}Resume Crawling{{end}}</button>
+        </form>
+      </dd>
       <dt>Uptime</dt>
       <dd>{{.Uptime}}</dd>
       <dt>Version</dt>
@@ -104,7 +99,7 @@
   <header class="card-head">
     <h2>Crawler</h2>
   </header>
-  {{if .Warming}}<p class="notice" id="warmup">The crawler is starting. The DHT bootstrap usually takes under a minute before the first torrents appear.</p>{{end}}
+  {{if .Warming}}<p class="notice" id="warmup">Starting. First torrents take about a minute.</p>{{end}}
   <div class="grid split">
     <div class="activity">
       <div class="activity-head">
@@ -116,7 +111,7 @@
       </div>
       {{if .History}}
       {{else}}
-      <p class="muted small">Waiting for the crawler's first samples.</p>
+      <p class="muted small">No samples yet.</p>
       {{end}}
     </div>
     <div class="counters">
@@ -201,7 +196,7 @@
           <td class="num col-age">{{.Age}}</td>
         </tr>
         {{else}}
-        <tr><td colspan="6" class="empty">Nothing indexed yet. New torrents appear here as the crawler writes them.</td></tr>
+        <tr><td colspan="6" class="empty">No torrents yet.</td></tr>
         {{end}}
       </tbody>
     </table>

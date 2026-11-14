@@ -4,15 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.Title}} · BitTrawler</title>
-<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/static/app.css">
-<script src="/static/app.js" defer></script>
+<link rel="icon" href="/static/icon.svg?v={{.Version}}" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css?v={{.Version}}">
+<script src="/static/app.js?v={{.Version}}" defer></script>
 </head>
 <body>
 <div class="app">
   <aside class="sidebar">
     <a class="brand" href="/">
-      <img class="brand-logo" src="/static/logo.svg" alt="BitTrawler">
+      <img class="brand-logo" src="/static/logo.svg?v={{.Version}}" alt="BitTrawler">
     </a>
     <nav class="nav" aria-label="Main">
       <a class="nav-link{{if eq .Active "dashboard"}} is-active{{end}}" href="/">Overview</a>

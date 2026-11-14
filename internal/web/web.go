@@ -110,6 +110,7 @@ type Shell struct {
 // SetupData is the first-run page.
 type SetupData struct {
 	Title      string
+	Version    string
 	Error      string
 	Username   string
 	APIKey     string
@@ -119,6 +120,7 @@ type SetupData struct {
 // LoginData is the sign-in page.
 type LoginData struct {
 	Title    string
+	Version  string
 	Error    string
 	Username string
 }

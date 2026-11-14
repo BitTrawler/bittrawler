@@ -29,6 +29,7 @@ func (a *App) handleSetupForm(w http.ResponseWriter, r *http.Request) {
 func (a *App) renderSetup(w http.ResponseWriter, r *http.Request, message string, status int) {
 	data := web.SetupData{
 		Title:      "Set Up BitTrawler",
+		Version:    a.info.Version,
 		Error:      message,
 		TorznabURL: a.torznabURL(r),
 		APIKey:     a.currentConfig().Torznab.APIKey,
@@ -146,7 +147,7 @@ func (a *App) handleLoginForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.renderPage(w, "login", web.LoginData{Title: "Sign In"})
+	a.renderPage(w, "login", web.LoginData{Title: "Sign In", Version: a.info.Version})
 }
 
 // handleLoginSubmit checks the credentials and signs the browser in.
@@ -213,7 +214,7 @@ func (a *App) handleLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) renderLogin(w http.ResponseWriter, message string, status int, username string) {
-	data := web.LoginData{Title: "Sign In", Error: message, Username: username}
+	data := web.LoginData{Title: "Sign In", Version: a.info.Version, Error: message, Username: username}
 
 	if err := a.pages.Render(w, status, "login", data); err != nil {
 		a.logger.Error("render login page", "error", err)

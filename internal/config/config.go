@@ -27,10 +27,10 @@ type Web struct {
 	Address string `key:"address" label:"Listen Address"`
 	// SessionDays is how long a sign-in lasts. Existing cookies keep the expiry
 	// they were issued with, so shortening it does not sign anyone out now.
-	SessionDays       int    `key:"session_days" label:"Session Days" usage:"Existing sessions keep their expiry." min:"1" max:"365" advanced:"true"`
+	SessionDays       int    `key:"session_days" label:"Session Days" usage:"Applies to new sign-ins." min:"1" max:"365" advanced:"true"`
 	AdminUsername     string `key:"admin_username" hidden:"true" usage:"Set during setup." restart:"true"`
 	AdminPasswordHash string `key:"admin_password_hash" hidden:"true" secret:"true" usage:"Reset with bittrawler auth reset." restart:"true"`
-	SessionSecret     string `key:"session_secret" hidden:"true" secret:"true" usage:"Generated on first start; rotating it signs everyone out." restart:"true"`
+	SessionSecret     string `key:"session_secret" hidden:"true" secret:"true" usage:"Rotating it signs everyone out." restart:"true"`
 }
 
 // Log configures the process log.
@@ -40,19 +40,19 @@ type Log struct {
 
 // Store configures the torrent store.
 type Store struct {
-	RetentionMonths int `key:"retention_months" label:"Retention Months"  usage:"Zero keeps everything." min:"0"`
+	RetentionMonths int `key:"retention_months" label:"Retention Months"  usage:"0 keeps every month." min:"0"`
 }
 
 // Crawler configures discovery, metadata fetching and writing.
 type Crawler struct {
 	Enabled                     bool          `key:"enabled" label:"Crawling Enabled"`
-	BootstrapNodes              []string      `key:"bootstrap_nodes" usage:"host:port pairs."`
+	BootstrapNodes              []string      `key:"bootstrap_nodes" usage:"Comma separated host:port."`
 	OldNodeAge                  time.Duration `key:"old_node_age" label:"Node Timeout"`
 	OldNodeCheckInterval        time.Duration `key:"old_node_check_interval" advanced:"true"`
 	BootstrapReseedInterval     time.Duration `key:"bootstrap_reseed_interval" advanced:"true"`
-	SampleInfoHashesOverride    time.Duration `key:"sample_infohashes_override" label:"Resample Interval"  usage:"Zero uses the interval the node asks for."`
+	SampleInfoHashesOverride    time.Duration `key:"sample_infohashes_override" label:"Resample Interval"  usage:"0 uses the node's interval."`
 	SeenHashesSize              int           `key:"seen_hashes_size" min:"1" advanced:"true"`
-	SeenHashesFalsePositiveRate float64       `key:"seen_hashes_false_positive_rate" label:"Seen Filter Error Rate"  usage:"A false positive loses a new torrent." advanced:"true"`
+	SeenHashesFalsePositiveRate float64       `key:"seen_hashes_false_positive_rate" label:"Seen Filter Error Rate" advanced:"true"`
 	TriageBatchSize             int           `key:"triage_batch_size" label:"Triage Batch" min:"1" advanced:"true"`
 	TriageBatchWait             time.Duration `key:"triage_batch_wait" label:"Triage Batch Wait" advanced:"true"`
 	PersistBatchSize            int           `key:"persist_batch_size" label:"Write Batch" min:"1" advanced:"true"`
@@ -76,7 +76,7 @@ type DHT struct {
 	ListenAddress            string        `key:"listen_address"`
 	QueryTimeout             time.Duration `key:"query_timeout"`
 	ResponderTimeout         time.Duration `key:"responder_timeout" advanced:"true"`
-	SampleInfoHashesInterval int           `key:"sample_infohashes_interval" label:"Sample Interval"  usage:"Advertised to other nodes." min:"1" advanced:"true"`
+	SampleInfoHashesInterval int           `key:"sample_infohashes_interval" label:"Sample Interval" min:"1" advanced:"true"`
 	OverallQueryRate         float64       `key:"overall_query_rate" advanced:"true"`
 	OverallQueryBurst        int           `key:"overall_query_burst" min:"1" advanced:"true"`
 	PerIPQueryRate           float64       `key:"per_ip_query_rate" label:"Per-IP Query Rate" advanced:"true"`
@@ -87,7 +87,7 @@ type DHT struct {
 
 // Torznab configures the indexer endpoint the Arr applications talk to.
 type Torznab struct {
-	APIKey       string `key:"api_key" hidden:"true" secret:"true" usage:"Generated on first start; rotate it on this page."`
+	APIKey       string `key:"api_key" hidden:"true" secret:"true" usage:"Generated on first start; rotate it here."`
 	Title        string `key:"title"`
 	DefaultLimit int    `key:"default_limit" label:"Default Page Size" min:"1" advanced:"true"`
 	MaxLimit     int    `key:"max_limit" label:"Maximum Page Size" min:"1" advanced:"true"`
@@ -96,7 +96,7 @@ type Torznab struct {
 // TMDB configures the classification confirmation stage. It is disabled while
 // no token is set.
 type TMDB struct {
-	Token     string        `key:"token" secret:"true" usage:"Empty disables confirmation."`
+	Token     string        `key:"token" secret:"true" usage:"Leave empty to turn confirmation off."`
 	Workers   int           `key:"workers" min:"1" advanced:"true"`
 	Timeout   time.Duration `key:"timeout" advanced:"true"`
 	RateLimit float64       `key:"rate_limit" advanced:"true"`
@@ -104,8 +104,8 @@ type TMDB struct {
 
 // Classify configures what is dropped at intake instead of being indexed.
 type Classify struct {
-	DropAdult   bool     `key:"drop_adult" label:"Drop Adult Torrents"  usage:"Drops them instead of indexing as XXX."`
-	DropScripts []string `key:"drop_scripts" usage:"Empty keeps everything." enum:"cjk,hangul,cyrillic,arabic,hebrew,thai,devanagari,greek,nonlatin"`
+	DropAdult   bool     `key:"drop_adult" label:"Drop Adult Torrents"  usage:"Dropped, not indexed."`
+	DropScripts []string `key:"drop_scripts" usage:"Nothing selected keeps every script." enum:"cjk,hangul,cyrillic,arabic,hebrew,thai,devanagari,greek,nonlatin"`
 }
 
 // Default returns the settings new installations start with.

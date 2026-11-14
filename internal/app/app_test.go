@@ -572,7 +572,7 @@ func TestFeedSearchAndTorrentPages(t *testing.T) {
 	// Search pages render with and without a query.
 	response = get(t, noRedirect(), baseURL+"/search", cookieHeader(session))
 	require.Equal(t, http.StatusOK, response.StatusCode)
-	assert.Contains(t, body(t, response), "The index is empty so far.")
+	assert.Contains(t, body(t, response), "No torrents yet.")
 
 	response = get(t, noRedirect(), baseURL+"/search?q=batman", cookieHeader(session))
 	require.Equal(t, http.StatusOK, response.StatusCode)
