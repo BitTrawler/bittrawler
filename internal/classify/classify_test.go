@@ -332,6 +332,30 @@ func TestClassifyDropsDeceptiveContent(t *testing.T) {
 			category: CategoryPC,
 		},
 
+		{
+			// An adult title with a program payload and no resolution token.
+			name:  "adult claim with a screensaver",
+			title: "[LifePornStories] Chloe Lamour",
+			files: filesOf("scr", 1600<<20),
+			drop:  DropDeceptive,
+		},
+		{
+			name:  "adult claim with a bundled program folder",
+			title: "Some Chinese Title",
+			files: []File{
+				{Path: "PC端地址发布器/flutter_windows.dll", Size: 30 << 20},
+			},
+			drop: DropDeceptive,
+		},
+		{
+			// Adult content really does ship as archives: doujin scans, picture
+			// sets and games. An archive is not a lie.
+			name:     "adult release in an archive",
+			title:    "Some.Title.XXX.1080p.WEB-DL",
+			files:    filesOf("rar", 300<<20),
+			category: CategoryXXX,
+		},
+
 		// A small bundled installer does not make a film a lie.
 		{
 			name:  "film with a bundled installer",
@@ -620,6 +644,8 @@ func TestBannedPatterns(t *testing.T) {
 		{"preteen models 2020", true},
 		{"underage girls video", true},
 		{"lsm lolita collection", true},
+		{"10 anos jovens do brasil Lolita5 HMM Lea HUSSYFANS", true},
+		{"(lolsonly) child cjhildporn hairless", true},
 
 		// Weak markers that are legal on their own.
 		{"Underage (2019) 1080p.BluRay", false},
@@ -635,6 +661,7 @@ func TestBannedPatterns(t *testing.T) {
 		{"10 Year Old (2019) 1080p", false},
 		{"Javascript Course 2024", false},
 		{"Some Movie 2020 1080p BluRay x264-GRP", false},
+		{"lolsonly recap 2020 1080p", false},
 	}
 
 	for _, test := range tests {
@@ -751,5 +778,186 @@ func BenchmarkClassifyLargeFileList(b *testing.B) {
 
 	for b.Loop() {
 		classifier.Classify("Some.Movie.2020.1080p.BluRay-GRP", files)
+	}
+}
+
+// TestClassifyMeasuredOtherRules covers the rules added from a real pull of the
+// Other category: game release groups and console packages, operating system
+// images, audio formats the census missed, and adult markers the weak list
+// missed.
+func TestClassifyMeasuredOtherRules(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		title    string
+		files    []File
+		category int
+	}{
+		{
+			name:     "game repack group",
+			title:    "The Casting of Frank Stone by Igruha",
+			files:    filesOf("bin", 39<<30),
+			category: CategoryPCGames,
+		},
+		{
+			name:     "game release group",
+			title:    "Fatekeeper-InsaneRamZes",
+			files:    filesOf("rar", 4<<30),
+			category: CategoryPCGames,
+		},
+		{
+			name:     "switch package",
+			title:    "Zombie Night Terror [NSZ]",
+			files:    filesOf("nsz", 2<<30),
+			category: CategoryPCGames,
+		},
+		{
+			name:     "operating system image",
+			title:    "debian-12.4.0-amd64-netinst.iso",
+			files:    filesOf("iso", 700<<20),
+			category: CategoryPC,
+		},
+		{
+			name:     "wavpack album",
+			title:    "Black Octopus Sound - The Kraken Vol 1",
+			files:    filesOf("wv", 47<<20),
+			category: CategoryAudio,
+		},
+		{
+			name:     "decensored adult release",
+			title:    "Some.Title.DECENSORED.2020.1080p",
+			files:    filesOf("mkv", 2<<30),
+			category: CategoryXXX,
+		},
+		{
+			name:     "hyphenated site name",
+			title:    "MET-ART Some Model",
+			files:    filesOf("jpg", 100<<20),
+			category: CategoryXXX,
+		},
+	}
+
+	classifier := New(Config{})
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			result := classifier.Classify(test.title, test.files)
+			if result.Category != test.category {
+				t.Fatalf("category = %d (%s), want %d (%s)",
+					result.Category, CategoryName(result.Category),
+					test.category, CategoryName(test.category))
+			}
+		})
+	}
+}
+
+// TestDoujinCollectionsAreComics covers the measured doujin/manga cluster: the
+// event numbers and collection tags make an image set a comic, unless an adult
+// marker decides it first.
+func TestDoujinCollectionsAreComics(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		title    string
+		files    []File
+		category int
+	}{
+		{
+			name:     "comiket number",
+			title:    "(C91) [白ネギ屋 (miya9)] Joint penalty",
+			files:    filesOf("jpg", 80<<20),
+			category: CategoryComics,
+		},
+		{
+			name:     "doujin cg collection archive",
+			title:    "(同人CG集) [殻かぶり卵] ひょっとこ 月ノ美兎",
+			files:    filesOf("zip", 90<<20),
+			category: CategoryComics,
+		},
+		{
+			name:     "download edition tag",
+			title:    "[雑誌] COMIC ExE 17 [DL版].zip",
+			files:    filesOf("zip", 300<<20),
+			category: CategoryComics,
+		},
+		{
+			name:     "adult marker still decides",
+			title:    "(C91) [Circle] Futanari Collection",
+			files:    filesOf("jpg", 80<<20),
+			category: CategoryXXX,
+		},
+	}
+
+	classifier := New(Config{})
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			result := classifier.Classify(test.title, test.files)
+			if result.Category != test.category {
+				t.Fatalf("category = %d (%s), want %d (%s)",
+					result.Category, CategoryName(result.Category),
+					test.category, CategoryName(test.category))
+			}
+		})
+	}
+}
+
+// TestChineseAdultMarkers covers the Chinese-language markers added after
+// reviewing rows typed Movies: they are adult content, while an ordinary
+// Chinese film title is not.
+func TestChineseAdultMarkers(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		title    string
+		files    []File
+		category int
+	}{
+		{
+			name:     "private shoot",
+			title:    "清纯漂亮慕丝女郎大胆私拍 4K",
+			files:    filesOf("mp4", 2<<30),
+			category: CategoryXXX,
+		},
+		{
+			name:     "leaked voyeur clip",
+			title:    "酒店偷拍美女外出参加活动回来配合干部大叔后续",
+			files:    filesOf("mp4", 1<<30),
+			category: CategoryXXX,
+		},
+		{
+			name:     "escort video",
+			title:    "超顶极品约啪大神暴力征服各类高颜值身材嫩妹",
+			files:    filesOf("mp4", 2<<30),
+			category: CategoryXXX,
+		},
+		{
+			name:     "mainstream chinese film",
+			title:    "流浪地球 2019 1080p BluRay x264-GRP",
+			files:    filesOf("mkv", 12<<30),
+			category: CategoryMoviesHD,
+		},
+	}
+
+	classifier := New(Config{})
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			result := classifier.Classify(test.title, test.files)
+			if result.Category != test.category {
+				t.Fatalf("category = %d (%s), want %d (%s)",
+					result.Category, CategoryName(result.Category),
+					test.category, CategoryName(test.category))
+			}
+		})
 	}
 }

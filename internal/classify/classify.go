@@ -139,6 +139,10 @@ func (c *Classifier) Classify(name string, files []File) Result {
 		return Result{Drop: DropBanned}
 	}
 
+	if isBait(name) {
+		return Result{Drop: DropDeceptive}
+	}
+
 	if c.scriptFiltered(name) {
 		return Result{Drop: DropScript}
 	}
@@ -149,6 +153,10 @@ func (c *Classifier) Classify(name string, files []File) Result {
 
 		if isBanned(text) {
 			return Result{Drop: DropBanned}
+		}
+
+		if isBait(text) {
+			return Result{Drop: DropDeceptive}
 		}
 	}
 
@@ -220,8 +228,10 @@ func (c *Classifier) deceptive(name, text string, cen census) bool {
 		return true
 	}
 
-	return parsed.Resolution != scene.ResolutionUnknown &&
-		(adultStrongText(name) || adultStrongText(text))
+	// A program under an adult title is bait whether or not the title carries a
+	// resolution: adult content whose files are mostly executable is not adult
+	// content.
+	return adultStrongText(name) || adultStrongText(text)
 }
 
 // resultFor completes a classification whose content kind is known.

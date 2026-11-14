@@ -28,7 +28,7 @@ var (
 		"kidd(y*|ie*) ?porn*",
 		"(#|10|11|12|13|14|15|16|17) ?y ?o",
 		"siberian mouse",
-		"hussyfan",
+		"hussyfan*",
 		"falko video",
 	)
 
@@ -50,7 +50,16 @@ var (
 		"lsm",
 		"yvm",
 		"opva",
+		// A site brand that only appears in releases of this kind; kept weak
+		// because the corroboration is what makes the row a ban, not the brand.
+		"lolsonly",
 	)
+
+	// baitTerms identify programs bundled into media releases to advertise a
+	// site, such as the "PC address publisher" applications shipped inside
+	// Chinese porn torrents. They are matched as substrings because the keyword
+	// language's word boundaries do not apply to CJK text.
+	baitTerms = []string{"地址发布器"}
 
 	// bannedContextRegex is the corroboration a weak marker needs: a second
 	// signal that the text is about a minor. Adult words are not included.
@@ -145,8 +154,8 @@ var (
 		"slut*", "squirting", "squirt*", "strapon", "strap on", "submissive",
 		"swingers?", "tgirl", "threesome", "tits?", "tranny", "urine",
 		"vibrator*", "*wank*", "whore*", "hentai", "ecchi", "uncensored", "uncen*",
-		"babes ?com", "av ?joyuu",
-		"ahegao", "yaoi", "yuri", "bbw", "gilf", "camgirl*",
+		"babes ?com", "av ?joyuu", "decensored", "netorare", "met art", "nsfw",
+		"ahegao", "yaoi", "yuri", "bbw", "gilf", "camgirl*", "ntr",
 		// Studios and sites.
 		"adulttime", "anilos", "atkgalleria*", "blacked", "bongacams",
 		"brazzers", "bangbros", "cam4", "camsoda", "caribbeancom",
@@ -236,6 +245,15 @@ var (
 		"windows",
 		"linux",
 		"ubuntu",
+		"debian",
+		"freebsd",
+		"openbsd",
+		"netbsd",
+		"arch linux",
+		"manjaro",
+		"raspbian",
+		"proxmox",
+		"tails amd64",
 		"macos",
 		"win64",
 		"win32",
@@ -268,6 +286,21 @@ var (
 		"tenoke",
 		"xatab",
 		"3dmgame",
+		"igruha",
+		"insaneramzes",
+		"dixen18",
+		"by pioneer",
+		"r g mechanics",
+		"r g catalyst",
+		"r g revenants",
+		"r g dshock",
+		"rune",
+		"simulator",
+		"nsz",
+		"nsp",
+		"xci",
+		"wbfs",
+		"rvz",
 		"rpg",
 		"game of the year",
 		"goty",
@@ -337,6 +370,12 @@ var adultCJKTerms = []string{
 	"巨乳", "自慰", "女優", "女优", "淫", "熟女", "人妻", "色情",
 	"骚", "騷", "裸舞", "裸聊", "少妇",
 	"成年コミック", "18禁", "エロ",
+	// Chinese-language markers found in rows typed Movies: private shoots,
+	// leaked and voyeur material, and the escort and studio slang. They are
+	// multi-character on purpose: a bare character such as 操 also occurs in
+	// 操作 and 体操.
+	"福利姬", "私拍", "大尺度", "约啪", "啪啪", "偷拍", "流出",
+	"母狗", "嫩穴", "外围", "约操", "爆操", "微密圈",
 }
 
 // javLabels are the studio prefixes of Japanese adult releases, such as
@@ -384,6 +423,18 @@ func adultStrongText(text string) bool {
 	}
 
 	for _, term := range adultCJKTerms {
+		if strings.Contains(text, term) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isBait reports whether the text names a program that exists to advertise a
+// site rather than to carry content.
+func isBait(text string) bool {
+	for _, term := range baitTerms {
 		if strings.Contains(text, term) {
 			return true
 		}

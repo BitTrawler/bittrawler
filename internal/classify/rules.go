@@ -18,6 +18,12 @@ var (
 	// extensionSuffixRegex strips a file extension from a name such as
 	// "DVDMS233C.mp4".
 	extensionSuffixRegex = regexp.MustCompile(`(?i)\.[a-z0-9]{2,4}$`)
+	// doujinCollectionRegex matches the catalogue numbers and collection tags
+	// that doujin art books use in their names: a Comiket number such as
+	// "(C91)", the COMIC1 event, and the Japanese and Chinese tags for a doujin
+	// or CG collection. It is a regular expression rather than a keyword because
+	// the keyword language's word boundaries do not behave beside CJK text.
+	doujinCollectionRegex = regexp.MustCompile(`(?i)\((c\d{2,3}|comic1[^)]*)\)|サンクリ|コミティア|同人|cg集|dl版`)
 	// codeOnlyRegex matches a name that is nothing but a studio code, optionally
 	// behind a numeric prefix, for example "MIAB-573-U" or "259LUXU-1901".
 	codeOnlyRegex = regexp.MustCompile(`(?i)^(?:\d{2,4}[ ._-]?)?(?:[a-z]{2,6}[-_]?\d{2,6}(?:[-_]\d{2,6})?(?:[-_]?[a-z]{1,2})?(?:[ ._-]+|$))+$`)
@@ -132,7 +138,7 @@ func (c *Classifier) imageResult(name, text string) Result {
 		return c.adultResult(AdultEvidenceWeak)
 	}
 
-	if comicKeywordsRegex.MatchString(name) || isComicVolume(name) {
+	if comicKeywordsRegex.MatchString(name) || isComicVolume(name) || doujinCollectionRegex.MatchString(name) {
 		return Result{Category: CategoryComics}
 	}
 
@@ -223,6 +229,12 @@ func (c *Classifier) byName(name, text string) Result {
 
 	if adultStrongText(text) || adultWeakRegex.MatchString(name) {
 		return c.adultResult(AdultEvidenceWeak)
+	}
+
+	// A doujin collection is a comic unless an adult marker already decided it
+	// is adult: the tags say how the work was published, not what it contains.
+	if doujinCollectionRegex.MatchString(name) {
+		return Result{Category: CategoryComics}
 	}
 
 	// A date is the weakest television signal, so it is tested last.

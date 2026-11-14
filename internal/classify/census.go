@@ -50,7 +50,9 @@ var extensionBuckets = map[string]bucket{
 	"m4b": bucketAudio, "mid": bucketAudio, "midi": bucketAudio,
 	"dsf": bucketAudio, "ape": bucketAudio, "opus": bucketAudio,
 	"wma": bucketAudio, "aiff": bucketAudio, "aif": bucketAudio,
-	"mka": bucketAudio, "alac": bucketAudio,
+	"mka": bucketAudio, "alac": bucketAudio, "wv": bucketAudio,
+	"dff": bucketAudio, "shn": bucketAudio, "tta": bucketAudio,
+	"ac3": bucketAudio, "dts": bucketAudio,
 
 	// Image
 	"jpg": bucketImage, "jpeg": bucketImage, "png": bucketImage,
@@ -70,9 +72,14 @@ var extensionBuckets = map[string]bucket{
 	"cb7": bucketComic, "cba": bucketComic, "cbr": bucketComic,
 	"cbt": bucketComic, "cbz": bucketComic,
 
-	// Software
+	// Software, including the Windows forms that are only run, never read.
 	"exe": bucketSoftware, "sh": bucketSoftware,
 	"bat": bucketSoftware, "msi": bucketSoftware, "apk": bucketSoftware,
+	"scr": bucketSoftware, "vbs": bucketSoftware, "vbe": bucketSoftware,
+	"cmd": bucketSoftware, "lnk": bucketSoftware, "pif": bucketSoftware,
+	"com": bucketSoftware, "ps1": bucketSoftware, "hta": bucketSoftware,
+	"reg": bucketSoftware, "wsf": bucketSoftware, "wsh": bucketSoftware,
+	"cpl": bucketSoftware, "msc": bucketSoftware,
 	"dmg": bucketSoftware, "pkg": bucketSoftware, "deb": bucketSoftware,
 	"rpm": bucketSoftware, "jar": bucketSoftware, "dll": bucketSoftware,
 	"lua": bucketSoftware, "app": bucketSoftware, "appx": bucketSoftware,
