@@ -42,12 +42,9 @@
 </section>
 
 <section class="card">
-  <header class="card-head">
-    <h2>Status</h2>
-  </header>
-  <dl class="kv wide">
-    <dt>Crawler</dt>
-    <dd class="crawler-line">
+  <header class="card-head crawler-head">
+    <h2>Crawler</h2>
+    <div class="crawler-line">
       <span class="crawl-state" data-crawl-state>
         <span class="dot{{if .Crawling}} is-live{{end}}"></span><span class="crawl-label">{{if .Crawling}}Crawling{{else}}Paused{{end}}</span>
       </span>
@@ -55,27 +52,7 @@
         <input type="hidden" name="action" value="{{if .Crawling}}pause{{else}}resume{{end}}" data-crawl-action>
         <button class="button secondary small" type="submit" data-crawl-button>{{if .Crawling}}Pause Crawling{{else}}Resume Crawling{{end}}</button>
       </form>
-    </dd>
-    <dt>Uptime</dt>
-    <dd>{{.Uptime}}</dd>
-    <dt>Version</dt>
-    <dd>{{.Version}}{{if .Commit}} <span class="muted">({{.Commit}})</span>{{end}}</dd>
-    <dt>DHT Node</dt>
-    <dd><code>{{.DHTAddress}}</code></dd>
-    <dt>Retention</dt>
-    <dd>{{if .RetentionMonths}}{{.RetentionMonths}} months{{else}}Everything kept{{end}}</dd>
-    <dt>Data</dt>
-    <dd><code>{{.DataDirectory}}</code></dd>
-    {{range .Runtime}}
-    <dt>{{.Label}}</dt>
-    <dd data-runtime="{{.Key}}">{{.Value}}</dd>
-    {{end}}
-  </dl>
-</section>
-
-<section class="card">
-  <header class="card-head">
-    <h2>Crawler</h2>
+    </div>
   </header>
   {{if .Warming}}<p class="notice" id="warmup">Starting. First torrents take about a minute.</p>{{end}}
   <div class="grid split">
@@ -91,6 +68,22 @@
       {{else}}
       <p class="muted small">No samples yet.</p>
       {{end}}
+      <dl class="kv status-list">
+        <dt>Uptime</dt>
+        <dd>{{.Uptime}}</dd>
+        <dt>Version</dt>
+        <dd>{{.Version}}{{if .Commit}} <span class="muted">({{.Commit}})</span>{{end}}</dd>
+        <dt>DHT Node</dt>
+        <dd><code>{{.DHTAddress}}</code></dd>
+        <dt>Retention</dt>
+        <dd>{{if .RetentionMonths}}{{.RetentionMonths}} months{{else}}Everything kept{{end}}</dd>
+        <dt>Data</dt>
+        <dd><code>{{.DataDirectory}}</code></dd>
+        {{range .Runtime}}
+        <dt>{{.Label}}</dt>
+        <dd data-runtime="{{.Key}}">{{.Value}}</dd>
+        {{end}}
+      </dl>
     </div>
     <div class="counters">
       {{range .Pipeline}}
@@ -105,61 +98,65 @@
   </div>
 </section>
 
-<div class="grid two">
-  <section class="card">
-    <header class="card-head">
-      <h2>Storage</h2>
-    </header>
-    <div class="table-wrap">
-      <table class="table compact">
-        <thead>
-          <tr><th>Month</th><th class="num">Rows</th><th class="num">Database</th><th class="num">WAL</th></tr>
-        </thead>
-        <tbody id="shards">
-          {{range .Shards}}
-          <tr><td>{{.Month}}</td><td class="num">{{.Rows}}</td><td class="num">{{.Database}}</td><td class="num">{{.WAL}}</td></tr>
-          {{else}}
-          <tr><td colspan="4" class="empty">No shards yet.</td></tr>
-          {{end}}
-        </tbody>
-      </table>
+<section class="card">
+  <div class="panel-grid">
+    <div class="panel">
+      <header class="card-head">
+        <h2>Storage</h2>
+      </header>
+      <div class="table-wrap">
+        <table class="table compact">
+          <thead>
+            <tr><th>Month</th><th class="num">Rows</th><th class="num">Database</th><th class="num">WAL</th></tr>
+          </thead>
+          <tbody id="shards">
+            {{range .Shards}}
+            <tr><td>{{.Month}}</td><td class="num">{{.Rows}}</td><td class="num">{{.Database}}</td><td class="num">{{.WAL}}</td></tr>
+            {{else}}
+            <tr><td colspan="4" class="empty">No shards yet.</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
     </div>
-  </section>
 
-  <section class="card">
-    <header class="card-head">
-      <h2>Classification</h2>
-    </header>
-    <div class="table-wrap">
-      <table class="table compact">
-        <thead>
-          <tr><th>Category</th><th class="num">Rows</th><th class="num">Share</th></tr>
-        </thead>
-        <tbody id="categories">
-          {{range .Categories}}
-          {{$family := .}}
-          <tr class="family-row">
-            <td>
-              {{if $family.Children}}
-              <button class="family-toggle" type="button" data-family="{{$family.Name}}" aria-expanded="false" aria-label="Show {{$family.Name}} subcategories"><span class="chevron" aria-hidden="true"></span><span class="cat">{{$family.Name}}</span></button>
-              {{else}}
-              <span class="family-static"><span class="chevron is-hidden" aria-hidden="true"></span><span class="cat">{{$family.Name}}</span></span>
-              {{end}}
-            </td>
-            <td class="num">{{$family.Rows}}</td>
-            <td class="num">{{$family.Share}}</td>
-          </tr>
-          {{range $family.Children}}
-          <tr class="subcategory-row" hidden><td>{{.Name}}</td><td class="num">{{.Rows}}</td><td class="num">{{.Share}}</td></tr>
-          {{end}}
-          {{else}}
-          <tr><td colspan="3" class="empty">Nothing classified yet.</td></tr>
-          {{end}}
-        </tbody>
-      </table>
+    <div class="panel-divider" aria-hidden="true"></div>
+
+    <div class="panel">
+      <header class="card-head">
+        <h2>Classification</h2>
+      </header>
+      <div class="table-wrap">
+        <table class="table compact">
+          <thead>
+            <tr><th>Category</th><th class="num">Rows</th><th class="num">Share</th></tr>
+          </thead>
+          <tbody id="categories">
+            {{range .Categories}}
+            {{$family := .}}
+            <tr class="family-row">
+              <td>
+                {{if $family.Children}}
+                <button class="family-toggle" type="button" data-family="{{$family.Name}}" aria-expanded="false" aria-label="Show {{$family.Name}} subcategories"><span class="chevron" aria-hidden="true"></span><span class="cat">{{$family.Name}}</span></button>
+                {{else}}
+                <span class="family-static"><span class="chevron is-hidden" aria-hidden="true"></span><span class="cat">{{$family.Name}}</span></span>
+                {{end}}
+              </td>
+              <td class="num">{{$family.Rows}}</td>
+              <td class="num">{{$family.Share}}</td>
+            </tr>
+            {{range $family.Children}}
+            <tr class="subcategory-row" hidden><td>{{.Name}}</td><td class="num">{{.Rows}}</td><td class="num">{{.Share}}</td></tr>
+            {{end}}
+            {{else}}
+            <tr><td colspan="3" class="empty">Nothing classified yet.</td></tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
     </div>
-  </section>
-</div>
+  </div>
+</section>
 
 <section class="card">
   <header class="card-head">
