@@ -107,7 +107,10 @@ func (p *Pages) Render(w http.ResponseWriter, status int, name string, data any)
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
+	// Pages revalidate before reuse, but they may stay in the browser's
+	// back/forward cache: nobody should wait for the index again because they
+	// pressed Back.
+	w.Header().Set("Cache-Control", "private, no-cache")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Security-Policy",
 		"default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
@@ -123,6 +126,7 @@ type Shell struct {
 	Title    string
 	Active   string
 	Version  string
+	Assets   string
 	Crawling bool
 	Uptime   string
 }
@@ -131,6 +135,7 @@ type Shell struct {
 type SetupData struct {
 	Title      string
 	Version    string
+	Assets     string
 	Error      string
 	Username   string
 	APIKey     string
@@ -141,6 +146,7 @@ type SetupData struct {
 type LoginData struct {
 	Title    string
 	Version  string
+	Assets   string
 	Error    string
 	Username string
 }

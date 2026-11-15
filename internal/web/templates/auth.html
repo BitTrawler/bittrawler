@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.Title}} · BitTrawler</title>
-<link rel="icon" href="/static/icon.svg?v={{.Version}}" type="image/svg+xml">
-<link rel="stylesheet" href="/static/app.css?v={{.Version}}">
-<script src="/static/app.js?v={{.Version}}" defer></script>
+<link rel="icon" href="/static/icon.svg?v={{.Assets}}" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css?v={{.Assets}}">
+<script src="/static/app.js?v={{.Assets}}" defer></script>
 </head>
 <body class="auth">
 <main class="auth-shell">
   <a class="auth-brand" href="/">
-    <img class="auth-icon" src="/static/icon.svg?v={{.Version}}" alt="" width="34" height="34">
+    <img class="auth-icon" src="/static/icon.svg?v={{.Assets}}" alt="" width="34" height="34">
     <span class="auth-word">BitTrawler</span>
   </a>
 {{template "content" .}}

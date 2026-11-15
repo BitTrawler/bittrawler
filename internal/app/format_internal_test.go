@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/BitTrawler/bittrawler/internal/version"
 )
 
 // TestHumanCount checks the stat tile's thousands grouping.
@@ -126,4 +128,18 @@ func TestHumanAge(t *testing.T) {
 			assert.Equal(t, tc.want, humanAge(now, now.Add(-tc.age)))
 		})
 	}
+}
+
+// TestAssetStamp checks the query string the static assets carry: a build with a
+// commit is named by it, so its assets can be cached for good, and a local build
+// is named per run so a restart cannot be served the previous build's files.
+func TestAssetStamp(t *testing.T) {
+	t.Parallel()
+
+	started := time.Unix(1_700_000_000, 0)
+
+	assert.Equal(t, "abc1234", assetStamp(version.Info{Commit: "abc1234567890"}, started))
+	assert.Equal(t, "test", assetStamp(version.Info{Version: "test", Commit: "test"}, started))
+	assert.Equal(t, "dev-1700000000", assetStamp(version.Info{Version: "dev", Commit: "unknown"}, started))
+	assert.Equal(t, "dev-1700000000", assetStamp(version.Info{Version: "dev"}, started))
 }

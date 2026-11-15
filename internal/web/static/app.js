@@ -489,4 +489,13 @@ for (const form of document.querySelectorAll('form[data-confirm]')) {
 if (document.getElementById('feed')) {
   refreshFeed();
   window.setInterval(refreshFeed, 3000);
+
+  // A page restored from the back/forward cache shows the figures it was left
+  // with. Ask for the current ones straight away rather than waiting for the
+  // next tick.
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+      refreshFeed();
+    }
+  });
 }

@@ -57,6 +57,7 @@ func (a *App) shell(active, title string) web.Shell {
 		Title:    title,
 		Active:   active,
 		Version:  a.info.Version,
+		Assets:   a.assetVersion(),
 		Crawling: status.Crawling,
 		Uptime:   status.Uptime.String(),
 	}

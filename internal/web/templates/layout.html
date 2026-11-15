@@ -4,15 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.Title}} · BitTrawler</title>
-<link rel="icon" href="/static/icon.svg?v={{.Version}}" type="image/svg+xml">
-<link rel="stylesheet" href="/static/app.css?v={{.Version}}">
-<script src="/static/app.js?v={{.Version}}" defer></script>
+<link rel="icon" href="/static/icon.svg?v={{.Assets}}" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css?v={{.Assets}}">
+<script src="/static/app.js?v={{.Assets}}" defer></script>
 </head>
 <body>
 <div class="app">
   <aside class="sidebar">
     <a class="brand" href="/">
-      <img class="brand-logo" src="/static/logo.svg?v={{.Version}}" alt="BitTrawler">
+      <img class="brand-logo" src="/static/logo.svg?v={{.Assets}}" alt="BitTrawler">
     </a>
     <form class="side-search" method="get" action="/search" role="search">
       <input type="search" name="q" placeholder="Search" aria-label="Search torrents" autocomplete="off" spellcheck="false">

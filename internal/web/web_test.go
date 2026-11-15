@@ -27,6 +27,7 @@ func render(t *testing.T, page string, data any) *httptest.ResponseRecorder {
 func TestRenderSetup(t *testing.T) {
 	recorder := render(t, "setup", web.SetupData{
 		Title:      "Set Up BitTrawler",
+		Assets:     "abc1234",
 		Username:   "peter",
 		APIKey:     "0123456789abcdef0123456789abcdef",
 		TorznabURL: "http://nas:6684/torznab/api",
@@ -40,10 +41,10 @@ func TestRenderSetup(t *testing.T) {
 	assert.Contains(t, body, "http://nas:6684/torznab/api")
 	assert.Contains(t, body, "0123456789abcdef0123456789abcdef")
 	assert.Contains(t, body, `action="/setup"`)
-	assert.Contains(t, body, "/static/app.css")
+	assert.Contains(t, body, `href="/static/app.css?v=abc1234"`)
 	assert.Contains(t, body, `class="auth-shell"`)
 	assert.NotContains(t, body, `class="sidebar"`)
-	assert.Contains(t, body, `src="/static/app.js?v=`)
+	assert.Contains(t, body, `src="/static/app.js?v=abc1234"`)
 	assert.NotContains(t, body, "<script>", "the interface has no inline script")
 }
 
@@ -88,6 +89,7 @@ func TestRenderOverview(t *testing.T) {
 			Title:    "Overview",
 			Active:   "dashboard",
 			Version:  "1.2.3",
+			Assets:   "abc1234",
 			Crawling: true,
 			Uptime:   "2h0m",
 		},
@@ -125,8 +127,11 @@ func TestRenderOverview(t *testing.T) {
 
 	body := recorder.Body.String()
 
+	// Pages may sit in the browser's back/forward cache, but are revalidated
+	// before they are reused.
+	assert.Equal(t, "private, no-cache", recorder.Header().Get("Cache-Control"))
 	assert.Contains(t, body, `class="sidebar"`)
-	assert.Contains(t, body, `src="/static/logo.svg?v=1.2.3"`)
+	assert.Contains(t, body, `src="/static/logo.svg?v=abc1234"`)
 	assert.Contains(t, body, `action="/search"`)
 	assert.Contains(t, body, `name="q"`)
 	assert.Contains(t, body, `href="/">Overview</a>`)

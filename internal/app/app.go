@@ -389,6 +389,11 @@ func (a *App) Status() Status {
 	}
 }
 
+// assetVersion is the build stamp the static asset URLs carry.
+func (a *App) assetVersion() string {
+	return assetStamp(a.info, a.started)
+}
+
 // WebAddress returns the address the HTTP server is bound to.
 func (a *App) WebAddress() string {
 	if a.listener == nil {

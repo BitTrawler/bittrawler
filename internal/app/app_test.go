@@ -565,9 +565,14 @@ func TestFeedSearchAndTorrentPages(t *testing.T) {
 	response = get(t, noRedirect(), baseURL+"/", cookieHeader(session))
 	require.Equal(t, http.StatusOK, response.StatusCode)
 
+	// The page is revalidated but may be restored from the back/forward cache,
+	// and its assets are addressed by the build they were compiled into.
+	assert.Equal(t, "private, no-cache", response.Header.Get("Cache-Control"))
+
 	overview := body(t, response)
 	assert.Contains(t, overview, "Recently Added")
 	assert.Contains(t, overview, `href="/search"`)
+	assert.Contains(t, overview, `href="/static/app.css?v=test"`, "the asset URL carries the build stamp")
 
 	// Search pages render with and without a query.
 	response = get(t, noRedirect(), baseURL+"/search", cookieHeader(session))

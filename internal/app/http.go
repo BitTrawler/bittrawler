@@ -55,13 +55,15 @@ func (a *App) serveTorznab(w http.ResponseWriter, r *http.Request) {
 	endpoint.ServeHTTP(w, r)
 }
 
-// staticHandler serves the embedded stylesheet and icons. The file server needs
-// the mount prefix removed from the path.
+// staticHandler serves the embedded stylesheet, script and icons. The file
+// server needs the mount prefix removed from the path. The asset URLs carry the
+// build stamp, so the browser keeps these files for good: a new build asks for a
+// new URL, and a page load costs one request rather than five.
 func staticHandler() http.Handler {
 	files := http.StripPrefix("/static/", http.FileServerFS(web.Static()))
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		files.ServeHTTP(w, r)
 	})
 }

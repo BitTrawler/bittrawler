@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/BitTrawler/bittrawler/internal/version"
 )
 
 // humanBytes formats a byte count with binary units.
@@ -100,4 +102,22 @@ func formatEpisodes(episodes []int) string {
 	}
 
 	return strings.Join(parts, ", ")
+}
+
+// assetStamp is the build stamp the static asset URLs carry. A build with a
+// commit gets its short commit, so the browser can cache the stylesheet, script
+// and icons until that build is replaced. A local build has no commit to name
+// it, so it gets a stamp per run: a restarted instance is never served assets
+// from the previous one.
+func assetStamp(info version.Info, started time.Time) string {
+	commit := info.Commit
+	if commit != "" && commit != "unknown" {
+		if len(commit) > 7 {
+			return commit[:7]
+		}
+
+		return commit
+	}
+
+	return fmt.Sprintf("%s-%d", info.Version, started.Unix())
 }
