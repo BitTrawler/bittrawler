@@ -51,7 +51,7 @@ func TestClassify(t *testing.T) {
 			name:     "film iso by name",
 			title:    "Some.Movie.2004.PAL.DVDR-TGP",
 			files:    filesOf("iso", 4<<30),
-			category: CategoryMovies,
+			category: CategoryMoviesDVD,
 		},
 		{
 			name:     "season pack",
@@ -93,13 +93,13 @@ func TestClassify(t *testing.T) {
 			name:     "music album",
 			title:    "Some Artist - Some Album (2020) FLAC",
 			files:    filesOf("flac", 40<<20),
-			category: CategoryAudio,
+			category: CategoryAudioLossless,
 		},
 		{
 			name:     "music mp3 album",
 			title:    "Some Artist - Some Album (2020) MP3 320kbps",
 			files:    filesOf("mp3", 8<<20),
-			category: CategoryAudio,
+			category: CategoryAudioMP3,
 		},
 		{
 			name:     "audiobook by name",
@@ -141,19 +141,19 @@ func TestClassify(t *testing.T) {
 			name:     "game disc image",
 			title:    "Some.Game.PS4.ISO",
 			files:    filesOf("iso", 30<<30),
-			category: CategoryPCGames,
+			category: CategoryConsolePS4,
 		},
 		{
 			name:     "adult video",
 			title:    "Some.Title.XXX.1080p.WEB-DL",
 			files:    filesOf("mp4", 2<<30),
-			category: CategoryXXX,
+			category: CategoryXXXWEB,
 		},
 		{
 			name:     "adult image set",
 			title:    "Sexy Models Vol 3",
 			files:    filesOf("jpg", 2<<20),
-			category: CategoryXXX,
+			category: CategoryXXXImageSet,
 		},
 		{
 			name:     "unidentifiable",
@@ -230,7 +230,7 @@ func TestClassifyFilesOverrideTheName(t *testing.T) {
 			name:     "film claim with a disk image",
 			title:    "Some.Movie.2004.PAL.DVDR-TGP",
 			files:    filesOf("iso", 4<<30),
-			category: CategoryMovies,
+			category: CategoryMoviesDVD,
 		},
 		{
 			// Images are not a film, whatever the name says.
@@ -249,7 +249,7 @@ func TestClassifyFilesOverrideTheName(t *testing.T) {
 			name:     "audio explained by files",
 			title:    "Some Release 2020",
 			files:    filesOf("mp3", 8<<20),
-			category: CategoryAudio,
+			category: CategoryAudioMP3,
 		},
 	}
 
@@ -353,7 +353,7 @@ func TestClassifyDropsDeceptiveContent(t *testing.T) {
 			name:     "adult release in an archive",
 			title:    "Some.Title.XXX.1080p.WEB-DL",
 			files:    filesOf("rar", 300<<20),
-			category: CategoryXXX,
+			category: CategoryXXXWEB,
 		},
 
 		// A small bundled installer does not make a film a lie.
@@ -594,7 +594,7 @@ func TestClassifyDropsAdultWhenConfigured(t *testing.T) {
 	files := filesOf("mp4", 2<<30)
 
 	kept := New(Config{}).Classify(name, files)
-	if kept.Drop != DropNone || kept.Category != CategoryXXX {
+	if kept.Drop != DropNone || ParentCategory(kept.Category) != CategoryXXX {
 		t.Fatalf("default classify = category %d, drop %v; want XXX kept", kept.Category, kept.Drop)
 	}
 
@@ -810,19 +810,19 @@ func TestClassifyMeasuredOtherRules(t *testing.T) {
 			name:     "switch package",
 			title:    "Zombie Night Terror [NSZ]",
 			files:    filesOf("nsz", 2<<30),
-			category: CategoryPCGames,
+			category: CategoryConsoleOther,
 		},
 		{
 			name:     "operating system image",
 			title:    "debian-12.4.0-amd64-netinst.iso",
 			files:    filesOf("iso", 700<<20),
-			category: CategoryPC,
+			category: CategoryPCISO,
 		},
 		{
 			name:     "wavpack album",
 			title:    "Black Octopus Sound - The Kraken Vol 1",
 			files:    filesOf("wv", 47<<20),
-			category: CategoryAudio,
+			category: CategoryAudioLossless,
 		},
 		{
 			name:     "decensored adult release",
@@ -834,7 +834,7 @@ func TestClassifyMeasuredOtherRules(t *testing.T) {
 			name:     "hyphenated site name",
 			title:    "MET-ART Some Model",
 			files:    filesOf("jpg", 100<<20),
-			category: CategoryXXX,
+			category: CategoryXXXImageSet,
 		},
 	}
 
@@ -888,7 +888,7 @@ func TestDoujinCollectionsAreComics(t *testing.T) {
 			name:     "adult marker still decides",
 			title:    "(C91) [Circle] Futanari Collection",
 			files:    filesOf("jpg", 80<<20),
-			category: CategoryXXX,
+			category: CategoryXXXImageSet,
 		},
 	}
 
@@ -924,7 +924,7 @@ func TestChineseAdultMarkers(t *testing.T) {
 			name:     "private shoot",
 			title:    "清纯漂亮慕丝女郎大胆私拍 4K",
 			files:    filesOf("mp4", 2<<30),
-			category: CategoryXXX,
+			category: CategoryXXXUHD,
 		},
 		{
 			name:     "leaked voyeur clip",

@@ -62,9 +62,9 @@ func TestPornstarClassifiesAdult(t *testing.T) {
 
 			result := classifier.Classify(title, filesOf("mp4", 2<<30))
 
-			if result.Category != CategoryXXX {
-				t.Errorf("category = %d (%s), want %d (XXX)",
-					result.Category, CategoryName(result.Category), CategoryXXX)
+			if ParentCategory(result.Category) != CategoryXXX {
+				t.Errorf("category = %d (%s), want the XXX family",
+					result.Category, CategoryName(result.Category))
 			}
 
 			if result.AdultEvidence != AdultEvidenceStrong {
@@ -81,8 +81,8 @@ func TestPornstarImageSet(t *testing.T) {
 
 	result := New(Config{}).Classify("Cory.Chase.Photo.Set.2023", filesOf("jpg", 200<<20))
 
-	if result.Category != CategoryXXX {
-		t.Errorf("category = %d (%s), want XXX", result.Category, CategoryName(result.Category))
+	if ParentCategory(result.Category) != CategoryXXX {
+		t.Errorf("category = %d (%s), want the XXX family", result.Category, CategoryName(result.Category))
 	}
 
 	if result.AdultEvidence != AdultEvidenceStrong {
@@ -161,7 +161,7 @@ func TestAdultInternetCreatorsAreAdult(t *testing.T) {
 	} {
 		result := classifier.Classify(title, filesOf("jpg", 200<<20))
 
-		if result.Category != CategoryXXX || result.AdultEvidence != AdultEvidenceStrong {
+		if ParentCategory(result.Category) != CategoryXXX || result.AdultEvidence != AdultEvidenceStrong {
 			t.Errorf("%q classified as %s with evidence %v, want adult strong",
 				title, CategoryName(result.Category), result.AdultEvidence)
 		}

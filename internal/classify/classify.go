@@ -135,6 +135,19 @@ func New(cfg Config) *Classifier {
 // byFiles). Explicit adult content is checked on the name before the census is
 // used, because the name is where adult markers live.
 func (c *Classifier) Classify(name string, files []File) Result {
+	result := c.classify(name, files)
+	if result.Drop != DropNone {
+		return result
+	}
+
+	result.Category = refineCategory(result.Category, name, files)
+
+	return result
+}
+
+// classify decides the family of a torrent and whether it must be dropped. The
+// caller refines the category to a leaf.
+func (c *Classifier) classify(name string, files []File) Result {
 	if isBanned(name) {
 		return Result{Drop: DropBanned}
 	}

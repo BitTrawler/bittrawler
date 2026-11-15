@@ -106,31 +106,7 @@ func TestCapsDocument(t *testing.T) {
 // with the classifier: a client should be able to map everything it can receive
 // and see nothing it cannot.
 func TestCapsCategoriesAreExactlyTheStoredOnes(t *testing.T) {
-	want := map[int]string{
-		classify.CategoryMovies:    classify.CategoryName(classify.CategoryMovies),
-		classify.CategoryMoviesSD:  classify.CategoryName(classify.CategoryMoviesSD),
-		classify.CategoryMoviesHD:  classify.CategoryName(classify.CategoryMoviesHD),
-		classify.CategoryMoviesUHD: classify.CategoryName(classify.CategoryMoviesUHD),
-
-		classify.CategoryAudio:     classify.CategoryName(classify.CategoryAudio),
-		classify.CategoryAudiobook: classify.CategoryName(classify.CategoryAudiobook),
-
-		classify.CategoryPC:      classify.CategoryName(classify.CategoryPC),
-		classify.CategoryPCGames: classify.CategoryName(classify.CategoryPCGames),
-
-		classify.CategoryTV:    classify.CategoryName(classify.CategoryTV),
-		classify.CategoryTVSD:  classify.CategoryName(classify.CategoryTVSD),
-		classify.CategoryTVHD:  classify.CategoryName(classify.CategoryTVHD),
-		classify.CategoryTVUHD: classify.CategoryName(classify.CategoryTVUHD),
-
-		classify.CategoryXXX: classify.CategoryName(classify.CategoryXXX),
-
-		classify.CategoryBooks:  classify.CategoryName(classify.CategoryBooks),
-		classify.CategoryEbook:  classify.CategoryName(classify.CategoryEbook),
-		classify.CategoryComics: classify.CategoryName(classify.CategoryComics),
-
-		classify.CategoryOther: classify.CategoryName(classify.CategoryOther),
-	}
+	want := classify.CategoryNames()
 
 	caps := decodeCaps(t, get(t, newTestHandler(t, Config{}), "t=caps").Body.Bytes())
 
@@ -172,11 +148,44 @@ func TestCapsParentsHaveTheirSubcategories(t *testing.T) {
 	caps := decodeCaps(t, get(t, newTestHandler(t, Config{}), "t=caps").Body.Bytes())
 
 	wantSubs := map[int][]int{
-		classify.CategoryMovies: {classify.CategoryMoviesSD, classify.CategoryMoviesHD, classify.CategoryMoviesUHD},
-		classify.CategoryTV:     {classify.CategoryTVSD, classify.CategoryTVHD, classify.CategoryTVUHD},
-		classify.CategoryBooks:  {classify.CategoryEbook, classify.CategoryComics},
-		classify.CategoryAudio:  {classify.CategoryAudiobook},
-		classify.CategoryPC:     {classify.CategoryPCGames},
+		classify.CategoryConsole: {
+			classify.CategoryConsoleNDS, classify.CategoryConsolePSP,
+			classify.CategoryConsoleWii, classify.CategoryConsoleXbox,
+			classify.CategoryConsoleXbox360, classify.CategoryConsolePS3,
+			classify.CategoryConsoleOther, classify.CategoryConsole3DS,
+			classify.CategoryConsoleVita, classify.CategoryConsoleWiiU,
+			classify.CategoryConsoleXboxOne, classify.CategoryConsolePS4,
+		},
+		classify.CategoryMovies: {
+			classify.CategoryMoviesSD, classify.CategoryMoviesHD,
+			classify.CategoryMoviesUHD, classify.CategoryMoviesBluRay,
+			classify.CategoryMovies3D, classify.CategoryMoviesDVD,
+			classify.CategoryMoviesWEB, classify.CategoryMoviesx265,
+		},
+		classify.CategoryAudio: {
+			classify.CategoryAudioMP3, classify.CategoryAudiobook,
+			classify.CategoryAudioLossless, classify.CategoryAudioOther,
+		},
+		classify.CategoryPC: {
+			classify.CategoryPCISO, classify.CategoryPCMac,
+			classify.CategoryPCGames, classify.CategoryPCiOS,
+			classify.CategoryPCAndroid,
+		},
+		classify.CategoryTV: {
+			classify.CategoryTVWEB, classify.CategoryTVSD,
+			classify.CategoryTVHD, classify.CategoryTVUHD,
+			classify.CategoryTVx265,
+		},
+		classify.CategoryXXX: {
+			classify.CategoryXXXDVD, classify.CategoryXXXWMV,
+			classify.CategoryXXXXviD, classify.CategoryXXXx264,
+			classify.CategoryXXXUHD, classify.CategoryXXXImageSet,
+			classify.CategoryXXXSD, classify.CategoryXXXWEB,
+		},
+		classify.CategoryBooks: {
+			classify.CategoryBooksMags, classify.CategoryEbook,
+			classify.CategoryComics, classify.CategoryBooksTechnical,
+		},
 	}
 
 	for _, category := range caps.Categories.Categories {

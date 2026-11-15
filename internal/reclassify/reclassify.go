@@ -125,8 +125,11 @@ func Run(ctx context.Context, torrents *store.Store, classifier *classify.Classi
 		}
 
 		// Adult evidence can sit in the full file list, which the store does not
-		// keep. A pass can add adult evidence, but it cannot take it away.
-		if torrent.Category == classify.CategoryXXX && result.Category != classify.CategoryXXX {
+		// keep. A pass can add adult evidence, but it cannot take it away. The
+		// comparison is by family so an adult row may still move to an adult
+		// leaf such as XXX/x264.
+		if classify.ParentCategory(torrent.Category) == classify.CategoryXXX &&
+			classify.ParentCategory(result.Category) != classify.CategoryXXX {
 			return nil
 		}
 

@@ -29,6 +29,7 @@ const (
 // A parent category matches every leaf beneath it.
 var categoryOptions = []web.CategoryOption{
 	{Value: 0, Label: "All categories"},
+	{Value: 1000, Label: "Console"},
 	{Value: 2000, Label: "Movies"},
 	{Value: 5000, Label: "TV"},
 	{Value: 3000, Label: "Audio"},

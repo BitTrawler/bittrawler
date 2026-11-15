@@ -18,13 +18,13 @@ func TestRulesFromTheCrawl(t *testing.T) {
 			name:     "adult studio with a performer",
 			title:    "Babes.com Carla Cox & Kattie Gold",
 			files:    filesOf("jpg", 200<<20),
-			category: CategoryXXX,
+			category: CategoryXXXImageSet,
 		},
 		{
 			name:     "adult studio alone",
 			title:    "Babes.com Compilation 2024",
 			files:    filesOf("jpg", 200<<20),
-			category: CategoryXXX,
+			category: CategoryXXXImageSet,
 		},
 		{
 			name:     "performer from the pull",

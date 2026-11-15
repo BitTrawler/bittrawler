@@ -75,6 +75,7 @@ var extensionBuckets = map[string]bucket{
 	// Software, including the Windows forms that are only run, never read.
 	"exe": bucketSoftware, "sh": bucketSoftware,
 	"bat": bucketSoftware, "msi": bucketSoftware, "apk": bucketSoftware,
+	"xapk": bucketSoftware, "apks": bucketSoftware, "ipa": bucketSoftware,
 	"scr": bucketSoftware, "vbs": bucketSoftware, "vbe": bucketSoftware,
 	"cmd": bucketSoftware, "lnk": bucketSoftware, "pif": bucketSoftware,
 	"com": bucketSoftware, "ps1": bucketSoftware, "hta": bucketSoftware,

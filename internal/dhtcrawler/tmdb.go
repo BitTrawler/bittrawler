@@ -122,9 +122,24 @@ func (c *Crawler) confirm(ctx context.Context, job tmdbJob) {
 // adult content and is ignored, and a film found for a show only counts when the
 // name carried no episode information.
 func (c *Crawler) applyTMDBMatch(job tmdbJob, match tmdb.Match) (store.Row, bool) {
+	row, dropped := c.applyTMDBMatchFamily(job, match)
+	if dropped {
+		return row, dropped
+	}
+
+	// The correction may have landed on a family parent; narrow it back to the
+	// leaf the name and primary file justify.
+	row.Category = classify.RefineCategory(row.Category, job.name, tmdbFiles(row))
+
+	return row, false
+}
+
+// applyTMDBMatchFamily applies the confirmation rules and leaves the category
+// on a family parent or resolution leaf for applyTMDBMatch to narrow.
+func (c *Crawler) applyTMDBMatchFamily(job tmdbJob, match tmdb.Match) (store.Row, bool) {
 	row := job.row
 	current := row.Category
-	adult := current == classify.CategoryXXX
+	adult := classify.ParentCategory(current) == classify.CategoryXXX
 
 	switch {
 	case match.Adult:
@@ -162,6 +177,16 @@ func (c *Crawler) applyTMDBMatch(job tmdbJob, match tmdb.Match) (store.Row, bool
 	}
 
 	return row, false
+}
+
+// tmdbFiles rebuilds the file list the classification leaf rules look at: the
+// stored row only has the primary file, which carries the format.
+func tmdbFiles(row store.Row) []classify.File {
+	if row.FilesCount <= 0 || row.PrimaryFile == "" {
+		return nil
+	}
+
+	return []classify.File{{Path: row.PrimaryFile, Size: row.Size}}
 }
 
 // flushTMDBQueue writes the jobs that were still queued when the crawl stopped.
