@@ -243,24 +243,55 @@ func recv[T any](ctx context.Context, ch <-chan T) (T, bool) {
 	}
 }
 
-// seenHashes is a bloom filter of the infohashes this process has already
-// triaged. Several sample workers mark it concurrently, so access is
-// serialised; the lock is cheap next to the store queries it saves.
+// seenHashes is a rotating pair of bloom filters holding the infohashes this
+// process has already triaged. Several sample workers mark it concurrently, so
+// access is serialised; the lock is cheap next to the store queries it saves.
+//
+// A single filter degrades as it fills. At a typical crawl rate the configured
+// capacity is reached in about two days, and after that the false-positive rate
+// climbs: a few per cent within another day and tens of per cent within a week,
+// so genuinely new hashes are skipped. Rotating keeps two generations instead.
+// Both are tested, adds go to the active one, and when it reaches its share of
+// the capacity the oldest generation is cleared and becomes the active one.
+//
+// The filter is an optimisation for the store's seen check, never the
+// authority, so hashes that fall out of the window are simply offered again and
+// rejected by the store.
 type seenHashes struct {
 	mutex sync.Mutex
-	bloom *bloom.BloomFilter
+	// blooms[active] is the generation being filled; the other index holds the
+	// previous generation. Both are tested.
+	blooms [2]*bloom.BloomFilter
+	active int
+	added  uint
+	// perGen is how many hashes one generation holds, which is half the
+	// configured size.
+	perGen uint
 }
 
 func newSeenHashes(size uint, falsePositiveRate float64) *seenHashes {
-	return &seenHashes{bloom: bloom.NewWithEstimates(size, falsePositiveRate)}
+	// The two generations share the configured capacity, so rotating does not
+	// change what the filter costs. A size of one still needs a usable filter.
+	perGen := size / 2
+	if perGen == 0 {
+		perGen = 1
+	}
+
+	return &seenHashes{
+		blooms: [2]*bloom.BloomFilter{
+			bloom.NewWithEstimates(perGen, falsePositiveRate),
+			bloom.NewWithEstimates(perGen, falsePositiveRate),
+		},
+		perGen: perGen,
+	}
 }
 
-// seen reports whether the hash is already in the filter.
+// seen reports whether the hash is in either generation.
 func (s *seenHashes) seen(hash protocol.ID) bool {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	return s.bloom.Test(hash[:])
+	return s.blooms[0].Test(hash[:]) || s.blooms[1].Test(hash[:])
 }
 
 // add records the hash. It is called once the hash has been accepted for
@@ -270,5 +301,19 @@ func (s *seenHashes) add(hash protocol.ID) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	s.bloom.Add(hash[:])
+	s.blooms[s.active].Add(hash[:])
+	s.added++
+
+	if s.added >= s.perGen {
+		s.rotate()
+	}
+}
+
+// rotate retires the oldest generation. The index that becomes active is the
+// one that held the generation from two windows ago, so clearing it keeps the
+// previous window's hashes and starts a fresh one.
+func (s *seenHashes) rotate() {
+	s.active ^= 1
+	s.blooms[s.active].ClearAll()
+	s.added = 0
 }

@@ -59,10 +59,10 @@ type Config struct {
 	// sample_infohashes reply when the reply contained hashes this process had
 	// not seen. Zero honours the node's requested interval.
 	SampleInfoHashesOverride time.Duration
-	// SeenHashesSize is how many infohashes the in-process bloom filter is sized
-	// for, and SeenHashesFalsePositiveRate is its false positive rate. The filter
-	// stops the same hash being triaged more than once per process; it is not
-	// persisted.
+	// SeenHashesSize is the total capacity of the in-process seen-hash filter,
+	// shared by its two rotating generations, and SeenHashesFalsePositiveRate is
+	// that filter's false positive rate. The filter stops the same hash being
+	// triaged more than once per process; it is not persisted.
 	SeenHashesSize              uint
 	SeenHashesFalsePositiveRate float64
 	// TriageBatchSize and TriageBatchWait bound how long discovered hashes wait
