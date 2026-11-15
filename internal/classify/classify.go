@@ -1,7 +1,9 @@
 package classify
 
 import (
+	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/BitTrawler/bittrawler/internal/classify/scene"
 )
@@ -179,6 +181,10 @@ func (c *Classifier) classify(name string, files []File) Result {
 		return Result{Drop: DropDeceptive}
 	}
 
+	if claimedSizeBait(name, cen) {
+		return Result{Drop: DropDeceptive}
+	}
+
 	// A strong adult marker in the name is decisive. The same marker in a file
 	// path is weaker evidence, because paths carry advertising URLs and release
 	// structure, so there it classifies the row but is marked weak. The TMDB
@@ -245,6 +251,74 @@ func (c *Classifier) deceptive(name, text string, cen census) bool {
 	// resolution: adult content whose files are mostly executable is not adult
 	// content.
 	return adultStrongText(name) || adultStrongText(text)
+}
+
+// claimedSizeBait reports a name that advertises a size the torrent cannot
+// contain. A campaign of bait releases does this: "89GB_PHOTO_HIDDEN ..." and
+// "VIPPACK_NUDE_74GB ..." ship the same 227 MB payload under a new claim each
+// time, with two files and a preview video as the largest. The name is
+// advertising a download, not describing content.
+//
+// The guards keep ordinary releases out. The claim has to be at least 10 GB,
+// the payload under a tenth of it, the torrent no more than three files, and
+// the biggest content video. A phone ROM that says "8GB+256GB" is software, and
+// a genuine oversized release has more than three files.
+func claimedSizeBait(name string, cen census) bool {
+	claimed := claimedSize(name)
+	if claimed < 10<<30 {
+		return false
+	}
+
+	if cen.size <= 0 || cen.size > claimed/10 {
+		return false
+	}
+
+	if cen.files > 3 {
+		return false
+	}
+
+	return cen.dominant() == bucketVideo
+}
+
+// claimedSize returns the largest size a name states, in bytes, or zero.
+//
+// A claim glued to a preceding letter is not a claim: "[MP41.69GB]" is a
+// format token and a size run together, and reading it as 41.69 GB dropped a
+// real release in a test over stored rows.
+func claimedSize(name string) int64 {
+	var claimed int64
+
+	for _, match := range claimedSizeRegex.FindAllStringSubmatchIndex(name, -1) {
+		start := match[0]
+
+		if start > 0 {
+			previous, _ := utf8.DecodeLastRuneInString(name[:start])
+			if previous < utf8.RuneSelf && isASCIIAlnum(previous) {
+				continue
+			}
+		}
+
+		value, err := strconv.ParseFloat(name[match[2]:match[3]], 64)
+		if err != nil {
+			continue
+		}
+
+		unit := int64(1 << 30)
+		if strings.EqualFold(name[match[4]:match[5]], "tb") {
+			unit = 1 << 40
+		}
+
+		if size := int64(value * float64(unit)); size > claimed {
+			claimed = size
+		}
+	}
+
+	return claimed
+}
+
+// isASCIIAlnum reports whether r is a plain ASCII letter or digit.
+func isASCIIAlnum(r rune) bool {
+	return r >= '0' && r <= '9' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z'
 }
 
 // resultFor completes a classification whose content kind is known.

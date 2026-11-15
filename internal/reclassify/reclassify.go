@@ -206,13 +206,23 @@ func Run(ctx context.Context, torrents *store.Store, classifier *classify.Classi
 }
 
 // storedFiles rebuilds the classifier's file list from the stored primary file,
-// with the torrent's total size as a hint. The extension is what matters.
+// with the torrent's total size as a hint. The extension is what matters. The
+// remaining files are represented by empty entries so that a rule which counts
+// files sees the real number; an unknown extension with zero size does not
+// change the byte census or the dominant type.
 func storedFiles(torrent store.Torrent) []classify.File {
 	if torrent.FilesCount <= 0 || torrent.PrimaryFile == "" {
 		return nil
 	}
 
-	return []classify.File{{Path: torrent.PrimaryFile, Size: torrent.Size}}
+	files := make([]classify.File, 0, torrent.FilesCount)
+	files = append(files, classify.File{Path: torrent.PrimaryFile, Size: torrent.Size})
+
+	for range torrent.FilesCount - 1 {
+		files = append(files, classify.File{})
+	}
+
+	return files
 }
 
 // snapshot copies the progress so a reporting callback cannot mutate the pass.

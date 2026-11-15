@@ -103,6 +103,7 @@ var extensionBuckets = map[string]bucket{
 // census counts the bytes and files per bucket.
 type census struct {
 	bytes     [bucketCount]int64
+	size      int64
 	files     int
 	audiobook bool
 }
@@ -115,6 +116,7 @@ func newCensus(files []File) census {
 		b := extensionBuckets[ext]
 
 		cen.bytes[b] += file.Size
+		cen.size += file.Size
 		cen.files++
 
 		if ext == "m4b" || ext == "aax" || ext == "aa" {

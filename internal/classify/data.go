@@ -59,7 +59,11 @@ var (
 	// site, such as the "PC address publisher" applications shipped inside
 	// Chinese porn torrents. They are matched as substrings because the keyword
 	// language's word boundaries do not apply to CJK text.
-	baitTerms = []string{"地址发布器"}
+	baitTerms = []string{"地址发布器", "photo hidden", "photo_hidden"}
+
+	// claimedSizeRegex matches a size stated in a name, which bait names use to
+	// advertise a download far larger than the torrent they ship.
+	claimedSizeRegex = regexp.MustCompile(`(?i)(\d+(?:\.\d+)?)\s*(tb|gb)`)
 
 	// bannedContextRegex is the corroboration a weak marker needs: a second
 	// signal that the text is about a minor. Adult words are not included.
@@ -132,6 +136,11 @@ var (
 		"atkgalleria*",
 		"5kporn",
 		"sextury",
+		// Studios whose releases carry no other marker: without these the
+		// date or episode-shaped part of the name wins and they are filed as
+		// television or film.
+		"woodmancastingx",
+		"woodman casting",
 	)
 
 	// adultWeakRegex matches words that are adult in the context of a video or
@@ -434,8 +443,10 @@ func adultStrongText(text string) bool {
 // isBait reports whether the text names a program that exists to advertise a
 // site rather than to carry content.
 func isBait(text string) bool {
+	lower := strings.ToLower(text)
+
 	for _, term := range baitTerms {
-		if strings.Contains(text, term) {
+		if strings.Contains(lower, term) {
 			return true
 		}
 	}

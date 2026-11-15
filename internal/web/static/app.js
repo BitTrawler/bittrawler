@@ -98,64 +98,6 @@ function selectText(node) {
   selection.removeAllRanges();
   selection.addRange(range);
 }
-// Clicking a value selects all of it, so a manual copy is one click and one
-// keyboard shortcut. A long key is otherwise awkward to select by dragging.
-document.addEventListener('click', (event) => {
-  const block = event.target.closest('.code-block');
-  if (block) {
-    selectText(block);
-  }
-});
-
-// copyText writes to the clipboard, returning whether it worked. The Clipboard
-// API needs a secure context, so over plain HTTP the old command is the only
-// option; a hidden textarea holds the value for it.
-async function copyText(value) {
-  if (window.isSecureContext && navigator.clipboard) {
-    try {
-      await navigator.clipboard.writeText(value);
-      return true;
-    } catch {
-      // The permission may have been refused; fall through.
-    }
-  }
-
-  try {
-    const area = document.createElement('textarea');
-    area.value = value;
-    area.setAttribute('readonly', '');
-    area.style.position = 'fixed';
-    area.style.top = '-1000px';
-    area.style.opacity = '0';
-    document.body.appendChild(area);
-    area.select();
-    const copied = document.execCommand('copy');
-    area.remove();
-
-    return copied;
-  } catch {
-    return false;
-  }
-}
-
-// selectValue selects the code block the button belongs to.
-function selectValue(button) {
-  const row = button.closest('.copy-row, .key-row');
-  const block = row ? row.querySelector('.code-block') : null;
-
-  if (block) {
-    selectText(block);
-  }
-}
-
-// selectText selects everything inside node.
-function selectText(node) {
-  const range = document.createRange();
-  range.selectNodeContents(node);
-  const selection = window.getSelection();
-  selection.removeAllRanges();
-  selection.addRange(range);
-}
 
 const numberFormat = new Intl.NumberFormat('en-GB');
 const byteUnits = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];

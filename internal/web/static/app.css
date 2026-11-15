@@ -15,6 +15,7 @@
   --accent-hover: #115e59;
   --accent-contrast: #ffffff;
   --accent-soft: #e8faf7;
+  --selection-bg: #a7e3d8;
   --accent-line: #9fe6dd;
   --danger: #b42318;
   --danger-soft: #fef3f2;
@@ -42,6 +43,7 @@
     --accent-hover: #5eead4;
     --accent-contrast: #04211d;
     --accent-soft: rgb(45 212 191 / 10%);
+    --selection-bg: rgb(45 212 191 / 35%);
     --accent-line: #145e58;
     --danger: #f97066;
     --danger-soft: rgb(249 112 102 / 10%);
@@ -76,8 +78,10 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* The accent tint is too close to the page background to read as a selection,
+   so selected text gets its own stronger colour. */
 ::selection {
-  background: var(--accent-soft);
+  background: var(--selection-bg);
   color: var(--text);
 }
 

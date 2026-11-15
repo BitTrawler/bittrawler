@@ -221,3 +221,32 @@ func TestRunApplyMovesCategoryCounts(t *testing.T) {
 		t.Fatalf("rows = %d, want 1", stats.Rows)
 	}
 }
+
+// TestStoredFilesKeepsTheCount checks that a pass sees how many files a torrent
+// has, which the bail rules use, without changing the byte census.
+func TestStoredFilesKeepsTheCount(t *testing.T) {
+	torrent := store.Torrent{
+		FilesCount:  12,
+		PrimaryFile: "release/part-01.mp4",
+		Size:        40 << 30,
+	}
+
+	files := storedFiles(torrent)
+
+	if len(files) != torrent.FilesCount {
+		t.Fatalf("files = %d, want %d", len(files), torrent.FilesCount)
+	}
+
+	if files[0].Path != torrent.PrimaryFile || files[0].Size != torrent.Size {
+		t.Fatalf("first file = %+v, want the primary file with the total size", files[0])
+	}
+
+	var total int64
+	for _, file := range files {
+		total += file.Size
+	}
+
+	if total != torrent.Size {
+		t.Fatalf("total size = %d, want %d", total, torrent.Size)
+	}
+}

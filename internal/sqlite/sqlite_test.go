@@ -23,7 +23,7 @@ func TestOpenAppliesPragmas(t *testing.T) {
 		{"journal_mode", "wal"},
 		{"synchronous", "1"},
 		{"temp_store", "2"},
-		{"cache_size", "-32768"},
+		{"cache_size", "-8192"},
 		{"busy_timeout", "3000"},
 	}
 

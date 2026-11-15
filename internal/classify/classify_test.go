@@ -1,6 +1,7 @@
 package classify
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -8,6 +9,20 @@ import (
 // mkv, mp3 and friends build a file list of one file with the given extension.
 func filesOf(extension string, size int64) []File {
 	return []File{{Path: "release/" + extension + "." + extension, Size: size}}
+}
+
+// manyFilesOf returns count files of a size each, for tests about collections.
+func manyFilesOf(extension string, size int64, count int) []File {
+	files := make([]File, 0, count)
+
+	for i := range count {
+		files = append(files, File{
+			Path: fmt.Sprintf("release/part-%02d.%s", i, extension),
+			Size: size,
+		})
+	}
+
+	return files
 }
 
 func TestClassify(t *testing.T) {
@@ -356,6 +371,51 @@ func TestClassifyDropsDeceptiveContent(t *testing.T) {
 			category: CategoryXXXWEB,
 		},
 
+		// Bait releases advertise a download far larger than the payload and
+		// retitle the same small payload each time.
+		{
+			name:  "adult photo bait with a size claim",
+			title: "89GB_PHOTO_HIDDEN xev bellringer. com women on survivor tiger lily bbc cherry eye palette",
+			files: []File{
+				{Path: "Preview Video.mp4", Size: 226 << 20},
+				{Path: "hidden.dat", Size: 1 << 20},
+			},
+			drop: DropDeceptive,
+		},
+		{
+			name:  "nude pack bait with a size claim",
+			title: "VIPPACK_NUDE_74GB abigaiil morris of dress kendall jenner dr sam pappas xev bellringer pantyhose",
+			files: []File{
+				{Path: "Preview Video.mp4", Size: 226 << 20},
+				{Path: "hidden.dat", Size: 1 << 20},
+			},
+			drop: DropDeceptive,
+		},
+		{
+			name:  "terabyte bait with a size claim",
+			title: "2TB PRIVATE VIDEO LINKS Chubby Latina Teen. Chubby Latina Pussy.",
+			files: []File{
+				{Path: "Preview Video.mp4", Size: 226 << 20},
+				{Path: "hidden.dat", Size: 1 << 20},
+			},
+			drop: DropDeceptive,
+		},
+		{
+			// A phone ROM states its memory size, but it is software.
+			name:     "phone firmware stating its memory",
+			title:    "Xiaomi 8GB+256GB ROM v14.0.5 fastboot",
+			files:    []File{{Path: "rom/xiaomi.bin", Size: 3 << 30}},
+			category: CategoryOther,
+		},
+		{
+			// A real release may name a size; the payload has to be near it and
+			// a collection has far more than three files.
+			name:     "large release stating its size",
+			title:    "Some.Movie.Collection.2020.70GB.1080p.BluRay.x264-GRP",
+			files:    manyFilesOf("mp4", 6<<30, 12),
+			category: CategoryMoviesHD,
+		},
+
 		// A small bundled installer does not make a film a lie.
 		{
 			name:  "film with a bundled installer",
@@ -428,6 +488,26 @@ func TestClassifyRealWorldCases(t *testing.T) {
 			name:     "chinese adult title",
 			title:    "14.无水印_PerfectGonzo-Ania_Kinski_捅烂丝袜熟女骚肛",
 			files:    filesOf("mp4", 1<<30),
+			category: CategoryXXX,
+		},
+		{
+			// "[MP41.69GB]" reads as a format token and a size glued together;
+			// taking it as a 41.69 GB claim dropped this real release.
+			name:     "format token glued to a size",
+			title:    "[OME-231] Mikie Hara – 晴れた日にはキミが見える [MP41.69GB]",
+			files:    manyFilesOf("mp4", 450<<20, 4),
+			category: CategoryMovies,
+		},
+		{
+			name:     "adult studio named like a series",
+			title:    "[WoodmanCastingX] Mazzy Grace - Casting X 206 (01.04.2019) rq.mp4",
+			files:    filesOf("mp4", 1<<30),
+			category: CategoryXXX,
+		},
+		{
+			name:     "adult studio with a resolution",
+			title:    "Woodmancastingx - Casey Norhman Hard [720p HD].mp4",
+			files:    filesOf("mp4", 700<<20),
 			category: CategoryXXX,
 		},
 		{
