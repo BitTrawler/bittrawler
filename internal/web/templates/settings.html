@@ -13,7 +13,7 @@
 
 <nav class="jump" aria-label="Settings groups">
   {{range .Groups}}<a href="#{{.Slug}}">{{.Name}}</a>
-  {{end}}<a href="#indexer-key">API Key</a>
+  {{end}}<a href="#endpoint">Endpoint</a>
   <a href="#administrator">Administrator</a>
 </nav>
 
@@ -101,17 +101,27 @@
 </section>
 {{end}}
 
-<section class="card" id="indexer-key">
+<section class="card" id="endpoint">
   <header class="card-head">
-    <h2>API Key</h2>
-    <p>Prowlarr needs the new key after a rotation.</p>
+    <h2>Torznab Endpoint</h2>
+    <p>Add this indexer to Prowlarr with the URL and key below. Prowlarr needs the new key after a rotation.</p>
   </header>
-  <div class="key-row">
-    <code class="code-block">{{.APIKey}}</code>
-    <button class="button secondary" type="button" data-copy="{{.APIKey}}">Copy</button>
-    <form method="post" action="/settings/torznab/rotate">
-      <button class="button secondary" type="submit">Rotate Key</button>
-    </form>
+  <div class="field-row">
+    <div class="field-label">URL</div>
+    <div class="copy-row">
+      <code class="code-block">{{.TorznabURL}}</code>
+      <button class="button secondary small" type="button" data-copy="{{.TorznabURL}}">Copy</button>
+    </div>
+  </div>
+  <div class="field-row">
+    <div class="field-label">API Key</div>
+    <div class="copy-row">
+      <code class="code-block">{{.APIKey}}</code>
+      <button class="button secondary small" type="button" data-copy="{{.APIKey}}">Copy</button>
+      <form method="post" action="/settings/torznab/rotate">
+        <button class="button secondary small" type="submit">Rotate Key</button>
+      </form>
+    </div>
   </div>
 </section>
 

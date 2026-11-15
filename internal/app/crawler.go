@@ -4,15 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/BitTrawler/bittrawler/internal/classify"
-	"github.com/BitTrawler/bittrawler/internal/config"
 	"github.com/BitTrawler/bittrawler/internal/dhtcrawler"
 	"github.com/BitTrawler/bittrawler/internal/protocol/dht/client"
 	"github.com/BitTrawler/bittrawler/internal/protocol/metainfo/banning"
 	"github.com/BitTrawler/bittrawler/internal/protocol/metainfo/metainforequester"
-	"github.com/BitTrawler/bittrawler/internal/tmdb"
 )
 
 // SetCrawl starts or stops crawling. A stopped crawl keeps serving Torznab and
@@ -130,7 +127,9 @@ func (a *App) crawlerConfig() dhtcrawler.Config {
 		DropAdult:   cfg.Classify.DropAdult,
 		DropScripts: cfg.Classify.DropScripts,
 	}
-	crawler.TMDB = a.tmdbClient(cfg)
+	if client := a.tmdbClient(); client != nil {
+		crawler.TMDB = client
+	}
 	crawler.TMDBWorkers = cfg.TMDB.Workers
 	crawler.TMDBTimeout = cfg.TMDB.Timeout
 	crawler.DiscoveredNodes = a.discovered
@@ -157,26 +156,4 @@ func (a *App) crawlerConfig() dhtcrawler.Config {
 	crawler.Logger = a.logger.With("component", "crawler")
 
 	return crawler
-}
-
-// tmdbClient builds the confirmation client when a token is configured. A token
-// change needs a restart, so the client is built when a crawl starts.
-func (a *App) tmdbClient(cfg config.Config) dhtcrawler.TMDBSearcher {
-	token := strings.TrimSpace(cfg.TMDB.Token)
-	if token == "" {
-		return nil
-	}
-
-	client, err := tmdb.New(tmdb.Config{
-		Token:     token,
-		Timeout:   cfg.TMDB.Timeout,
-		RateLimit: cfg.TMDB.RateLimit,
-	})
-	if err != nil {
-		a.logger.Warn("TMDB confirmation is disabled", "error", err)
-
-		return nil
-	}
-
-	return client
 }

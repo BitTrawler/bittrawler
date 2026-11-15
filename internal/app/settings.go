@@ -91,7 +91,7 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 		notice = "A pass is already running."
 	}
 
-	data := a.buildSettingsData(a.currentConfig(), a.sourceSnapshot(), advanced, notice, "")
+	data := a.buildSettingsData(r, a.currentConfig(), a.sourceSnapshot(), advanced, notice, "")
 
 	a.renderSettings(w, data, http.StatusOK)
 }
@@ -109,7 +109,7 @@ func (a *App) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := r.ParseForm(); err != nil {
-		a.renderSettings(w, a.buildSettingsData(a.currentConfig(), a.sourceSnapshot(), false, "", "The form could not be read."), http.StatusBadRequest)
+		a.renderSettings(w, a.buildSettingsData(r, a.currentConfig(), a.sourceSnapshot(), false, "", "The form could not be read."), http.StatusBadRequest)
 
 		return
 	}
@@ -118,14 +118,14 @@ func (a *App) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 
 	spec, ok := settingsGroup(r.PostFormValue("group"))
 	if !ok {
-		a.renderSettings(w, a.buildSettingsData(a.currentConfig(), a.sourceSnapshot(), advanced, "", "Unknown settings group."), http.StatusBadRequest)
+		a.renderSettings(w, a.buildSettingsData(r, a.currentConfig(), a.sourceSnapshot(), advanced, "", "Unknown settings group."), http.StatusBadRequest)
 
 		return
 	}
 
 	restart, err := a.saveSettings(r.Context(), spec, r.PostForm, advanced)
 	if err != nil {
-		a.renderSettings(w, a.buildSettingsData(a.currentConfig(), a.sourceSnapshot(), advanced, "", err.Error()), http.StatusBadRequest)
+		a.renderSettings(w, a.buildSettingsData(r, a.currentConfig(), a.sourceSnapshot(), advanced, "", err.Error()), http.StatusBadRequest)
 
 		return
 	}
@@ -256,13 +256,14 @@ func formValue(setting config.Setting, form url.Values) (string, bool) {
 }
 
 // buildSettingsData turns the settings declaration into the page's data.
-func (a *App) buildSettingsData(cfg config.Config, sources map[string]config.Source, advanced bool, notice, problem string) web.SettingsData {
+func (a *App) buildSettingsData(r *http.Request, cfg config.Config, sources map[string]config.Source, advanced bool, notice, problem string) web.SettingsData {
 	data := web.SettingsData{
 		Shell:         a.shell("settings", "Settings"),
 		Advanced:      advanced,
 		Notice:        notice,
 		Error:         problem,
 		APIKey:        cfg.Torznab.APIKey,
+		TorznabURL:    a.torznabURL(r),
 		AdminUsername: cfg.Web.AdminUsername,
 		Reclassify:    a.settingsReclassify(),
 	}
@@ -460,7 +461,7 @@ func (a *App) handleRotateAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	if err := a.rotateAPIKey(r.Context()); err != nil {
 		a.logger.Error("rotate the API key", "error", err)
-		a.renderSettings(w, a.buildSettingsData(a.currentConfig(), a.sourceSnapshot(), false, "", "Could not rotate the key."), http.StatusInternalServerError)
+		a.renderSettings(w, a.buildSettingsData(r, a.currentConfig(), a.sourceSnapshot(), false, "", "Could not rotate the key."), http.StatusInternalServerError)
 
 		return
 	}
@@ -505,7 +506,7 @@ func (a *App) handleAdminSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := r.ParseForm(); err != nil {
-		a.renderSettings(w, a.buildSettingsData(a.currentConfig(), a.sourceSnapshot(), false, "", "The form could not be read."), http.StatusBadRequest)
+		a.renderSettings(w, a.buildSettingsData(r, a.currentConfig(), a.sourceSnapshot(), false, "", "The form could not be read."), http.StatusBadRequest)
 
 		return
 	}
@@ -523,13 +524,13 @@ func (a *App) handleAdminSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !a.verifyCredentials(state.username, currentPassword) {
-		a.renderSettings(w, a.buildSettingsData(a.currentConfig(), a.sourceSnapshot(), false, "", "The current password is wrong."), http.StatusForbidden)
+		a.renderSettings(w, a.buildSettingsData(r, a.currentConfig(), a.sourceSnapshot(), false, "", "The current password is wrong."), http.StatusForbidden)
 
 		return
 	}
 
 	if err := validateUsername(username); err != nil {
-		a.renderSettings(w, a.buildSettingsData(a.currentConfig(), a.sourceSnapshot(), false, "", err.Error()), http.StatusBadRequest)
+		a.renderSettings(w, a.buildSettingsData(r, a.currentConfig(), a.sourceSnapshot(), false, "", err.Error()), http.StatusBadRequest)
 
 		return
 	}
@@ -542,7 +543,7 @@ func (a *App) handleAdminSave(w http.ResponseWriter, r *http.Request) {
 
 	if newPassword != "" {
 		if err := validatePassword(newPassword, confirmPassword); err != nil {
-			a.renderSettings(w, a.buildSettingsData(a.currentConfig(), a.sourceSnapshot(), false, "", err.Error()), http.StatusBadRequest)
+			a.renderSettings(w, a.buildSettingsData(r, a.currentConfig(), a.sourceSnapshot(), false, "", err.Error()), http.StatusBadRequest)
 
 			return
 		}
@@ -550,7 +551,7 @@ func (a *App) handleAdminSave(w http.ResponseWriter, r *http.Request) {
 		hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcryptCost)
 		if err != nil {
 			a.logger.Error("hash the administrator password", "error", err)
-			a.renderSettings(w, a.buildSettingsData(a.currentConfig(), a.sourceSnapshot(), false, "", "The password could not be saved."), http.StatusInternalServerError)
+			a.renderSettings(w, a.buildSettingsData(r, a.currentConfig(), a.sourceSnapshot(), false, "", "The password could not be saved."), http.StatusInternalServerError)
 
 			return
 		}
@@ -572,7 +573,7 @@ func (a *App) handleAdminSave(w http.ResponseWriter, r *http.Request) {
 
 	if err := a.settingsStore.SetMany(r.Context(), values); err != nil {
 		a.logger.Error("save the administrator account", "error", err)
-		a.renderSettings(w, a.buildSettingsData(a.currentConfig(), a.sourceSnapshot(), false, "", "The account could not be saved."), http.StatusInternalServerError)
+		a.renderSettings(w, a.buildSettingsData(r, a.currentConfig(), a.sourceSnapshot(), false, "", "The account could not be saved."), http.StatusInternalServerError)
 
 		return
 	}

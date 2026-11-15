@@ -192,7 +192,9 @@ type CategoryRow struct {
 	Children []CategoryRow
 }
 
-// TorrentRow is one torrent in the live feed or in search results.
+// TorrentRow is one torrent in the live feed or in search results. The fields
+// after Leechers are only used by the search page, which expands a result in
+// place rather than sending the reader to the torrent page for them.
 type TorrentRow struct {
 	Hash     string
 	Name     string
@@ -202,6 +204,15 @@ type TorrentRow struct {
 	Age      string
 	Seeders  int
 	Leechers int
+
+	Magnet      string
+	Added       string
+	Peers       string
+	PrimaryFile string
+	Seasons     string
+	Episodes    string
+	AirDate     string
+	TMDBURL     string
 }
 
 // OverviewData is the dashboard.
@@ -220,8 +231,6 @@ type OverviewData struct {
 	Commit          string
 	BuildDate       string
 	Uptime          string
-	APIKey          string
-	TorznabURL      string
 	DHTAddress      string
 	DataDirectory   string
 	RetentionMonths int
@@ -269,15 +278,15 @@ type TorrentData struct {
 	Magnet      string
 	Category    string
 	Size        string
-	Created     string
+	Added       string
 	Files       string
 	PrimaryFile string
 	Seasons     string
 	Episodes    string
 	AirDate     string
-	ContentID   string
-	Seeders     string
-	Leechers    string
+	Peers       string
+	TMDBURL     string
+	TVDBURL     string
 }
 
 // NotFoundData is the torrent-not-found page.
@@ -294,6 +303,7 @@ type SettingsData struct {
 	Error         string
 	Groups        []SettingsGroup
 	APIKey        string
+	TorznabURL    string
 	AdminUsername string
 	Reclassify    ReclassifyStatus
 }

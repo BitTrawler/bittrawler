@@ -26,31 +26,56 @@
 
 {{if .Results}}
 <p class="results-meta">{{if .Query}}{{.TotalLabel}} torrents matched.{{else}}{{.TotalLabel}} torrents indexed.{{end}}</p>
-<div class="table-wrap">
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th class="col-category">Category</th>
-        <th class="num">Size</th>
-        <th class="num">Seeds</th>
-        <th class="num col-peers">Peers</th>
-        <th class="num col-age">Age</th>
-      </tr>
-    </thead>
-    <tbody>
-      {{range .Results}}
-      <tr>
-        <td class="name"><a href="/torrent/{{.Hash}}">{{.Name}}</a></td>
-        <td class="col-category"><span class="cat">{{.Category}}</span></td>
-        <td class="num">{{.Size}}</td>
-        <td class="num">{{.Seeders}}</td>
-        <td class="num col-peers">{{.Leechers}}</td>
-        <td class="num col-age">{{.Age}}</td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
+<div class="results">
+  <div class="result-head" aria-hidden="true">
+    <span class="col-name">Name</span>
+    <span class="col-category">Category</span>
+    <span class="num">Size</span>
+    <span class="num">Seeds</span>
+    <span class="num col-peers">Peers</span>
+    <span class="num col-age">Age</span>
+  </div>
+  {{range $index, $torrent := .Results}}
+  <div class="result">
+    <span class="name-wrap">
+      <button class="name-toggle" type="button" aria-expanded="false" aria-controls="detail-{{$index}}" aria-label="Show details"><span class="chevron" aria-hidden="true"></span></button>
+      <a href="/torrent/{{$torrent.Hash}}">{{$torrent.Name}}</a>
+    </span>
+    <span class="col-category"><span class="cat">{{$torrent.Category}}</span></span>
+    <span class="num">{{$torrent.Size}}</span>
+    <span class="num">{{$torrent.Seeders}}</span>
+    <span class="num col-peers">{{$torrent.Leechers}}</span>
+    <span class="num col-age">{{$torrent.Age}}</span>
+  </div>
+  <div class="result-detail" id="detail-{{$index}}" hidden>
+    <div class="details">
+      <div class="copy-row">
+        <code class="code-block wrap">{{$torrent.Magnet}}</code>
+        <button class="button secondary small" type="button" data-copy="{{$torrent.Magnet}}">Copy</button>
+      </div>
+      <dl class="kv">
+        {{if $torrent.PrimaryFile}}<dt>Primary File</dt>
+        <dd><code class="value-static">{{$torrent.PrimaryFile}}</code></dd>{{end}}
+        <dt>Files</dt>
+        <dd>{{$torrent.Files}}</dd>
+        <dt>Added</dt>
+        <dd>{{$torrent.Added}}</dd>
+        <dt>Peers</dt>
+        <dd>{{$torrent.Peers}}</dd>
+        {{if $torrent.Seasons}}<dt>Seasons</dt>
+        <dd>{{$torrent.Seasons}}</dd>{{end}}
+        {{if $torrent.Episodes}}<dt>Episodes</dt>
+        <dd>{{$torrent.Episodes}}</dd>{{end}}
+        {{if $torrent.AirDate}}<dt>Air Date</dt>
+        <dd>{{$torrent.AirDate}}</dd>{{end}}
+      </dl>
+      <p class="detail-links">
+        <a class="button secondary small" href="/torrent/{{$torrent.Hash}}">View</a>
+        {{if $torrent.TMDBURL}}<a class="button secondary small" href="{{$torrent.TMDBURL}}" target="_blank" rel="noopener noreferrer">TMDB</a>{{end}}
+      </p>
+    </div>
+  </div>
+  {{end}}
 </div>
 
 {{if gt .PageCount 1}}

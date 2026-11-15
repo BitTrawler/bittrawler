@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -14,11 +15,12 @@ import (
 // fakeServer is a TMDB API stub. It answers the two search endpoints with the
 // JSON it is given and counts requests.
 type fakeServer struct {
-	movies  string
-	shows   string
-	status  int
-	server  *httptest.Server
-	request atomic.Int64
+	movies      string
+	shows       string
+	externalIDs string
+	status      int
+	server      *httptest.Server
+	request     atomic.Int64
 }
 
 func newFake(t *testing.T, movies, shows string) *fakeServer {
@@ -43,11 +45,13 @@ func newFake(t *testing.T, movies, shows string) *fakeServer {
 
 		rw.Header().Set("Content-Type", "application/json")
 
-		switch r.URL.Path {
-		case "/search/movie":
+		switch {
+		case r.URL.Path == "/search/movie":
 			_, _ = rw.Write([]byte(fake.movies))
-		case "/search/tv":
+		case r.URL.Path == "/search/tv":
 			_, _ = rw.Write([]byte(fake.shows))
+		case strings.HasSuffix(r.URL.Path, "/external_ids") && fake.externalIDs != "":
+			_, _ = rw.Write([]byte(fake.externalIDs))
 		default:
 			http.NotFound(rw, r)
 		}
@@ -322,6 +326,61 @@ func TestNewRequiresToken(t *testing.T) {
 
 	if _, err := New(Config{}); err == nil {
 		t.Fatal("a client was created without a token")
+	}
+}
+
+func TestExternalIDsFindsTheTVDBID(t *testing.T) {
+	t.Parallel()
+
+	fake := newFake(t, noResults, noResults)
+	fake.externalIDs = `{"id":1396,"imdb_id":"tt0903747","tvdb_id":81189}`
+
+	client := fake.client(t)
+
+	ids, ok, err := client.ExternalIDs(context.Background(), MediumTV, 1396)
+	if err != nil || !ok {
+		t.Fatalf("external ids = %v, %v", ok, err)
+	}
+
+	if ids.TVDB != 81189 {
+		t.Fatalf("tvdb id = %d, want 81189", ids.TVDB)
+	}
+
+	// The ask above is the only request: the answer is cached.
+	if _, _, err := client.ExternalIDs(context.Background(), MediumTV, 1396); err != nil {
+		t.Fatalf("second ask: %v", err)
+	}
+
+	if got := fake.request.Load(); got != 1 {
+		t.Fatalf("requests = %d, want 1", got)
+	}
+}
+
+func TestExternalIDsWithoutATVDBIDIsAnAnswer(t *testing.T) {
+	t.Parallel()
+
+	fake := newFake(t, noResults, noResults)
+	fake.externalIDs = `{"id":13523,"imdb_id":"tt1234567"}`
+
+	ids, ok, err := fake.client(t).ExternalIDs(context.Background(), MediumMovie, 13523)
+	if err != nil {
+		t.Fatalf("external ids: %v", err)
+	}
+
+	if ok || ids.TVDB != 0 {
+		t.Fatalf("external ids = %+v, %v; want no TVDB id", ids, ok)
+	}
+}
+
+func TestExternalIDsFailWhenTMDBFails(t *testing.T) {
+	t.Parallel()
+
+	fake := newFake(t, noResults, noResults)
+	fake.externalIDs = `{"id":1396,"tvdb_id":81189}`
+	fake.status = http.StatusInternalServerError
+
+	if _, _, err := fake.client(t).ExternalIDs(context.Background(), MediumTV, 1396); err == nil {
+		t.Fatal("a failed request was reported as an answer")
 	}
 }
 

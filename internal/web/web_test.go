@@ -126,8 +126,6 @@ func TestRenderOverview(t *testing.T) {
 		Commit:          "abc1234",
 		BuildDate:       "2026-11-13",
 		Uptime:          "2h0m",
-		APIKey:          "0123456789abcdef0123456789abcdef",
-		TorznabURL:      "http://nas:6684/torznab/api",
 		DHTAddress:      "0.0.0.0:6684",
 		DataDirectory:   "/data",
 		RetentionMonths: 12,
@@ -151,7 +149,8 @@ func TestRenderOverview(t *testing.T) {
 	assert.Contains(t, body, `class="build">v1.2.3</span>`)
 	assert.Contains(t, body, `data-stat="stored">12,345<`)
 	assert.Contains(t, body, `id="feed"`)
-	assert.Contains(t, body, "http://nas:6684/torznab/api")
+	// The endpoint and key live on the settings page, not here.
+	assert.NotContains(t, body, "http://nas:6684/torznab/api")
 	assert.Contains(t, body, "Ingest Activity")
 	assert.Contains(t, body, `data-counter="nodes_discovered">1,204<`)
 	assert.Contains(t, body, `data-runtime="heap">24.1 MiB<`)
@@ -194,9 +193,20 @@ func TestRenderSearch(t *testing.T) {
 		}},
 		SelectedCategory: 2000,
 		SelectedSort:     "newest",
-		Results: []web.TorrentRow{
-			{Hash: "0123456789abcdef0123456789abcdef01234567", Name: "Batman.2022.1080p", Category: "Movies/HD", Size: "2.0 GiB", Seeders: 4, Leechers: 1, Age: "2h"},
-		},
+		Results: []web.TorrentRow{{
+			Hash:        "0123456789abcdef0123456789abcdef01234567",
+			Name:        "Batman.2022.1080p",
+			Category:    "Movies/HD",
+			Size:        "2.0 GiB",
+			Seeders:     4,
+			Leechers:    1,
+			Age:         "2h",
+			Magnet:      "magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=Batman",
+			Added:       "13 Nov 2026, 14:00",
+			Peers:       "4 seeding, 1 leeching",
+			PrimaryFile: "Batman.2022.1080p.mkv",
+			TMDBURL:     "https://www.themoviedb.org/movie/414906",
+		}},
 		Total:      500,
 		TotalLabel: "500",
 		Page:       2,
@@ -221,6 +231,14 @@ func TestRenderSearch(t *testing.T) {
 	assert.Contains(t, body, "Batman.2022.1080p")
 	assert.Contains(t, body, "Page 2 of 10")
 	assert.Contains(t, body, `href="/search?q=batman&amp;cat=2000&amp;page=3"`)
+
+	// The result opens in place: the detail row is in the markup, hidden, and
+	// the toggle points at it.
+	assert.Contains(t, body, `<div class="result">`)
+	assert.Contains(t, body, `aria-expanded="false" aria-controls="detail-0"`)
+	assert.Contains(t, body, `<div class="result-detail" id="detail-0" hidden>`)
+	assert.Contains(t, body, `href="https://www.themoviedb.org/movie/414906"`)
+	assert.Contains(t, body, `data-copy="magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&amp;dn=Batman"`)
 }
 
 func TestRenderSearchEmpty(t *testing.T) {
@@ -242,12 +260,12 @@ func TestRenderTorrent(t *testing.T) {
 		Magnet:      "magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=Some.Release",
 		Category:    "Movies/HD",
 		Size:        "1.2 GiB",
-		Created:     "13 Nov 2026, 14:00",
+		Added:       "13 Nov 2026, 14:00",
 		Files:       "3",
 		PrimaryFile: "Some.Release.2024.1080p.mkv",
-		ContentID:   "12345",
-		Seeders:     "12",
-		Leechers:    "3",
+		Peers:       "12 seeding, 3 leeching",
+		TMDBURL:     "https://www.themoviedb.org/movie/12345",
+		TVDBURL:     "https://thetvdb.com/?tab=series&id=81189",
 	})
 
 	body := recorder.Body.String()
@@ -257,6 +275,11 @@ func TestRenderTorrent(t *testing.T) {
 	assert.Contains(t, body, "Some.Release.2024.1080p.mkv")
 	assert.Contains(t, body, "Back to search")
 	assert.Contains(t, body, `data-copy=`)
+	assert.Contains(t, body, `href="https://www.themoviedb.org/movie/12345"`)
+	assert.Contains(t, body, `href="https://thetvdb.com/?tab=series&amp;id=81189"`)
+	assert.Contains(t, body, `action="/torrent/0123456789abcdef0123456789abcdef01234567/remove"`)
+	assert.Contains(t, body, `action="/torrent/0123456789abcdef0123456789abcdef01234567/block"`)
+	assert.Contains(t, body, "Block and Remove")
 }
 
 func TestRenderNotFound(t *testing.T) {
@@ -291,6 +314,7 @@ func TestRenderSettings(t *testing.T) {
 		},
 		Advanced:      false,
 		APIKey:        "0123456789abcdef0123456789abcdef",
+		TorznabURL:    "http://nas:6684/torznab/api",
 		AdminUsername: "peter",
 	})
 
@@ -307,6 +331,7 @@ func TestRenderSettings(t *testing.T) {
 	assert.Contains(t, body, "from environment")
 	assert.Contains(t, body, `class="tag warn">restart</span>`)
 	assert.Contains(t, body, "0123456789abcdef0123456789abcdef")
+	assert.Contains(t, body, "http://nas:6684/torznab/api")
 	assert.Contains(t, body, "Rotate Key")
 	assert.Contains(t, body, `action="/settings/admin"`)
 }

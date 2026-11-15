@@ -76,6 +76,7 @@ type App struct {
 
 	crawler atomic.Pointer[dhtcrawler.Crawler]
 	stats   statsCache
+	tmdb    tmdbState
 
 	reclassify reclassifyState
 

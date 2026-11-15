@@ -232,7 +232,7 @@ func TestSetupLoginAndTorznab(t *testing.T) {
 
 	dashboard := body(t, response)
 	assert.Contains(t, dashboard, "Overview")
-	assert.Contains(t, dashboard, application.Status().TorznabAPIKey)
+	assert.NotContains(t, dashboard, application.Status().TorznabAPIKey, "the key moved to the settings page")
 
 	// The Torznab endpoint serves caps to Prowlarr with the generated key.
 	response = get(t, noRedirect(), baseURL+"/torznab/api?t=caps&apikey="+application.Status().TorznabAPIKey, nil)

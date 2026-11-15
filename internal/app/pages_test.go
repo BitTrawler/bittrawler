@@ -138,3 +138,101 @@ func TestTorrentPageShowsAStoredRow(t *testing.T) {
 	assert.Contains(t, notFound, "Torrent Not Found")
 	assert.Contains(t, notFound, missingHash)
 }
+
+func TestTorrentPageLinksToTheCatalogue(t *testing.T) {
+	// No token, so page rendering must not attempt a TMDB request.
+	t.Setenv("BITTRAWLER_TMDB_TOKEN", "")
+
+	const (
+		filmHashHex = "1111111111111111111111111111111111111111"
+		showHashHex = "2222222222222222222222222222222222222222"
+	)
+
+	dir := t.TempDir()
+
+	seeded, err := store.Open(store.Config{Dir: dir})
+	require.NoError(t, err)
+
+	now := time.Now().UTC()
+
+	rows := []store.Row{
+		{
+			InfoHash:   mustHash(t, filmHashHex),
+			Name:       "A.Film.2024.1080p.BluRay.x264-GRP",
+			Size:       1 << 30,
+			CreatedAt:  now.Add(-time.Hour),
+			Category:   classify.CategoryMoviesHD,
+			ContentID:  414906,
+			FilesCount: 1,
+			Seeders:    3,
+			Leechers:   1,
+		},
+		{
+			InfoHash:   mustHash(t, showHashHex),
+			Name:       "A.Show.S02E03.1080p.WEB-DL-GRP",
+			Size:       1 << 30,
+			CreatedAt:  now,
+			Category:   classify.CategoryTVHD,
+			ContentID:  1396,
+			Seasons:    []int{2},
+			Episodes:   []int{20003},
+			FilesCount: 1,
+			Seeders:    9,
+			Leechers:   2,
+		},
+	}
+
+	inserted, err := seeded.PutBatch(context.Background(), rows)
+	require.NoError(t, err)
+	require.Equal(t, 2, inserted)
+	require.NoError(t, seeded.Close())
+
+	_, baseURL := startOnDataDirectory(t, dir)
+
+	completeSetup(t, baseURL)
+	session := signIn(t, baseURL, "admin", "correct-horse-battery")
+
+	// A film links to its TMDB page and has no TVDB id to link to.
+	response := get(t, noRedirect(), baseURL+"/torrent/"+filmHashHex, cookieHeader(session))
+	require.Equal(t, http.StatusOK, response.StatusCode)
+
+	filmPage := body(t, response)
+	assert.Contains(t, filmPage, `href="https://www.themoviedb.org/movie/414906"`)
+	assert.NotContains(t, filmPage, "thetvdb.com")
+
+	// A show links to its TMDB page. Without a TMDB token there is no TVDB
+	// lookup, so the page still renders and simply leaves that link out.
+	response = get(t, noRedirect(), baseURL+"/torrent/"+showHashHex, cookieHeader(session))
+	require.Equal(t, http.StatusOK, response.StatusCode)
+
+	showPage := body(t, response)
+	assert.Contains(t, showPage, `href="https://www.themoviedb.org/tv/1396"`)
+	assert.NotContains(t, showPage, "thetvdb.com")
+
+	// A result in the list opens in place, and both rows carry the detail they
+	// need without asking the server again.
+	response = get(t, noRedirect(), baseURL+"/search", cookieHeader(session))
+	require.Equal(t, http.StatusOK, response.StatusCode)
+
+	results := body(t, response)
+	assert.Contains(t, results, `<div class="result">`)
+	assert.Contains(t, results, `class="result-detail" id="detail-0" hidden`)
+	assert.Contains(t, results, `class="result-detail" id="detail-1" hidden`)
+	assert.Contains(t, results, `data-copy="magnet:?xt=urn:btih:`)
+	assert.Contains(t, results, `>View</a>`)
+	assert.Contains(t, results, `href="https://www.themoviedb.org/tv/1396"`)
+}
+
+// mustHash decodes an info hash written as hex.
+func mustHash(t *testing.T, hexHash string) [20]byte {
+	t.Helper()
+
+	decoded, err := hex.DecodeString(hexHash)
+	require.NoError(t, err)
+	require.Len(t, decoded, 20)
+
+	var hash [20]byte
+	copy(hash[:], decoded)
+
+	return hash
+}

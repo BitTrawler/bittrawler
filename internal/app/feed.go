@@ -14,6 +14,7 @@ import (
 	"github.com/BitTrawler/bittrawler/internal/classify"
 	"github.com/BitTrawler/bittrawler/internal/dhtcrawler"
 	"github.com/BitTrawler/bittrawler/internal/store"
+	"github.com/BitTrawler/bittrawler/internal/tmdb"
 	"github.com/BitTrawler/bittrawler/internal/torznab"
 	"github.com/BitTrawler/bittrawler/internal/web"
 )
@@ -93,6 +94,13 @@ func (a *App) handleOverview(w http.ResponseWriter, r *http.Request) {
 		notice = "Crawling paused."
 	}
 
+	switch r.URL.Query().Get("removed") {
+	case "removed":
+		notice = "Torrent removed from the index."
+	case "blocked":
+		notice = "Torrent removed from the index and its hash blocked."
+	}
+
 	data := web.OverviewData{
 		Shell:  a.shell("dashboard", "Overview"),
 		Notice: notice,
@@ -117,8 +125,6 @@ func (a *App) handleOverview(w http.ResponseWriter, r *http.Request) {
 		Commit:          status.Commit,
 		BuildDate:       status.BuildDate,
 		Uptime:          status.Uptime.String(),
-		APIKey:          status.TorznabAPIKey,
-		TorznabURL:      a.torznabURL(r),
 		DHTAddress:      status.DHTAddress,
 		DataDirectory:   a.dataDir,
 		RetentionMonths: cfg.Store.RetentionMonths,
@@ -153,15 +159,25 @@ func torrentRows(torrents []store.Torrent) []web.TorrentRow {
 			files = humanCount(torrent.FilesCount)
 		}
 
+		tmdbURL, _ := contentLinks(torrent.Category, torrent.ContentID, 0)
+
 		rows = append(rows, web.TorrentRow{
-			Hash:     hex.EncodeToString(torrent.InfoHash[:]),
-			Name:     torrent.Name,
-			Category: classify.CategoryName(torrent.Category),
-			Size:     humanBytes(torrent.Size),
-			Files:    files,
-			Seeders:  torrent.Seeders,
-			Leechers: torrent.Leechers,
-			Age:      humanAge(now, torrent.CreatedAt),
+			Hash:        hex.EncodeToString(torrent.InfoHash[:]),
+			Name:        torrent.Name,
+			Category:    classify.CategoryName(torrent.Category),
+			Size:        humanBytes(torrent.Size),
+			Files:       files,
+			Seeders:     torrent.Seeders,
+			Leechers:    torrent.Leechers,
+			Age:         humanAge(now, torrent.CreatedAt),
+			Magnet:      torznab.Magnet(torrent.InfoHash, torrent.Name, torrent.Size),
+			Added:       humanDate(torrent.CreatedAt),
+			Peers:       strconv.Itoa(torrent.Seeders) + " seeding, " + strconv.Itoa(torrent.Leechers) + " leeching",
+			PrimaryFile: torrent.PrimaryFile,
+			Seasons:     formatSeasons(torrent.Seasons),
+			Episodes:    formatEpisodes(torrent.Episodes),
+			AirDate:     torrent.AirDate,
+			TMDBURL:     tmdbURL,
 		})
 	}
 
@@ -599,17 +615,14 @@ func (a *App) handleTorrent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	raw := strings.ToLower(strings.TrimSpace(r.PathValue("hash")))
-
-	decoded, err := hex.DecodeString(raw)
-	if err != nil || len(decoded) != 20 {
-		a.renderNotFound(w, r, raw)
+	hash, ok := infoHashFromPath(r)
+	if !ok {
+		a.renderNotFound(w, r, strings.ToLower(strings.TrimSpace(r.PathValue("hash"))))
 
 		return
 	}
 
-	var hash [20]byte
-	copy(hash[:], decoded)
+	raw := hex.EncodeToString(hash[:])
 
 	torrent, found, err := a.torrentStore.Get(r.Context(), hash)
 	if err != nil {
@@ -630,10 +643,15 @@ func (a *App) handleTorrent(w http.ResponseWriter, r *http.Request) {
 		files = humanCount(torrent.FilesCount)
 	}
 
-	contentID := "none"
-	if torrent.ContentID > 0 {
-		contentID = strconv.FormatInt(torrent.ContentID, 10)
+	// The TVDB id is the only thing on the page that is not in the store. The
+	// client caches it, so this costs one request per show rather than one per
+	// view, and a failure leaves the link out instead of failing the page.
+	var tvdb int64
+	if torrent.ContentID > 0 && classify.ParentCategory(torrent.Category) == classify.CategoryTV {
+		tvdb = a.tvdbID(r.Context(), torrent.ContentID)
 	}
+
+	tmdbURL, tvdbURL := contentLinks(torrent.Category, torrent.ContentID, tvdb)
 
 	data := web.TorrentData{
 		Shell:       a.shell("", "Torrent"),
@@ -642,18 +660,69 @@ func (a *App) handleTorrent(w http.ResponseWriter, r *http.Request) {
 		Magnet:      torznab.Magnet(torrent.InfoHash, torrent.Name, torrent.Size),
 		Category:    classify.CategoryName(torrent.Category),
 		Size:        humanBytes(torrent.Size),
-		Created:     humanDate(torrent.CreatedAt),
+		Added:       humanDate(torrent.CreatedAt),
 		Files:       files,
 		PrimaryFile: torrent.PrimaryFile,
 		Seasons:     formatSeasons(torrent.Seasons),
 		Episodes:    formatEpisodes(torrent.Episodes),
 		AirDate:     torrent.AirDate,
-		ContentID:   contentID,
-		Seeders:     strconv.Itoa(torrent.Seeders),
-		Leechers:    strconv.Itoa(torrent.Leechers),
+		Peers:       strconv.Itoa(torrent.Seeders) + " seeding, " + strconv.Itoa(torrent.Leechers) + " leeching",
+		TMDBURL:     tmdbURL,
+		TVDBURL:     tvdbURL,
 	}
 
 	a.renderPage(w, "torrent", data)
+}
+
+// contentLinks returns the catalogue links for a stored content reference. The
+// category decides whether the id is a film id or a show id, because TMDB keeps
+// the two spaces separate. A row with no reference, or one classified outside
+// film and television, has no links.
+func contentLinks(category int, contentID, tvdbID int64) (tmdbURL, tvdbURL string) {
+	if contentID <= 0 {
+		return "", ""
+	}
+
+	switch classify.ParentCategory(category) {
+	case classify.CategoryMovies:
+		return "https://www.themoviedb.org/movie/" + strconv.FormatInt(contentID, 10), ""
+	case classify.CategoryTV:
+		tmdbURL = "https://www.themoviedb.org/tv/" + strconv.FormatInt(contentID, 10)
+		if tvdbID > 0 {
+			tvdbURL = "https://thetvdb.com/?tab=series&id=" + strconv.FormatInt(tvdbID, 10)
+		}
+
+		return tmdbURL, tvdbURL
+	default:
+		return "", ""
+	}
+}
+
+// tvdbLookupTimeout bounds the one catalogue lookup a torrent page may make.
+const tvdbLookupTimeout = 2 * time.Second
+
+// tvdbID asks TMDB for the TVDB id of a show, which is what the TVDB link needs.
+func (a *App) tvdbID(ctx context.Context, contentID int64) int64 {
+	client := a.tmdbClient()
+	if client == nil {
+		return 0
+	}
+
+	lookupCtx, cancel := context.WithTimeout(ctx, tvdbLookupTimeout)
+	defer cancel()
+
+	ids, ok, err := client.ExternalIDs(lookupCtx, tmdb.MediumTV, contentID)
+	if err != nil {
+		a.logger.Debug("look up a TVDB id", "error", err)
+
+		return 0
+	}
+
+	if !ok {
+		return 0
+	}
+
+	return ids.TVDB
 }
 
 // renderNotFound renders the torrent-not-found page.

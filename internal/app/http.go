@@ -27,6 +27,8 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /logout", a.handleLogout)
 	mux.HandleFunc("GET /search", a.handleSearch)
 	mux.HandleFunc("GET /torrent/{hash}", a.handleTorrent)
+	mux.HandleFunc("POST /torrent/{hash}/remove", a.handleTorrentRemove)
+	mux.HandleFunc("POST /torrent/{hash}/block", a.handleTorrentBlock)
 	mux.HandleFunc("GET /api/feed", a.handleFeed)
 	mux.HandleFunc("GET /api/torrents", a.handleTorrentsAPI)
 	mux.HandleFunc("GET /api/stats", a.handleStatsAPI)

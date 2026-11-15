@@ -211,3 +211,58 @@ func TestCategoryRows(t *testing.T) {
 		assert.Equal(t, []web.CategoryRow{{Name: "Unknown", Rows: "1", Share: "100.0%"}}, rows)
 	})
 }
+
+// TestContentLinks checks the catalogue links a stored content reference gets.
+func TestContentLinks(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		category int
+		content  int64
+		tvdb     int64
+		tmdb     string
+		tvdbURL  string
+	}{
+		{
+			name:     "film",
+			category: classify.CategoryMoviesHD,
+			content:  414906,
+			tmdb:     "https://www.themoviedb.org/movie/414906",
+		},
+		{
+			name:     "show",
+			category: classify.CategoryTVHD,
+			content:  1396,
+			tvdb:     81189,
+			tmdb:     "https://www.themoviedb.org/tv/1396",
+			tvdbURL:  "https://thetvdb.com/?tab=series&id=81189",
+		},
+		{
+			name:     "show without a TVDB id",
+			category: classify.CategoryTV,
+			content:  1396,
+			tmdb:     "https://www.themoviedb.org/tv/1396",
+		},
+		{
+			name:     "no reference",
+			category: classify.CategoryMoviesHD,
+		},
+		{
+			name:     "not a catalogue category",
+			category: classify.CategoryAudioMP3,
+			content:  414906,
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			tmdbURL, tvdbURL := contentLinks(testCase.category, testCase.content, testCase.tvdb)
+
+			assert.Equal(t, testCase.tmdb, tmdbURL)
+			assert.Equal(t, testCase.tvdbURL, tvdbURL)
+		})
+	}
+}

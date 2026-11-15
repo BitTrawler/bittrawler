@@ -19,6 +19,33 @@ document.addEventListener('click', async (event) => {
   }, 1400);
 });
 
+// A search result expands in place to show the magnet and the facts the list
+// leaves out. The detail block is already in the page, hidden, so this only
+// shows it; the name still links to the torrent's own page.
+document.addEventListener('click', (event) => {
+  const row = event.target.closest('.result');
+  if (!row || event.target.closest('a')) {
+    return;
+  }
+  toggleDetails(row);
+});
+
+function toggleDetails(row) {
+  const detail = row.nextElementSibling;
+  if (!detail || !detail.classList.contains('result-detail')) {
+    return;
+  }
+
+  const open = detail.hidden;
+  detail.hidden = !open;
+  row.classList.toggle('is-open', open);
+
+  const toggle = row.querySelector('.name-toggle');
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', String(open));
+  }
+}
+
 // Clicking a value selects all of it, so a manual copy is one click and one
 // keyboard shortcut. A long key is otherwise awkward to select by dragging.
 document.addEventListener('click', (event) => {

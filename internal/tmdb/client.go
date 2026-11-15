@@ -101,15 +101,16 @@ type Config struct {
 
 // Client answers title lookups. It is safe for concurrent use.
 type Client struct {
-	baseURL      string
-	token        string
-	http         *http.Client
-	limiter      *rate.Limiter
-	cache        *lru.Cache[string, cacheEntry]
-	positiveTTL  time.Duration
-	negativeTTL  time.Duration
-	failureLimit int
-	failureCool  time.Duration
+	baseURL          string
+	token            string
+	http             *http.Client
+	limiter          *rate.Limiter
+	cache            *lru.Cache[string, cacheEntry]
+	externalIDsCache *lru.Cache[externalIDsKey, externalIDsEntry]
+	positiveTTL      time.Duration
+	negativeTTL      time.Duration
+	failureLimit     int
+	failureCool      time.Duration
 
 	requests  atomic.Uint64
 	cacheHits atomic.Uint64
@@ -174,16 +175,22 @@ func New(cfg Config) (*Client, error) {
 		return nil, fmt.Errorf("tmdb: cache: %w", err)
 	}
 
+	externalIDsCache, err := lru.New[externalIDsKey, externalIDsEntry](externalIDsCacheSize)
+	if err != nil {
+		return nil, fmt.Errorf("tmdb: external ids cache: %w", err)
+	}
+
 	return &Client{
-		baseURL:      strings.TrimRight(cfg.BaseURL, "/"),
-		token:        cfg.Token,
-		http:         cfg.HTTPClient,
-		limiter:      rate.NewLimiter(rate.Limit(cfg.RateLimit), cfg.Burst),
-		cache:        cache,
-		positiveTTL:  cfg.PositiveTTL,
-		negativeTTL:  cfg.NegativeTTL,
-		failureLimit: cfg.FailureLimit,
-		failureCool:  cfg.FailureCooldown,
+		baseURL:          strings.TrimRight(cfg.BaseURL, "/"),
+		token:            cfg.Token,
+		http:             cfg.HTTPClient,
+		limiter:          rate.NewLimiter(rate.Limit(cfg.RateLimit), cfg.Burst),
+		cache:            cache,
+		externalIDsCache: externalIDsCache,
+		positiveTTL:      cfg.PositiveTTL,
+		negativeTTL:      cfg.NegativeTTL,
+		failureLimit:     cfg.FailureLimit,
+		failureCool:      cfg.FailureCooldown,
 	}, nil
 }
 

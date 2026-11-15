@@ -41,7 +41,7 @@ func (a *App) handleReclassify(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := r.ParseForm(); err != nil {
-		a.renderSettings(w, a.buildSettingsData(a.currentConfig(), a.sourceSnapshot(), false, "", "The form could not be read."), http.StatusBadRequest)
+		a.renderSettings(w, a.buildSettingsData(r, a.currentConfig(), a.sourceSnapshot(), false, "", "The form could not be read."), http.StatusBadRequest)
 
 		return
 	}
@@ -72,7 +72,7 @@ func (a *App) handleReclassify(w http.ResponseWriter, r *http.Request) {
 
 		http.Redirect(w, r, "/settings?reclassify=cleanup#reclassify", http.StatusSeeOther)
 	default:
-		a.renderSettings(w, a.buildSettingsData(a.currentConfig(), a.sourceSnapshot(), false, "", "Unknown reclassification action."), http.StatusBadRequest)
+		a.renderSettings(w, a.buildSettingsData(r, a.currentConfig(), a.sourceSnapshot(), false, "", "Unknown reclassification action."), http.StatusBadRequest)
 	}
 }
 

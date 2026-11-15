@@ -41,59 +41,37 @@
   </div>
 </section>
 
-<div class="grid two">
-  <section class="card">
-    <header class="card-head">
-      <h2>Torznab Endpoint</h2>
-    </header>
-    <div class="field-row">
-      <div class="field-label">URL</div>
-      <div class="copy-row">
-        <code class="code-block">{{.TorznabURL}}</code>
-        <button class="button secondary small" type="button" data-copy="{{.TorznabURL}}">Copy</button>
-      </div>
-    </div>
-    <div class="field-row">
-      <div class="field-label">API Key</div>
-      <div class="copy-row">
-        <code class="code-block">{{.APIKey}}</code>
-        <button class="button secondary small" type="button" data-copy="{{.APIKey}}">Copy</button>
-      </div>
-    </div>
-  </section>
-
-  <section class="card">
-    <header class="card-head">
-      <h2>Status</h2>
-    </header>
-    <dl class="kv">
-      <dt>Crawler</dt>
-      <dd class="crawler-line">
-        <span class="crawl-state" data-crawl-state>
-          <span class="dot{{if .Crawling}} is-live{{end}}"></span><span class="crawl-label">{{if .Crawling}}Crawling{{else}}Paused{{end}}</span>
-        </span>
-        <form method="post" action="/crawl" data-crawl-form>
-          <input type="hidden" name="action" value="{{if .Crawling}}pause{{else}}resume{{end}}" data-crawl-action>
-          <button class="button secondary small" type="submit" data-crawl-button>{{if .Crawling}}Pause Crawling{{else}}Resume Crawling{{end}}</button>
-        </form>
-      </dd>
-      <dt>Uptime</dt>
-      <dd>{{.Uptime}}</dd>
-      <dt>Version</dt>
-      <dd>{{.Version}}{{if .Commit}} <span class="muted">({{.Commit}})</span>{{end}}</dd>
-      <dt>DHT Node</dt>
-      <dd><code>{{.DHTAddress}}</code></dd>
-      <dt>Retention</dt>
-      <dd>{{if .RetentionMonths}}{{.RetentionMonths}} months{{else}}Everything kept{{end}}</dd>
-      <dt>Data</dt>
-      <dd><code>{{.DataDirectory}}</code></dd>
-      {{range .Runtime}}
-      <dt>{{.Label}}</dt>
-      <dd data-runtime="{{.Key}}">{{.Value}}</dd>
-      {{end}}
-    </dl>
-  </section>
-</div>
+<section class="card">
+  <header class="card-head">
+    <h2>Status</h2>
+  </header>
+  <dl class="kv wide">
+    <dt>Crawler</dt>
+    <dd class="crawler-line">
+      <span class="crawl-state" data-crawl-state>
+        <span class="dot{{if .Crawling}} is-live{{end}}"></span><span class="crawl-label">{{if .Crawling}}Crawling{{else}}Paused{{end}}</span>
+      </span>
+      <form method="post" action="/crawl" data-crawl-form>
+        <input type="hidden" name="action" value="{{if .Crawling}}pause{{else}}resume{{end}}" data-crawl-action>
+        <button class="button secondary small" type="submit" data-crawl-button>{{if .Crawling}}Pause Crawling{{else}}Resume Crawling{{end}}</button>
+      </form>
+    </dd>
+    <dt>Uptime</dt>
+    <dd>{{.Uptime}}</dd>
+    <dt>Version</dt>
+    <dd>{{.Version}}{{if .Commit}} <span class="muted">({{.Commit}})</span>{{end}}</dd>
+    <dt>DHT Node</dt>
+    <dd><code>{{.DHTAddress}}</code></dd>
+    <dt>Retention</dt>
+    <dd>{{if .RetentionMonths}}{{.RetentionMonths}} months{{else}}Everything kept{{end}}</dd>
+    <dt>Data</dt>
+    <dd><code>{{.DataDirectory}}</code></dd>
+    {{range .Runtime}}
+    <dt>{{.Label}}</dt>
+    <dd data-runtime="{{.Key}}">{{.Value}}</dd>
+    {{end}}
+  </dl>
+</section>
 
 <section class="card">
   <header class="card-head">

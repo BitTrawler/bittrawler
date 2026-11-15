@@ -2,7 +2,7 @@
 <header class="page-head">
   <div>
     <h1 class="torrent-title">{{.Name}}</h1>
-    <p class="page-sub">{{.Category}} · {{.Size}} · added {{.Created}}</p>
+    <p class="page-sub">{{.Category}} · {{.Size}} · added {{.Added}}</p>
   </div>
 </header>
 
@@ -46,15 +46,33 @@
       <dd>{{.Episodes}}</dd>{{end}}
       {{if .AirDate}}<dt>Air Date</dt>
       <dd>{{.AirDate}}</dd>{{end}}
-      <dt>Content ID</dt>
-      <dd>{{.ContentID}}</dd>
+      {{if .TMDBURL}}<dt>Content</dt>
+      <dd class="catalogue">
+        <a class="button secondary small" href="{{.TMDBURL}}" target="_blank" rel="noopener noreferrer">TMDB</a>
+        {{if .TVDBURL}}<a class="button secondary small" href="{{.TVDBURL}}" target="_blank" rel="noopener noreferrer">TVDB</a>{{end}}
+      </dd>{{end}}
       <dt>Peers</dt>
-      <dd>{{.Seeders}} seeding, {{.Leechers}} leeching</dd>
+      <dd>{{.Peers}}</dd>
       <dt>Added</dt>
-      <dd>{{.Created}}</dd>
+      <dd>{{.Added}}</dd>
     </dl>
   </section>
 </div>
+
+<section class="card torrent-actions">
+  <header class="card-head">
+    <h2>Remove from Index</h2>
+    <p>Removing deletes the row. Blocking also remembers the hash, so the crawl will not index this torrent again.</p>
+  </header>
+  <div class="key-row">
+    <form method="post" action="/torrent/{{.Hash}}/remove" data-confirm="Remove this torrent from the index?">
+      <button class="button secondary danger" type="submit">Remove</button>
+    </form>
+    <form method="post" action="/torrent/{{.Hash}}/block" data-confirm="Remove this torrent from the index and block its hash?">
+      <button class="button secondary danger" type="submit">Block and Remove</button>
+    </form>
+  </div>
+</section>
 
 <p class="page-foot"><a href="/search">Back to search</a></p>
 {{end}}
