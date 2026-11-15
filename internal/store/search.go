@@ -38,6 +38,10 @@ type Query struct {
 	Season     int
 	Episode    int
 	DailyDate  string // ISO date for daily episodes; "" ignores
+	// PacksFirst puts season packs before the individual episodes of the same
+	// season. It applies to a season search, where a client expects the pack
+	// that answers the whole season first and the episodes behind it.
+	PacksFirst bool
 	Sort       Sort
 	Limit      int
 	Offset     int
@@ -101,23 +105,32 @@ func (s *Store) Search(ctx context.Context, q Query) (Result, error) {
 
 	var collected []scoredTorrent
 
-	for _, sh := range shards {
-		rows, err := queryShard(ctx, sh, match, filter, filterArgs, need, q.Sort)
+	if q.PacksFirst {
+		// A season search asks for the pack first. Packs are rare compared with
+		// episodes, so the pack pass usually answers the page on its own; only
+		// when it falls short are the episodes gathered, newest first, behind it.
+		packs, err := collectShards(ctx, shards, match, filter+" AND t.kind = 'pack'", filterArgs, q.Sort, need)
 		if err != nil {
 			return res, err
 		}
 
-		collected = append(collected, rows...)
+		collected = packs
 
-		if q.Sort == SortNewest && len(collected) >= need {
-			break
+		if len(collected) < need {
+			episodes, err := collectShards(ctx, shards, match, filter+" AND t.kind = 'ep'", filterArgs, q.Sort, need-len(collected))
+			if err != nil {
+				return res, err
+			}
+
+			collected = append(collected, episodes...)
 		}
-	}
+	} else {
+		var err error
 
-	if q.Sort == SortRelevance {
-		sort.SliceStable(collected, func(i, j int) bool {
-			return collected[i].rank < collected[j].rank
-		})
+		collected, err = collectShards(ctx, shards, match, filter, filterArgs, q.Sort, need)
+		if err != nil {
+			return res, err
+		}
 	}
 
 	if q.Offset < len(collected) {
@@ -136,6 +149,35 @@ func (s *Store) Search(ctx context.Context, q Query) (Result, error) {
 	}
 
 	return res, nil
+}
+
+// collectShards queries the shards newest first until need rows are gathered.
+// With a date order a later shard cannot contribute a newer row, so the loop
+// stops early; relevance ranking across shards is approximate, so every shard
+// is asked and the ranks are sorted once at the end.
+func collectShards(ctx context.Context, shards []*shard, match, filter string, filterArgs []any, sortBy Sort, need int) ([]scoredTorrent, error) {
+	var collected []scoredTorrent
+
+	for _, sh := range shards {
+		rows, err := queryShard(ctx, sh, match, filter, filterArgs, need, sortBy)
+		if err != nil {
+			return nil, err
+		}
+
+		collected = append(collected, rows...)
+
+		if sortBy == SortNewest && len(collected) >= need {
+			break
+		}
+	}
+
+	if sortBy == SortRelevance {
+		sort.SliceStable(collected, func(i, j int) bool {
+			return collected[i].rank < collected[j].rank
+		})
+	}
+
+	return collected, nil
 }
 
 type scoredTorrent struct {

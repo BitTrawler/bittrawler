@@ -127,6 +127,12 @@ func (h *handler) search(w http.ResponseWriter, r *http.Request, req SearchReque
 		query.ContentID = req.TMDBID
 	}
 
+	// A season search without an episode asks for the season, and the pack is
+	// the row that answers it. Packs sort ahead of the episodes.
+	if req.Season != unset && req.Episode == unset && req.AirDate == "" {
+		query.PacksFirst = true
+	}
+
 	// Relevance only means something when there is text to rank; without it
 	// the newest releases are the useful page.
 	if strings.TrimSpace(req.Query) != "" {

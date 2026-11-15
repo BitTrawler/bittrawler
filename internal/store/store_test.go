@@ -1659,3 +1659,57 @@ func TestDeleteOfAMissingRowIsNotCounted(t *testing.T) {
 		t.Fatalf("deleted %d rows, want 0", deleted)
 	}
 }
+
+func TestSeasonSearchPutsPacksFirst(t *testing.T) {
+	s, _ := newStore(t, Config{RetentionMonths: 12})
+	now := s.cfg.Now()
+
+	// The pack is the oldest row: date order alone would put it last.
+	put(t, s,
+		Row{InfoHash: testHash(20), Name: "The.Show.S05.1080p.BluRay", CreatedAt: now.Add(-72 * time.Hour),
+			Category: 5040, Seasons: []int{5}},
+		Row{InfoHash: testHash(21), Name: "The.Show.S05E02.1080p.HDTV", CreatedAt: now.Add(-2 * time.Hour),
+			Category: 5040, Seasons: []int{5}, Episodes: []int{50002}},
+		Row{InfoHash: testHash(22), Name: "The.Show.S05E03.1080p.HDTV", CreatedAt: now.Add(-time.Hour),
+			Category: 5040, Seasons: []int{5}, Episodes: []int{50003}},
+	)
+
+	q := NewQuery()
+	q.Text = "the show"
+	q.Season = 5
+	q.PacksFirst = true
+
+	res := search(t, s, q)
+
+	if len(res.Torrents) != 3 {
+		t.Fatalf("season search returned %v, want the pack and both episodes", names(res))
+	}
+
+	if res.Torrents[0].Name != "The.Show.S05.1080p.BluRay" {
+		t.Fatalf("first row = %q, want the season pack", res.Torrents[0].Name)
+	}
+
+	// The episodes behind it keep their date order.
+	if res.Torrents[1].Name != "The.Show.S05E03.1080p.HDTV" || res.Torrents[2].Name != "The.Show.S05E02.1080p.HDTV" {
+		t.Fatalf("episodes = %v, want newest first", names(res)[1:])
+	}
+
+	// Paging moves through the pack and then the episodes.
+	q.Offset = 1
+	q.Limit = 1
+
+	page := search(t, s, q)
+	if len(page.Torrents) != 1 || page.Torrents[0].Name != "The.Show.S05E03.1080p.HDTV" {
+		t.Fatalf("second page = %v, want the newest episode", names(page))
+	}
+
+	// Without the flag the rows are in date order, as every other search is.
+	q = NewQuery()
+	q.Text = "the show"
+	q.Season = 5
+
+	plain := search(t, s, q)
+	if plain.Torrents[0].Name != "The.Show.S05E03.1080p.HDTV" {
+		t.Fatalf("date order = %v, want the newest row first", names(plain))
+	}
+}

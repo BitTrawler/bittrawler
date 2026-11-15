@@ -159,16 +159,17 @@ func TestEndpointSeasonSearchIncludesPacksAndEpisodes(t *testing.T) {
 		t.Fatalf("items = %d, want 2: %v", len(items), titles(items))
 	}
 
-	// Newest first, because a season search carries no text to rank.
-	if items[0].Title != "The Show S01E02 1080p WEB-DL" {
-		t.Fatalf("first title = %q, want the episode", items[0].Title)
+	// The pack comes first, because it is the row that answers a season search;
+	// the episodes follow it in date order.
+	if items[0].Title != "The Show S01 Complete 1080p" {
+		t.Fatalf("first title = %q, want the pack", items[0].Title)
 	}
 
-	if items[1].Title != "The Show S01 Complete 1080p" {
-		t.Fatalf("second title = %q, want the pack", items[1].Title)
+	if items[1].Title != "The Show S01E02 1080p WEB-DL" {
+		t.Fatalf("second title = %q, want the episode", items[1].Title)
 	}
 
-	packAttrs := attributes(items[1])
+	packAttrs := attributes(items[0])
 	if packAttrs["season"] != "1" {
 		t.Fatalf("pack season attribute = %q, want 1", packAttrs["season"])
 	}

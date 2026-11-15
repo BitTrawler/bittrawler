@@ -344,3 +344,33 @@ func TestWriteErrorForAnUnexpectedFailure(t *testing.T) {
 		t.Fatalf("status = %d, want 500", rec.Code)
 	}
 }
+
+// TestSeasonSearchesPutPacksFirst checks that a season request asks the store
+// for packs first, and that an episode or daily request does not.
+func TestSeasonSearchesPutPacksFirst(t *testing.T) {
+	cases := []struct {
+		name  string
+		query string
+		want  bool
+	}{
+		{name: "season", query: "t=tvsearch&q=The+Show&season=2", want: true},
+		{name: "episode", query: "t=tvsearch&q=The+Show&season=2&ep=5"},
+		{name: "daily episode", query: "t=tvsearch&q=The+Show&season=2024&ep=03%2F25"},
+		{name: "plain search", query: "t=search&q=The+Show"},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			searcher := &fakeSearcher{}
+			rec := get(t, newTestHandler(t, Config{Searcher: searcher}), testCase.query)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+			}
+
+			if q := onlyQuery(t, searcher); q.PacksFirst != testCase.want {
+				t.Errorf("PacksFirst = %v, want %v", q.PacksFirst, testCase.want)
+			}
+		})
+	}
+}
