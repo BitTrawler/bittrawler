@@ -183,11 +183,13 @@ type ShardRow struct {
 	WAL      string
 }
 
-// CategoryRow is one category of the classification table.
+// CategoryRow is one line of the classification table: a category family with
+// its total, and the family's subcategories beneath it.
 type CategoryRow struct {
-	Name  string
-	Rows  string
-	Share string
+	Name     string
+	Rows     string
+	Share    string
+	Children []CategoryRow
 }
 
 // TorrentRow is one torrent in the live feed or in search results.
@@ -249,7 +251,9 @@ type SearchData struct {
 	SelectedSort     string
 	Results          []TorrentRow
 	Total            int
+	TotalLabel       string
 	Page             int
+	PageCount        int
 	HasPrev          bool
 	HasNext          bool
 	PrevURL          string

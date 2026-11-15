@@ -339,6 +339,11 @@ function updateShards(rows) {
   }));
 }
 
+// Category families collapse by default and stay open across a feed refresh, so
+// a long classification list still fits on the page.
+const expandedCategories = new Set();
+let categoryRows = [];
+
 function updateCategories(rows) {
   const body = document.getElementById('categories');
   if (!body || !Array.isArray(rows)) {
@@ -351,23 +356,104 @@ function updateCategories(rows) {
   }
   body.dataset.signature = signature;
 
-  if (rows.length === 0) {
+  categoryRows = rows;
+  renderCategories();
+}
+
+function renderCategories() {
+  const body = document.getElementById('categories');
+  if (!body) {
+    return;
+  }
+
+  if (categoryRows.length === 0) {
     body.replaceChildren(emptyRow(3, 'Nothing classified yet.'));
 
     return;
   }
 
-  body.replaceChildren(...rows.map((category) => {
-    const row = document.createElement('tr');
-    const name = document.createElement('td');
-    const label = document.createElement('span');
-    label.className = 'cat';
-    label.textContent = category.name;
-    name.append(label);
-    row.append(name, textCell(category.rows, 'num'), textCell(category.share, 'num'));
+  const rows = [];
 
-    return row;
-  }));
+  for (const family of categoryRows) {
+    const children = family.children || [];
+    const open = expandedCategories.has(family.name);
+
+    const row = document.createElement('tr');
+    row.className = 'family-row';
+
+    const name = document.createElement('td');
+
+    if (children.length === 0) {
+      name.append(categoryLabel(family.name));
+    } else {
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'family-toggle';
+      toggle.dataset.family = family.name;
+      toggle.setAttribute('aria-expanded', String(open));
+      toggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} ${family.name} subcategories`);
+
+      const chevron = document.createElement('span');
+      chevron.className = 'chevron';
+      chevron.setAttribute('aria-hidden', 'true');
+
+      toggle.append(chevron, categoryLabel(family.name));
+      name.append(toggle);
+    }
+
+    row.append(name, textCell(family.rows, 'num'), textCell(family.share, 'num'));
+    rows.push(row);
+
+    for (const child of children) {
+      const sub = document.createElement('tr');
+      sub.className = 'subcategory-row';
+      sub.hidden = !open;
+      const subName = document.createElement('td');
+      subName.textContent = child.name;
+      sub.append(subName, textCell(child.rows, 'num'), textCell(child.share, 'num'));
+      rows.push(sub);
+    }
+  }
+
+  body.replaceChildren(...rows);
+}
+
+function categoryLabel(text) {
+  const label = document.createElement('span');
+  label.className = 'cat';
+  label.textContent = text;
+
+  return label;
+}
+
+function toggleCategory(name) {
+  const open = !expandedCategories.has(name);
+
+  if (open) {
+    expandedCategories.add(name);
+  } else {
+    expandedCategories.delete(name);
+  }
+
+  const body = document.getElementById('categories');
+  if (!body) {
+    return;
+  }
+
+  for (const toggle of body.querySelectorAll('.family-toggle')) {
+    if (toggle.dataset.family !== name) {
+      continue;
+    }
+
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.setAttribute('aria-label', `${open ? 'Hide' : 'Show'} ${name} subcategories`);
+
+    let row = toggle.closest('tr').nextElementSibling;
+    while (row && row.classList.contains('subcategory-row')) {
+      row.hidden = !open;
+      row = row.nextElementSibling;
+    }
+  }
 }
 
 function textCell(text, className = '') {
@@ -482,6 +568,16 @@ for (const form of document.querySelectorAll('form[data-confirm]')) {
   form.addEventListener('submit', (event) => {
     if (!window.confirm(form.dataset.confirm)) {
       event.preventDefault();
+    }
+  });
+}
+
+const categoriesBody = document.getElementById('categories');
+if (categoriesBody) {
+  categoriesBody.addEventListener('click', (event) => {
+    const toggle = event.target.closest('.family-toggle');
+    if (toggle) {
+      toggleCategory(toggle.dataset.family);
     }
   });
 }

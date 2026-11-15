@@ -93,12 +93,12 @@ func TestHistoryBars(t *testing.T) {
 	})
 }
 
-// TestCategoryRows checks the stored category breakdown: ordering, row counts
-// and the share column.
+// TestCategoryRows checks the classification table: families ordered by their
+// total, the subcategories nested beneath them, and the share column.
 func TestCategoryRows(t *testing.T) {
 	t.Parallel()
 
-	t.Run("largest first then by category", func(t *testing.T) {
+	t.Run("families largest first with their subcategories", func(t *testing.T) {
 		t.Parallel()
 
 		rows := categoryRows(statsSnapshot{
@@ -114,12 +114,63 @@ func TestCategoryRows(t *testing.T) {
 
 		assert.Equal(t, []web.CategoryRow{
 			{Name: "Other", Rows: "1,234", Share: "45.1%"},
-			// Equal counts are ordered by category id, so 2040 precedes 5000.
-			{Name: "Movies/HD", Rows: "600", Share: "21.9%"},
+			{
+				Name:  "Movies",
+				Rows:  "600",
+				Share: "21.9%",
+				// The family is on the row above, so the subcategory carries
+				// only its own part of the name.
+				Children: []web.CategoryRow{{Name: "HD", Rows: "600", Share: "21.9%"}},
+			},
+			// Equal totals are ordered by category id, so Movies precedes TV.
 			{Name: "TV", Rows: "600", Share: "21.9%"},
 			{Name: "Audio", Rows: "300", Share: "11.0%"},
 			{Name: "Books", Rows: "0", Share: "0.0%"},
 		}, rows)
+	})
+
+	t.Run("rows stored at the family itself are a subcategory", func(t *testing.T) {
+		t.Parallel()
+
+		rows := categoryRows(statsSnapshot{
+			StoreRows: 10000,
+			Categories: map[int]int{
+				classify.CategoryMovies:   5067,
+				classify.CategoryMoviesHD: 3002,
+			},
+		})
+
+		assert.Equal(t, []web.CategoryRow{{
+			Name:  "Movies",
+			Rows:  "8,069",
+			Share: "80.7%",
+			Children: []web.CategoryRow{
+				{Name: "Movies", Rows: "5,067", Share: "50.7%"},
+				{Name: "HD", Rows: "3,002", Share: "30.0%"},
+			},
+		}}, rows)
+	})
+
+	t.Run("a family total adds its leaves", func(t *testing.T) {
+		t.Parallel()
+
+		rows := categoryRows(statsSnapshot{
+			StoreRows: 1000,
+			Categories: map[int]int{
+				classify.CategoryMoviesHD:  437,
+				classify.CategoryMoviesUHD: 12,
+			},
+		})
+
+		assert.Equal(t, []web.CategoryRow{{
+			Name:  "Movies",
+			Rows:  "449",
+			Share: "44.9%",
+			Children: []web.CategoryRow{
+				{Name: "HD", Rows: "437", Share: "43.7%"},
+				{Name: "UHD", Rows: "12", Share: "1.2%"},
+			},
+		}}, rows)
 	})
 
 	t.Run("share rounds to one decimal", func(t *testing.T) {

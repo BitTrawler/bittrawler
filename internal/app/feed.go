@@ -250,43 +250,111 @@ func shardRows(snapshot statsSnapshot) []web.ShardRow {
 	return rows
 }
 
-// categoryRows is the stored category breakdown, largest first.
+// categoryRows is the classification table: the stored categories grouped under
+// their Newznab families, largest family first, with each family's
+// subcategories nested beneath it.
 func categoryRows(snapshot statsSnapshot) []web.CategoryRow {
-	type entry struct {
+	type family struct {
 		category int
 		rows     int
+		children map[int]int
 	}
 
-	entries := make([]entry, 0, len(snapshot.Categories))
+	// A category this build does not know has no parent it can be grouped
+	// under, so it stands on its own rather than being gathered into a family
+	// labelled "Unknown".
+	names := classify.CategoryNames()
+
+	families := make(map[int]*family)
 
 	for category, rows := range snapshot.Categories {
-		entries = append(entries, entry{category: category, rows: rows})
-	}
-
-	sort.Slice(entries, func(i, j int) bool {
-		if entries[i].rows != entries[j].rows {
-			return entries[i].rows > entries[j].rows
+		parent := classify.ParentCategory(category)
+		if _, known := names[parent]; !known {
+			parent = category
 		}
 
-		return entries[i].category < entries[j].category
-	})
+		entry, ok := families[parent]
+		if !ok {
+			entry = &family{category: parent, children: make(map[int]int)}
+			families[parent] = entry
+		}
+
+		entry.rows += rows
+
+		// Rows stored at the family itself are a subcategory too: they are the
+		// ones the classifier could not refine, and without them the
+		// subcategories would not add up to the family total.
+		entry.children[category] = rows
+	}
 
 	total := snapshot.StoreRows
 
-	rows := make([]web.CategoryRow, 0, len(entries))
-
-	for _, entry := range entries {
-		share := ""
-
-		if total > 0 {
-			share = strconv.FormatFloat(float64(entry.rows)/float64(total)*100, 'f', 1, 64) + "%"
+	// share is the family's or subcategory's part of every stored row. Without a
+	// row count there is nothing to take a share of.
+	share := func(rows int) string {
+		if total <= 0 {
+			return ""
 		}
 
-		rows = append(rows, web.CategoryRow{
-			Name:  classify.CategoryName(entry.category),
-			Rows:  humanCount(entry.rows),
-			Share: share,
+		return strconv.FormatFloat(float64(rows)/float64(total)*100, 'f', 1, 64) + "%"
+	}
+
+	ordered := make([]*family, 0, len(families))
+	for _, entry := range families {
+		ordered = append(ordered, entry)
+	}
+
+	sort.Slice(ordered, func(i, j int) bool {
+		if ordered[i].rows != ordered[j].rows {
+			return ordered[i].rows > ordered[j].rows
+		}
+
+		return ordered[i].category < ordered[j].category
+	})
+
+	rows := make([]web.CategoryRow, 0, len(ordered))
+
+	for _, entry := range ordered {
+		name := classify.CategoryName(entry.category)
+
+		row := web.CategoryRow{Name: name, Rows: humanCount(entry.rows), Share: share(entry.rows)}
+
+		children := make([]int, 0, len(entry.children))
+		for category := range entry.children {
+			// A family with nothing beneath it is one row, not a family with a
+			// single child of its own name.
+			if category == entry.category && len(entry.children) == 1 {
+				continue
+			}
+
+			children = append(children, category)
+		}
+
+		sort.Slice(children, func(i, j int) bool {
+			if entry.children[children[i]] != entry.children[children[j]] {
+				return entry.children[children[i]] > entry.children[children[j]]
+			}
+
+			return children[i] < children[j]
 		})
+
+		for _, child := range children {
+			label := name
+
+			if child != entry.category {
+				// The family is already on the row above, so a subcategory only
+				// needs its own part of the name.
+				label = strings.TrimPrefix(classify.CategoryName(child), name+"/")
+			}
+
+			row.Children = append(row.Children, web.CategoryRow{
+				Name:  label,
+				Rows:  humanCount(entry.children[child]),
+				Share: share(entry.children[child]),
+			})
+		}
+
+		rows = append(rows, row)
 	}
 
 	return rows
@@ -503,6 +571,7 @@ func (a *App) handleSearch(w http.ResponseWriter, r *http.Request) {
 		SelectedCategory: params.Category,
 		SelectedSort:     params.Sort,
 		Page:             params.Page,
+		PageCount:        1,
 		HasPrev:          params.Page > 1,
 		PrevURL:          searchURL(params, params.Page-1),
 	}
@@ -515,7 +584,9 @@ func (a *App) handleSearch(w http.ResponseWriter, r *http.Request) {
 	} else {
 		data.Results = torrentRows(result.Torrents)
 		data.Total = result.Total
-		data.HasNext = params.Page*pageSize < result.Total
+		data.TotalLabel = humanCount(result.Total)
+		data.PageCount = max(1, (result.Total+pageSize-1)/pageSize)
+		data.HasNext = params.Page < data.PageCount
 		data.NextURL = searchURL(params, params.Page+1)
 	}
 
@@ -705,11 +776,13 @@ type feedShard struct {
 	WAL      string `json:"wal"`
 }
 
-// feedCategory is one row of the classification table, formatted the same way.
+// feedCategory is one row of the classification table, formatted the same way:
+// a family with its total and the subcategories beneath it.
 type feedCategory struct {
-	Name  string `json:"name"`
-	Rows  string `json:"rows"`
-	Share string `json:"share"`
+	Name     string         `json:"name"`
+	Rows     string         `json:"rows"`
+	Share    string         `json:"share"`
+	Children []feedCategory `json:"children,omitempty"`
 }
 
 func feedShards(rows []web.ShardRow) []feedShard {
@@ -731,11 +804,17 @@ func feedCategories(rows []web.CategoryRow) []feedCategory {
 	categories := make([]feedCategory, 0, len(rows))
 
 	for _, row := range rows {
-		categories = append(categories, feedCategory{
-			Name:  row.Name,
-			Rows:  row.Rows,
-			Share: row.Share,
-		})
+		entry := feedCategory{Name: row.Name, Rows: row.Rows, Share: row.Share}
+
+		for _, child := range row.Children {
+			entry.Children = append(entry.Children, feedCategory{
+				Name:  child.Name,
+				Rows:  child.Rows,
+				Share: child.Share,
+			})
+		}
+
+		categories = append(categories, entry)
 	}
 
 	return categories

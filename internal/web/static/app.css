@@ -1152,6 +1152,55 @@ a:hover {
   white-space: nowrap;
 }
 
+/* The classification table: families collapse to keep the list short. */
+.family-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  color: inherit;
+  background: none;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.family-toggle .chevron {
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 5px solid var(--muted);
+  transition: transform 120ms ease;
+}
+
+.family-toggle[aria-expanded="true"] .chevron {
+  transform: rotate(90deg);
+}
+
+.family-toggle:hover .cat {
+  color: var(--text);
+}
+
+.family-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 5px;
+}
+
+.table .subcategory-row td:first-child {
+  padding-left: 27px;
+  color: var(--muted);
+}
+
+.results-meta {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 12.5px;
+  text-align: right;
+}
+
 .search-form {
   display: flex;
   gap: 8px;

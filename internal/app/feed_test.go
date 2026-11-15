@@ -42,9 +42,10 @@ func TestFeedCarriesTheStorageAndClassificationTables(t *testing.T) {
 	}
 
 	type category struct {
-		Name  string `json:"name"`
-		Rows  string `json:"rows"`
-		Share string `json:"share"`
+		Name     string     `json:"name"`
+		Rows     string     `json:"rows"`
+		Share    string     `json:"share"`
+		Children []category `json:"children"`
 	}
 
 	var payload struct {
@@ -70,7 +71,10 @@ func TestFeedCarriesTheStorageAndClassificationTables(t *testing.T) {
 	assert.NotEmpty(t, payload.Shards[0].Database)
 
 	require.NotEmpty(t, payload.Categories)
-	assert.Equal(t, classify.CategoryName(classify.CategoryMoviesHD), payload.Categories[0].Name)
+	assert.Equal(t, classify.CategoryName(classify.CategoryMovies), payload.Categories[0].Name)
 	assert.Equal(t, "1", payload.Categories[0].Rows)
 	assert.Equal(t, "100.0%", payload.Categories[0].Share)
+	require.Len(t, payload.Categories[0].Children, 1)
+	assert.Equal(t, "HD", payload.Categories[0].Children[0].Name)
+	assert.Equal(t, "1", payload.Categories[0].Children[0].Rows)
 }

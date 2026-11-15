@@ -159,7 +159,21 @@
         </thead>
         <tbody id="categories">
           {{range .Categories}}
-          <tr><td><span class="cat">{{.Name}}</span></td><td class="num">{{.Rows}}</td><td class="num">{{.Share}}</td></tr>
+          {{$family := .}}
+          <tr class="family-row">
+            <td>
+              {{if $family.Children}}
+              <button class="family-toggle" type="button" data-family="{{$family.Name}}" aria-expanded="false" aria-label="Show {{$family.Name}} subcategories"><span class="chevron" aria-hidden="true"></span><span class="cat">{{$family.Name}}</span></button>
+              {{else}}
+              <span class="cat">{{$family.Name}}</span>
+              {{end}}
+            </td>
+            <td class="num">{{$family.Rows}}</td>
+            <td class="num">{{$family.Share}}</td>
+          </tr>
+          {{range $family.Children}}
+          <tr class="subcategory-row" hidden><td>{{.Name}}</td><td class="num">{{.Rows}}</td><td class="num">{{.Share}}</td></tr>
+          {{end}}
           {{else}}
           <tr><td colspan="3" class="empty">Nothing classified yet.</td></tr>
           {{end}}

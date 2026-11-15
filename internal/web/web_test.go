@@ -112,7 +112,14 @@ func TestRenderOverview(t *testing.T) {
 			{Month: "2026-11", Rows: "18", Database: "76 KiB", WAL: "32 KiB"},
 		},
 		Categories: []web.CategoryRow{
-			{Name: "Movies/HD", Rows: "7", Share: "38.9%"},
+			{
+				Name:  "Movies",
+				Rows:  "7",
+				Share: "38.9%",
+				Children: []web.CategoryRow{
+					{Name: "HD", Rows: "7", Share: "38.9%"},
+				},
+			},
 		},
 		History:         []int{10, 40, 25, 80},
 		Commit:          "abc1234",
@@ -149,7 +156,8 @@ func TestRenderOverview(t *testing.T) {
 	assert.Contains(t, body, `data-runtime="heap">24.1 MiB<`)
 	assert.Contains(t, body, `id="shards"`)
 	assert.Contains(t, body, "2026-11")
-	assert.Contains(t, body, "Movies/HD")
+	assert.Contains(t, body, `class="family-toggle" type="button" data-family="Movies" aria-expanded="false"`)
+	assert.Contains(t, body, `<tr class="subcategory-row" hidden><td>HD</td>`)
 	assert.Contains(t, body, `class="bar"`)
 }
 
@@ -185,10 +193,14 @@ func TestRenderSearch(t *testing.T) {
 		Results: []web.TorrentRow{
 			{Hash: "0123456789abcdef0123456789abcdef01234567", Name: "Batman.2022.1080p", Category: "Movies/HD", Size: "2.0 GiB", Seeders: 4, Leechers: 1, Age: "2h"},
 		},
-		Total:   2,
-		Page:    1,
-		HasNext: true,
-		NextURL: "/search?q=batman&cat=2000&page=2",
+		Total:      500,
+		TotalLabel: "500",
+		Page:       2,
+		PageCount:  10,
+		HasPrev:    true,
+		PrevURL:    "/search?q=batman&cat=2000",
+		HasNext:    true,
+		NextURL:    "/search?q=batman&cat=2000&page=3",
 	})
 
 	body := recorder.Body.String()
@@ -200,9 +212,11 @@ func TestRenderSearch(t *testing.T) {
 	assert.Contains(t, body, `<option value="2000" selected>All Movies</option>`)
 	assert.Contains(t, body, `<option value="2030">Movies/SD</option>`)
 	assert.Contains(t, body, `<option value="2040">Movies/HD</option>`)
-	assert.Contains(t, body, "2 torrents matched.")
+	// The count sits above the results table, not under the page title.
+	assert.Contains(t, body, `<p class="results-meta">500 torrents matched.</p>`)
 	assert.Contains(t, body, "Batman.2022.1080p")
-	assert.Contains(t, body, `href="/search?q=batman&amp;cat=2000&amp;page=2"`)
+	assert.Contains(t, body, "Page 2 of 10")
+	assert.Contains(t, body, `href="/search?q=batman&amp;cat=2000&amp;page=3"`)
 }
 
 func TestRenderSearchEmpty(t *testing.T) {
