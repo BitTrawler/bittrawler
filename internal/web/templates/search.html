@@ -9,7 +9,13 @@
 <form class="search-form" method="get" action="/search">
   <input class="search-input" type="search" name="q" value="{{.Query}}" placeholder="Name, S05E01, 1080p, group" autofocus>
   <select name="cat" aria-label="Category">
-    {{range .Categories}}<option value="{{.Value}}"{{if eq .Value $.SelectedCategory}} selected{{end}}>{{.Label}}</option>{{end}}
+    <option value="0"{{if eq .SelectedCategory 0}} selected{{end}}>All categories</option>
+    {{range .CategoryGroups}}
+    <optgroup label="{{.Label}}">
+      <option value="{{.Value}}"{{if eq .Value $.SelectedCategory}} selected{{end}}>All {{.Label}}</option>
+      {{range .Options}}<option value="{{.Value}}"{{if eq .Value $.SelectedCategory}} selected{{end}}>{{.Label}}</option>{{end}}
+    </optgroup>
+    {{end}}
   </select>
   <select name="sort" aria-label="Sort order">
     <option value="newest"{{if eq .SelectedSort "newest"}} selected{{end}}>Newest first</option>

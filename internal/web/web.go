@@ -232,11 +232,19 @@ type CategoryOption struct {
 	Label string
 }
 
+// CategoryGroup is one family of the category filter: the family itself, which
+// matches every leaf beneath it, and the leaves that pick one subcategory.
+type CategoryGroup struct {
+	Value   int
+	Label   string
+	Options []CategoryOption
+}
+
 // SearchData is the search page.
 type SearchData struct {
 	Shell
 	Query            string
-	Categories       []CategoryOption
+	CategoryGroups   []CategoryGroup
 	SelectedCategory int
 	SelectedSort     string
 	Results          []TorrentRow

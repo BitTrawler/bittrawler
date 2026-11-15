@@ -25,18 +25,52 @@ const (
 	feedSize = 20
 )
 
-// categoryOptions are the parent Newznab categories the search page filters by.
-// A parent category matches every leaf beneath it.
-var categoryOptions = []web.CategoryOption{
-	{Value: 0, Label: "All categories"},
-	{Value: 1000, Label: "Console"},
-	{Value: 2000, Label: "Movies"},
-	{Value: 5000, Label: "TV"},
-	{Value: 3000, Label: "Audio"},
-	{Value: 7000, Label: "Books"},
-	{Value: 4000, Label: "PC"},
-	{Value: 6000, Label: "XXX"},
-	{Value: 8000, Label: "Other"},
+// categoryFamilyOrder is the order the category families appear in the search
+// page's filter.
+var categoryFamilyOrder = []int{
+	classify.CategoryMovies,
+	classify.CategoryTV,
+	classify.CategoryAudio,
+	classify.CategoryBooks,
+	classify.CategoryPC,
+	classify.CategoryConsole,
+	classify.CategoryXXX,
+	classify.CategoryOther,
+}
+
+// categoryGroups are the search page's category filter: one group per family,
+// with the family option first and each leaf beneath it. A family matches every
+// leaf, so choosing "Movies" still finds every film, and choosing "Movies/HD"
+// narrows to 720p, 1080p and 1440p.
+var categoryGroups = buildCategoryGroups()
+
+// buildCategoryGroups builds the filter from the classifier's category names, so
+// a category that is added there appears here without a second list to edit.
+func buildCategoryGroups() []web.CategoryGroup {
+	names := classify.CategoryNames()
+
+	groups := make([]web.CategoryGroup, 0, len(categoryFamilyOrder))
+
+	for _, family := range categoryFamilyOrder {
+		group := web.CategoryGroup{Value: family, Label: names[family]}
+
+		leaves := make([]int, 0, len(names))
+		for category := range names {
+			if category != family && classify.ParentCategory(category) == family {
+				leaves = append(leaves, category)
+			}
+		}
+
+		sort.Ints(leaves)
+
+		for _, leaf := range leaves {
+			group.Options = append(group.Options, web.CategoryOption{Value: leaf, Label: names[leaf]})
+		}
+
+		groups = append(groups, group)
+	}
+
+	return groups
 }
 
 // handleOverview renders the dashboard: live counters, the pipeline, storage,
@@ -465,7 +499,7 @@ func (a *App) handleSearch(w http.ResponseWriter, r *http.Request) {
 	data := web.SearchData{
 		Shell:            a.shell("search", "Search"),
 		Query:            params.Query,
-		Categories:       categoryOptions,
+		CategoryGroups:   categoryGroups,
 		SelectedCategory: params.Category,
 		SelectedSort:     params.Sort,
 		Page:             params.Page,

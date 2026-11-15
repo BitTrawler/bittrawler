@@ -170,9 +170,16 @@ func TestRenderPausedOverview(t *testing.T) {
 
 func TestRenderSearch(t *testing.T) {
 	recorder := render(t, "search", web.SearchData{
-		Shell:            web.Shell{Title: "Search", Active: "search", Version: "dev"},
-		Query:            "batman",
-		Categories:       []web.CategoryOption{{Value: 0, Label: "All categories"}, {Value: 2000, Label: "Movies"}},
+		Shell: web.Shell{Title: "Search", Active: "search", Version: "dev"},
+		Query: "batman",
+		CategoryGroups: []web.CategoryGroup{{
+			Value: 2000,
+			Label: "Movies",
+			Options: []web.CategoryOption{
+				{Value: 2030, Label: "Movies/SD"},
+				{Value: 2040, Label: "Movies/HD"},
+			},
+		}},
 		SelectedCategory: 2000,
 		SelectedSort:     "newest",
 		Results: []web.TorrentRow{
@@ -189,7 +196,10 @@ func TestRenderSearch(t *testing.T) {
 	assert.Contains(t, body, `class="nav-link is-active" href="/search">Search</a>`)
 	assert.Contains(t, body, `action="/search"`)
 	assert.Contains(t, body, `value="batman"`)
-	assert.Contains(t, body, `<option value="2000" selected>Movies</option>`)
+	assert.Contains(t, body, `<optgroup label="Movies">`)
+	assert.Contains(t, body, `<option value="2000" selected>All Movies</option>`)
+	assert.Contains(t, body, `<option value="2030">Movies/SD</option>`)
+	assert.Contains(t, body, `<option value="2040">Movies/HD</option>`)
 	assert.Contains(t, body, "2 torrents matched.")
 	assert.Contains(t, body, "Batman.2022.1080p")
 	assert.Contains(t, body, `href="/search?q=batman&amp;cat=2000&amp;page=2"`)
