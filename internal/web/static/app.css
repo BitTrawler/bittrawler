@@ -1190,7 +1190,9 @@ a:hover {
 }
 
 .result .name-wrap a {
+  min-width: 0;
   color: var(--text);
+  overflow-wrap: anywhere;
 }
 
 .result .name-wrap a:hover {
@@ -1451,12 +1453,38 @@ a:hover {
     text-overflow: ellipsis;
   }
 
+  /* A phone keeps the name, size and seeds on the first line and puts the
+     category on a second line under the name, rather than dropping it. */
   .result,
   .result-head {
     grid-template-columns: minmax(0, 1fr) 74px 74px;
   }
 
-  .result .col-category,
+  .result {
+    grid-template-areas:
+      "name size seeds"
+      "cat  cat  cat";
+    row-gap: 3px;
+  }
+
+  .result .name-wrap {
+    grid-area: name;
+  }
+
+  .result .col-category {
+    grid-area: cat;
+    display: block;
+    justify-self: start;
+  }
+
+  .result .col-size {
+    grid-area: size;
+  }
+
+  .result .col-seeds {
+    grid-area: seeds;
+  }
+
   .result .col-peers,
   .result .col-age,
   .result-head .col-category,
@@ -1548,12 +1576,17 @@ a:hover {
   }
 }
 
-.crawler-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  flex-wrap: wrap;
+.page-actions form {
+  margin: 0;
+}
+
+.page-actions .crawl-state {
+  color: var(--muted);
+}
+
+.page-actions .dot.is-live {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 /* The status figures sit under the activity graph, behind a hairline: the graph
