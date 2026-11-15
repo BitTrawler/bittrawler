@@ -13,10 +13,14 @@ import (
 type Classified struct {
 	InfoHash  [20]byte
 	CreatedAt time.Time
-	Category  int
-	Seasons   []int
-	Episodes  []int
-	AirDate   string
+	// From is the category the row is stored under now. It is required: the
+	// store moves the row's place in the category breakdown from this category
+	// to Category, so the overview follows a pass without a restart.
+	From     int
+	Category int
+	Seasons  []int
+	Episodes []int
+	AirDate  string
 }
 
 // ForEach calls fn for every stored torrent, newest shard first. It streams the
@@ -71,11 +75,22 @@ func forEachInShard(ctx context.Context, sh *shard, fn func(Torrent) error) erro
 // UpdateClassifications writes the derived fields of changed rows: category,
 // the season and episode tokens search uses, and the kind token. Rows are
 // grouped into one transaction per shard, because that is the unit SQLite
-// commits.
+// commits. The in-memory category breakdown follows each commit, so the
+// overview's classification table counts the rows under their new category
+// straight away.
 func (s *Store) UpdateClassifications(ctx context.Context, changes []Classified) (int, error) {
 	if len(changes) == 0 {
 		return 0, nil
 	}
+
+	for _, change := range changes {
+		if change.From <= 0 {
+			return 0, fmt.Errorf("store: update torrent %x has no category to move from", change.InfoHash)
+		}
+	}
+
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
 
 	byMonth := make(map[string][]Classified, 4)
 	order := make([]string, 0, 4)
@@ -100,22 +115,25 @@ func (s *Store) UpdateClassifications(ctx context.Context, changes []Classified)
 			return updated, fmt.Errorf("store: shard %s is no longer open", key)
 		}
 
-		n, err := updateShardClassifications(ctx, sh, byMonth[key])
+		n, removed, added, err := updateShardClassifications(ctx, sh, byMonth[key])
 		updated += n
 
 		if err != nil {
 			return updated, err
 		}
+
+		s.moveCounts(removed, added)
 	}
 
 	return updated, nil
 }
 
-// updateShardClassifications applies one shard's changes in a transaction.
-func updateShardClassifications(ctx context.Context, sh *shard, changes []Classified) (int, error) {
+// updateShardClassifications applies one shard's changes in a transaction and
+// reports which categories they left and joined.
+func updateShardClassifications(ctx context.Context, sh *shard, changes []Classified) (int, map[int]int, map[int]int, error) {
 	tx, err := sh.db.BeginTx(ctx, nil)
 	if err != nil {
-		return 0, err
+		return 0, nil, nil, err
 	}
 
 	defer func() { _ = tx.Rollback() }()
@@ -124,12 +142,14 @@ func updateShardClassifications(ctx context.Context, sh *shard, changes []Classi
 		SET category = ?, seasons = ?, episodes = ?, kind = ?, air_date = ?
 		WHERE info_hash = ?`)
 	if err != nil {
-		return 0, fmt.Errorf("prepare update for shard %s: %w", sh.key, err)
+		return 0, nil, nil, fmt.Errorf("prepare update for shard %s: %w", sh.key, err)
 	}
 
 	defer func() { _ = statement.Close() }()
 
 	updated := 0
+	removed := make(map[int]int)
+	added := make(map[int]int)
 
 	for _, change := range changes {
 		result, err := statement.ExecContext(ctx,
@@ -141,20 +161,29 @@ func updateShardClassifications(ctx context.Context, sh *shard, changes []Classi
 			change.InfoHash[:],
 		)
 		if err != nil {
-			return updated, fmt.Errorf("update torrent %x in shard %s: %w", change.InfoHash, sh.key, err)
+			return updated, nil, nil, fmt.Errorf("update torrent %x in shard %s: %w", change.InfoHash, sh.key, err)
 		}
 
 		n, err := result.RowsAffected()
 		if err != nil {
-			return updated, err
+			return updated, nil, nil, err
+		}
+
+		if n == 0 {
+			continue
 		}
 
 		updated += int(n)
+
+		if change.From != change.Category {
+			removed[change.From]++
+			added[change.Category]++
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		return updated, err
+		return updated, nil, nil, err
 	}
 
-	return updated, nil
+	return updated, removed, added, nil
 }

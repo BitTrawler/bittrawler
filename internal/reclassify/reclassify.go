@@ -156,6 +156,7 @@ func Run(ctx context.Context, torrents *store.Store, classifier *classify.Classi
 			changes = append(changes, store.Classified{
 				InfoHash:  torrent.InfoHash,
 				CreatedAt: torrent.CreatedAt,
+				From:      torrent.Category,
 				Category:  result.Category,
 				Seasons:   result.Seasons,
 				Episodes:  result.Episodes,

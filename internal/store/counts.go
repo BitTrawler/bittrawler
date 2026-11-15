@@ -79,6 +79,30 @@ func (s *Store) removeCounts(key string, removed map[int]int, rows int) {
 	}
 }
 
+// moveCounts records rows that changed category, so the breakdown follows a
+// reclassification pass. The row count is untouched: the same rows are simply
+// counted under another category.
+func (s *Store) moveCounts(removed, added map[int]int) {
+	if len(removed) == 0 && len(added) == 0 {
+		return
+	}
+
+	s.countsMu.Lock()
+	defer s.countsMu.Unlock()
+
+	for category, count := range removed {
+		s.categories[category] -= count
+
+		if s.categories[category] <= 0 {
+			delete(s.categories, category)
+		}
+	}
+
+	for category, count := range added {
+		s.categories[category] += count
+	}
+}
+
 // subtractCounts forgets a shard removed by retention.
 func (s *Store) subtractCounts(key string, removed map[int]int) {
 	s.countsMu.Lock()

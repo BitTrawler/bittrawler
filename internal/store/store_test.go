@@ -1492,6 +1492,7 @@ func TestForEachAndUpdateClassifications(t *testing.T) {
 	updated, err := s.UpdateClassifications(ctx, []Classified{{
 		InfoHash:  testHash(30),
 		CreatedAt: now,
+		From:      8000,
 		Category:  6000,
 		Seasons:   []int{2},
 		Episodes:  []int{201},
@@ -1535,6 +1536,54 @@ func TestForEachAndUpdateClassifications(t *testing.T) {
 
 	if untouched.Category != 2040 {
 		t.Fatalf("untouched category = %d, want 2040", untouched.Category)
+	}
+
+	// The overview's classification table reads the in-memory breakdown, so a
+	// written change has to move the row's count as well as its column.
+	after := statsFor(t, s)
+
+	if _, ok := after.Categories[8000]; ok {
+		t.Fatalf("old category is still counted: %+v", after.Categories)
+	}
+
+	if got := after.Categories[6000]; got != 1 {
+		t.Fatalf("new category rows = %d, want 1", got)
+	}
+
+	if got := after.Categories[2040]; got != 1 {
+		t.Fatalf("kept category rows = %d, want 1", got)
+	}
+
+	if after.Rows != 2 {
+		t.Fatalf("rows = %d, want 2", after.Rows)
+	}
+}
+
+// TestUpdateClassificationsNeedsPreviousCategory checks that a change without
+// the category it started from is refused: the stored row could be written, but
+// the breakdown the overview shows could not follow it.
+func TestUpdateClassificationsNeedsPreviousCategory(t *testing.T) {
+	s, _ := newStore(t, Config{RetentionMonths: 12})
+	now := s.cfg.Now()
+
+	put(t, s, Row{InfoHash: testHash(32), Name: "Six.2020.1080p", CreatedAt: now, Category: 2040})
+
+	_, err := s.UpdateClassifications(context.Background(), []Classified{{
+		InfoHash:  testHash(32),
+		CreatedAt: now,
+		Category:  3000,
+	}})
+	if err == nil {
+		t.Fatal("update without a previous category was accepted")
+	}
+
+	row, ok, err := s.Get(context.Background(), testHash(32))
+	if err != nil || !ok {
+		t.Fatalf("get: ok=%v err=%v", ok, err)
+	}
+
+	if row.Category != 2040 {
+		t.Fatalf("category = %d, want the refused change to leave 2040", row.Category)
 	}
 }
 
