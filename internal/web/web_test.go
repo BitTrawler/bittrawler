@@ -120,6 +120,7 @@ func TestRenderOverview(t *testing.T) {
 					{Name: "HD", Rows: "7", Share: "38.9%"},
 				},
 			},
+			{Name: "Other", Rows: "3", Share: "16.7%"},
 		},
 		History:         []int{10, 40, 25, 80},
 		Commit:          "abc1234",
@@ -158,6 +159,9 @@ func TestRenderOverview(t *testing.T) {
 	assert.Contains(t, body, "2026-11")
 	assert.Contains(t, body, `class="family-toggle" type="button" data-family="Movies" aria-expanded="false"`)
 	assert.Contains(t, body, `<tr class="subcategory-row" hidden><td>HD</td>`)
+	// A family with nothing beneath it keeps the chevron's space, so the chips
+	// line up down the column.
+	assert.Contains(t, body, `<span class="family-static"><span class="chevron is-hidden" aria-hidden="true"></span><span class="cat">Other</span></span>`)
 	assert.Contains(t, body, `class="bar"`)
 }
 

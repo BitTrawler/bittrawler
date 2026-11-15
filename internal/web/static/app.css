@@ -1166,13 +1166,26 @@ a:hover {
   cursor: pointer;
 }
 
-.family-toggle .chevron {
+/* The arrow is drawn by the borders, so it has no width of its own; both the
+   toggle and a family that cannot open carry it, which keeps the chips in one
+   column. */
+.chevron {
   width: 0;
   height: 0;
   border-top: 4px solid transparent;
   border-bottom: 4px solid transparent;
   border-left: 5px solid var(--muted);
   transition: transform 120ms ease;
+}
+
+.family-static {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.chevron.is-hidden {
+  visibility: hidden;
 }
 
 .family-toggle[aria-expanded="true"] .chevron {

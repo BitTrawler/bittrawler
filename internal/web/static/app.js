@@ -384,7 +384,9 @@ function renderCategories() {
     const name = document.createElement('td');
 
     if (children.length === 0) {
-      name.append(categoryLabel(family.name));
+      // Keep the chevron's space: a family with nothing beneath it should not
+      // sit further left than the ones that open.
+      name.append(staticFamily(family.name));
     } else {
       const toggle = document.createElement('button');
       toggle.type = 'button';
@@ -416,6 +418,19 @@ function renderCategories() {
   }
 
   body.replaceChildren(...rows);
+}
+
+function staticFamily(text) {
+  const wrapper = document.createElement('span');
+  wrapper.className = 'family-static';
+
+  const chevron = document.createElement('span');
+  chevron.className = 'chevron is-hidden';
+  chevron.setAttribute('aria-hidden', 'true');
+
+  wrapper.append(chevron, categoryLabel(text));
+
+  return wrapper;
 }
 
 function categoryLabel(text) {

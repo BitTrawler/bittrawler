@@ -165,7 +165,7 @@
               {{if $family.Children}}
               <button class="family-toggle" type="button" data-family="{{$family.Name}}" aria-expanded="false" aria-label="Show {{$family.Name}} subcategories"><span class="chevron" aria-hidden="true"></span><span class="cat">{{$family.Name}}</span></button>
               {{else}}
-              <span class="cat">{{$family.Name}}</span>
+              <span class="family-static"><span class="chevron is-hidden" aria-hidden="true"></span><span class="cat">{{$family.Name}}</span></span>
               {{end}}
             </td>
             <td class="num">{{$family.Rows}}</td>
