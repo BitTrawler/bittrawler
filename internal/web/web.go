@@ -26,6 +26,26 @@ type Pages struct {
 	pages map[string]pageTemplates
 }
 
+// templateFuncs are the helpers the templates share.
+var templateFuncs = template.FuncMap{
+	"version": versionLabel,
+}
+
+// versionLabel is the compact build label the sidebar shows: a release number
+// keeps its v prefix ("v1.1"), and a development build is shown by its own
+// name ("main").
+func versionLabel(version string) string {
+	if version == "" {
+		return ""
+	}
+
+	if version[0] >= '0' && version[0] <= '9' {
+		return "v" + version
+	}
+
+	return version
+}
+
 // New parses the templates for every page. The signed-out pages use the
 // centred authentication layout; the signed-in pages use the application shell.
 func New() (*Pages, error) {
@@ -35,7 +55,7 @@ func New() (*Pages, error) {
 	pages := make(map[string]pageTemplates, len(app)+len(auth))
 
 	for _, name := range app {
-		tmpl, err := template.New("layout").ParseFS(assets,
+		tmpl, err := template.New("layout").Funcs(templateFuncs).ParseFS(assets,
 			"templates/layout.html",
 			"templates/"+name+".html",
 		)
@@ -47,7 +67,7 @@ func New() (*Pages, error) {
 	}
 
 	for _, name := range auth {
-		tmpl, err := template.New("auth").ParseFS(assets,
+		tmpl, err := template.New("auth").Funcs(templateFuncs).ParseFS(assets,
 			"templates/auth.html",
 			"templates/"+name+".html",
 		)

@@ -127,12 +127,15 @@ func TestRenderOverview(t *testing.T) {
 
 	assert.Contains(t, body, `class="sidebar"`)
 	assert.Contains(t, body, `src="/static/logo.svg?v=1.2.3"`)
+	assert.Contains(t, body, `action="/search"`)
+	assert.Contains(t, body, `name="q"`)
 	assert.Contains(t, body, `href="/">Overview</a>`)
 	assert.Contains(t, body, `href="/search">Search</a>`)
 	assert.Contains(t, body, "Pause Crawling")
 	assert.Contains(t, body, "Recently Added")
 	assert.Contains(t, body, "Some.Release.2024.1080p")
 	assert.Contains(t, body, `href="/torrent/0123456789abcdef0123456789abcdef01234567"`)
+	assert.Contains(t, body, `class="build">v1.2.3</span>`)
 	assert.Contains(t, body, `data-stat="stored">12,345<`)
 	assert.Contains(t, body, `id="feed"`)
 	assert.Contains(t, body, "http://nas:6684/torznab/api")
@@ -155,6 +158,9 @@ func TestRenderPausedOverview(t *testing.T) {
 	assert.Contains(t, body, "Resume Crawling")
 	assert.NotContains(t, body, "Pause Crawling")
 	assert.Contains(t, body, "No torrents yet")
+
+	// A development build shows its own name rather than a v prefix.
+	assert.Contains(t, body, `class="build">dev</span>`)
 }
 
 func TestRenderSearch(t *testing.T) {
