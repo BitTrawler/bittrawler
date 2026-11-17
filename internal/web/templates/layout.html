@@ -9,13 +9,16 @@
 <script src="/static/app.js?v={{.Assets}}" defer></script>
 </head>
 <body>
+<a class="skip" href="#content">Skip to main content</a>
+<p class="vh" role="status" id="announcer"></p>
 <div class="app">
   <aside class="sidebar">
     <a class="brand" href="/">
       <img class="brand-logo" src="/static/logo.svg?v={{.Assets}}" alt="BitTrawler">
     </a>
     <form class="side-search" method="get" action="/search" role="search">
-      <input type="search" name="q" placeholder="Search" aria-label="Search torrents" autocomplete="off" spellcheck="false">
+      <label class="vh" for="side-search">Search torrents</label>
+      <input id="side-search" type="search" name="q" placeholder="Search" autocomplete="off" spellcheck="false">
     </form>
     <nav class="nav" aria-label="Main">
       <a class="nav-link{{if eq .Active "dashboard"}} is-active{{end}}" href="/">Overview</a>
@@ -29,7 +32,7 @@
       </div>
     </div>
   </aside>
-  <main class="main">
+  <main class="main" id="content" tabindex="-1">
     <div class="content">
 {{template "content" .}}
     </div>

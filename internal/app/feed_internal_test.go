@@ -17,30 +17,30 @@ func TestHistoryBars(t *testing.T) {
 	t.Run("no history", func(t *testing.T) {
 		t.Parallel()
 
-		assert.Nil(t, historyBars(nil))
+		assert.Nil(t, historyBars(historyDeltas(nil)))
 	})
 
 	t.Run("one sample", func(t *testing.T) {
 		t.Parallel()
 
-		assert.Nil(t, historyBars([]rateSample{{persisted: 43}}))
+		assert.Nil(t, historyBars(historyDeltas([]rateSample{{persisted: 43}})))
 	})
 
 	t.Run("all-zero counters", func(t *testing.T) {
 		t.Parallel()
 
-		assert.Equal(t, []int{0, 0}, historyBars([]rateSample{{}, {}, {}}))
+		assert.Equal(t, []int{0, 0}, historyBars(historyDeltas([]rateSample{{}, {}, {}})))
 	})
 
 	t.Run("scaled to the peak", func(t *testing.T) {
 		t.Parallel()
 
-		bars := historyBars([]rateSample{
+		bars := historyBars(historyDeltas([]rateSample{
 			{persisted: 0},
 			{persisted: 10},
 			{persisted: 40},
 			{persisted: 100},
-		})
+		}))
 
 		// Deltas of 10, 30 and 60 against a peak of 60 scale to 4+96*delta/peak.
 		assert.Equal(t, []int{20, 52, 100}, bars)
@@ -51,18 +51,18 @@ func TestHistoryBars(t *testing.T) {
 		t.Parallel()
 
 		// A flat interval draws as one per cent.
-		assert.Equal(t, []int{1, 100}, historyBars([]rateSample{
+		assert.Equal(t, []int{1, 100}, historyBars(historyDeltas([]rateSample{
 			{persisted: 5},
 			{persisted: 5},
 			{persisted: 1005},
-		}))
+		})))
 
 		// A busy interval never falls below four per cent, whatever the peak.
-		assert.Equal(t, []int{4, 100}, historyBars([]rateSample{
+		assert.Equal(t, []int{4, 100}, historyBars(historyDeltas([]rateSample{
 			{persisted: 0},
 			{persisted: 1},
 			{persisted: 1_000_001},
-		}))
+		})))
 	})
 
 	t.Run("counter reset", func(t *testing.T) {
@@ -70,10 +70,10 @@ func TestHistoryBars(t *testing.T) {
 
 		// A restart resets the persisted counter; the unsigned difference is
 		// enormous, so the interval is drawn empty rather than full.
-		assert.Equal(t, []int{0}, historyBars([]rateSample{
+		assert.Equal(t, []int{0}, historyBars(historyDeltas([]rateSample{
 			{persisted: 100},
 			{persisted: 40},
-		}))
+		})))
 	})
 
 	t.Run("limited to the chart width", func(t *testing.T) {
@@ -84,13 +84,33 @@ func TestHistoryBars(t *testing.T) {
 			history = append(history, rateSample{persisted: uint64(i * 10)})
 		}
 
-		bars := historyBars(history)
+		bars := historyBars(historyDeltas(history))
 		require.Len(t, bars, sparklineBars, "only the newest samples are drawn")
 
 		for _, height := range bars {
 			assert.Equal(t, 100, height, "every interval has the same delta as the peak")
 		}
 	})
+}
+
+// TestHistorySummary checks the chart description uses the real counts rather
+// than the scaled bar heights.
+func TestHistorySummary(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "No ingest activity samples yet.", historySummary(nil))
+
+	deltas := historyDeltas([]rateSample{
+		{persisted: 0},
+		{persisted: 10},
+		{persisted: 40},
+		{persisted: 100},
+	})
+
+	assert.Equal(t, []int{10, 30, 60}, deltas)
+	assert.Equal(t,
+		"Ingest activity over the last 15 minutes: up to 60 torrents between samples, 60 since the last sample.",
+		historySummary(deltas))
 }
 
 // TestCategoryRows checks the classification table: families ordered by their

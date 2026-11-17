@@ -151,6 +151,15 @@ type LoginData struct {
 	Username string
 }
 
+// SparkBar is one rectangle of the activity chart, laid out in a 100 by 100
+// view box.
+type SparkBar struct {
+	X      float64
+	Y      float64
+	Width  float64
+	Height float64
+}
+
 // OverviewStats are the numbers on the dashboard tiles.
 type OverviewStats struct {
 	Stored      string
@@ -228,6 +237,8 @@ type OverviewData struct {
 	Shards          []ShardRow
 	Categories      []CategoryRow
 	History         []int
+	HistoryBars     []SparkBar
+	HistorySummary  string
 	Commit          string
 	BuildDate       string
 	Uptime          string

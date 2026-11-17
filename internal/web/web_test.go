@@ -122,7 +122,11 @@ func TestRenderOverview(t *testing.T) {
 			},
 			{Name: "Other", Rows: "3", Share: "16.7%"},
 		},
-		History:         []int{10, 40, 25, 80},
+		History: []int{10, 40, 25, 80},
+		HistoryBars: []web.SparkBar{
+			{X: 0, Y: 90, Width: 24.4, Height: 10},
+			{X: 24.4, Y: 60, Width: 24.4, Height: 40},
+		},
 		Commit:          "abc1234",
 		BuildDate:       "2026-11-13",
 		Uptime:          "2h0m",
@@ -161,7 +165,8 @@ func TestRenderOverview(t *testing.T) {
 	// A family with nothing beneath it keeps the chevron's space, so the chips
 	// line up down the column.
 	assert.Contains(t, body, `<span class="family-static"><span class="chevron is-hidden" aria-hidden="true"></span><span class="cat">Other</span></span>`)
-	assert.Contains(t, body, `class="bar"`)
+	assert.Contains(t, body, `<svg class="spark-bars" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">`)
+	assert.Contains(t, body, `<rect x="0" y="90" width="24.4" height="10"></rect>`)
 }
 
 func TestRenderPausedOverview(t *testing.T) {

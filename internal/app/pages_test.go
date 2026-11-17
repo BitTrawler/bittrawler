@@ -219,7 +219,9 @@ func TestTorrentPageLinksToTheCatalogue(t *testing.T) {
 	assert.Contains(t, results, `class="result-detail" id="detail-0" hidden`)
 	assert.Contains(t, results, `class="result-detail" id="detail-1" hidden`)
 	assert.Contains(t, results, `data-copy="magnet:?xt=urn:btih:`)
-	assert.Contains(t, results, `>View</a>`)
+	assert.Contains(t, results, `<ul class="results">`)
+	assert.Contains(t, results, `<h2 class="name-wrap" aria-label="A.Show.S02E03.1080p.WEB-DL-GRP">`)
+	assert.Contains(t, results, `>View<span class="vh"> torrent details</span></a>`)
 	assert.Contains(t, results, `href="https://www.themoviedb.org/tv/1396"`)
 }
 

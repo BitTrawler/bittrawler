@@ -61,8 +61,10 @@
         <span class="tile-label">Ingest Activity</span>
         <span class="muted small">last 15 minutes</span>
       </div>
-      <div class="spark" id="spark">
-        {{range .History}}<span class="bar" style="height: {{.}}%"></span>{{end}}
+      <div class="spark" id="spark" role="img" aria-label="{{.HistorySummary}}">
+        <svg class="spark-bars" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+          {{range .HistoryBars}}<rect x="{{.X}}" y="{{.Y}}" width="{{.Width}}" height="{{.Height}}"></rect>{{end}}
+        </svg>
       </div>
       {{if .History}}
       {{else}}
@@ -159,8 +161,9 @@
 </section>
 
 <section class="card">
-  <header class="card-head">
+  <header class="card-head with-action">
     <h2>Recently Added</h2>
+    <button class="button secondary small" type="button" data-feed-toggle aria-pressed="false">Pause Updates</button>
   </header>
   <div class="table-wrap">
     <table class="table">

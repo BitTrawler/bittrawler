@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math"
 	"net/http"
 	"net/url"
@@ -101,6 +102,8 @@ func (a *App) handleOverview(w http.ResponseWriter, r *http.Request) {
 		notice = "Torrent removed from the index and its hash blocked."
 	}
 
+	deltas := historyDeltas(snapshot.History)
+
 	data := web.OverviewData{
 		Shell:  a.shell("dashboard", "Overview"),
 		Notice: notice,
@@ -121,7 +124,9 @@ func (a *App) handleOverview(w http.ResponseWriter, r *http.Request) {
 		Runtime:         runtimeItems(snapshot),
 		Shards:          shardRows(snapshot),
 		Categories:      categoryRows(snapshot),
-		History:         historyBars(snapshot.History),
+		History:         historyBars(deltas),
+		HistoryBars:     sparkBars(historyBars(deltas)),
+		HistorySummary:  historySummary(deltas),
 		Commit:          status.Commit,
 		BuildDate:       status.BuildDate,
 		Uptime:          status.Uptime.String(),
@@ -376,10 +381,43 @@ func categoryRows(snapshot statsSnapshot) []web.CategoryRow {
 	return rows
 }
 
-// historyBars turns the sample history into bar heights for the activity chart.
-// The bars are the torrents persisted between samples, scaled to the busiest
-// interval in the window.
-func historyBars(history []rateSample) []int {
+// historySummary describes the activity chart in words, for readers who
+// cannot see it. The counts are the raw deltas, not the scaled bar heights.
+func historySummary(deltas []int) string {
+	if len(deltas) == 0 {
+		return "No ingest activity samples yet."
+	}
+
+	peak, latest := 0, deltas[len(deltas)-1]
+	for _, delta := range deltas {
+		if delta > peak {
+			peak = delta
+		}
+	}
+
+	if peak == 0 {
+		return "No torrents ingested in the last 15 minutes."
+	}
+
+	return fmt.Sprintf("Ingest activity over the last 15 minutes: up to %d torrents between samples, %d since the last sample.", peak, latest)
+}
+
+// torrentPageTitle is the document title for a torrent page. Each torrent page
+// needs a title of its own, so the name goes in it; very long names are cut.
+func torrentPageTitle(name string) string {
+	const limit = 72
+
+	runes := []rune(name)
+	if len(runes) <= limit {
+		return name
+	}
+
+	return string(runes[:limit]) + "…"
+}
+
+// historyDeltas is the number of torrents persisted between consecutive
+// samples, for the window the chart draws.
+func historyDeltas(history []rateSample) []int {
 	if len(history) < 2 {
 		return nil
 	}
@@ -390,37 +428,86 @@ func historyBars(history []rateSample) []int {
 		start = len(history) - sparklineBars
 	}
 
-	heights := make([]int, 0, len(history)-1)
+	deltas := make([]int, 0, len(history)-start)
 
 	for i := start; i < len(history); i++ {
 		delta := history[i].persisted - history[i-1].persisted
+		// A restart resets the counter, and the unsigned difference is
+		// enormous; draw that interval empty rather than full.
 		if delta > math.MaxInt32 {
 			delta = 0
 		}
 
-		heights = append(heights, int(delta))
+		deltas = append(deltas, int(delta))
+	}
+
+	return deltas
+}
+
+// historyBars scales the deltas to bar heights: the busiest interval is full
+// height.
+func historyBars(deltas []int) []int {
+	if len(deltas) == 0 {
+		return nil
 	}
 
 	peak := 0
-
-	for _, height := range heights {
-		if height > peak {
-			peak = height
+	for _, delta := range deltas {
+		if delta > peak {
+			peak = delta
 		}
 	}
 
-	for i, height := range heights {
+	heights := make([]int, len(deltas))
+	for i, delta := range deltas {
 		switch {
 		case peak == 0:
 			heights[i] = 0
-		case height == 0:
+		case delta == 0:
 			heights[i] = 1
 		default:
-			heights[i] = 4 + height*96/peak
+			heights[i] = 4 + delta*96/peak
 		}
 	}
 
 	return heights
+}
+
+// sparkBars lays the chart bars out in a 100 by 100 view box. The chart is
+// drawn as an SVG so that the heights are element attributes: the page's
+// content security policy blocks inline styles, which left the old bars flat.
+func sparkBars(heights []int) []web.SparkBar {
+	if len(heights) == 0 {
+		return nil
+	}
+
+	width := 100 / float64(len(heights))
+	bars := make([]web.SparkBar, len(heights))
+
+	for i, height := range heights {
+		if height < 0 {
+			height = 0
+		}
+
+		// Keep a bar for an idle interval visible.
+		if height > 0 && height < 2 {
+			height = 2
+		}
+
+		bars[i] = web.SparkBar{
+			X:      round2(float64(i) * width),
+			Y:      round2(100 - float64(height)),
+			Width:  round2(math.Max(width-0.6, 0.4)),
+			Height: round2(float64(height)),
+		}
+	}
+
+	return bars
+}
+
+// round2 rounds to two decimals so the template prints compact numbers.
+func round2(value float64) float64 {
+	return math.Round(value*100) / 100
 }
 
 // handleFeed returns the live counters and newest torrents for the feed poll.
@@ -446,6 +533,7 @@ func (a *App) handleFeed(w http.ResponseWriter, r *http.Request) {
 
 	snapshot := a.snapshot()
 	status := a.Status()
+	deltas := historyDeltas(snapshot.History)
 
 	response := feedResponse{
 		Crawling:     status.Crawling,
@@ -469,9 +557,10 @@ func (a *App) handleFeed(w http.ResponseWriter, r *http.Request) {
 			Goroutines: snapshot.Goroutines,
 			CPUPercent: snapshot.CPUPercent,
 		},
-		History:    historyBars(snapshot.History),
-		Shards:     feedShards(shardRows(snapshot)),
-		Categories: feedCategories(categoryRows(snapshot)),
+		History:        historyBars(deltas),
+		HistorySummary: historySummary(deltas),
+		Shards:         feedShards(shardRows(snapshot)),
+		Categories:     feedCategories(categoryRows(snapshot)),
 	}
 
 	torrents, err := a.torrentStore.Latest(r.Context(), limit)
@@ -654,7 +743,7 @@ func (a *App) handleTorrent(w http.ResponseWriter, r *http.Request) {
 	tmdbURL, tvdbURL := contentLinks(torrent.Category, torrent.ContentID, tvdb)
 
 	data := web.TorrentData{
-		Shell:       a.shell("", "Torrent"),
+		Shell:       a.shell("", torrentPageTitle(torrent.Name)),
 		Name:        torrent.Name,
 		Hash:        raw,
 		Magnet:      torznab.Magnet(torrent.InfoHash, torrent.Name, torrent.Size),
@@ -825,16 +914,19 @@ type feedTorrent struct {
 
 // feedResponse is the body of GET /api/feed.
 type feedResponse struct {
-	Crawling     bool           `json:"crawling"`
-	CrawlEnabled bool           `json:"crawl_enabled"`
-	Stats        feedStats      `json:"stats"`
-	Counters     feedCounters   `json:"counters"`
-	KTable       feedKTable     `json:"ktable"`
-	Runtime      feedRuntime    `json:"runtime"`
-	History      []int          `json:"history"`
-	Shards       []feedShard    `json:"shards"`
-	Categories   []feedCategory `json:"categories"`
-	Torrents     []feedTorrent  `json:"torrents"`
+	Crawling     bool         `json:"crawling"`
+	CrawlEnabled bool         `json:"crawl_enabled"`
+	Stats        feedStats    `json:"stats"`
+	Counters     feedCounters `json:"counters"`
+	KTable       feedKTable   `json:"ktable"`
+	Runtime      feedRuntime  `json:"runtime"`
+	History      []int        `json:"history"`
+	// HistorySummary is the chart's text alternative, so the page script does
+	// not have to invent one.
+	HistorySummary string         `json:"history_summary"`
+	Shards         []feedShard    `json:"shards"`
+	Categories     []feedCategory `json:"categories"`
+	Torrents       []feedTorrent  `json:"torrents"`
 }
 
 // feedShard is one row of the storage table, formatted as the page renders it.

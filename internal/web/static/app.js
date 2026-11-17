@@ -1,3 +1,17 @@
+// announce writes to the polite status region so a screen reader hears the
+// result of an action that does not move focus.
+function announce(message) {
+  const region = document.getElementById('announcer');
+  if (!region) {
+    return;
+  }
+
+  region.textContent = '';
+  window.setTimeout(() => {
+    region.textContent = message;
+  }, 50);
+}
+
 // Copy buttons, click-to-select values and the live feed. The interface works
 // without JavaScript; this adds copying and refreshes the recent torrents while
 // the page is open.
@@ -13,6 +27,7 @@ document.addEventListener('click', async (event) => {
   const label = button.textContent;
   button.textContent = copied ? 'Copied' : 'Selected';
   button.classList.add('is-copied');
+  announce(copied ? 'Copied to clipboard.' : 'Copy failed. The value is selected, so you can copy it yourself.');
   window.setTimeout(() => {
     button.textContent = label;
     button.classList.remove('is-copied');
@@ -254,19 +269,33 @@ function updateRuntime(runtime) {
   }
 }
 
-function updateSpark(history) {
+function updateSpark(history, summary) {
   const spark = document.getElementById('spark');
-  if (!spark || !Array.isArray(history)) {
+  const svg = spark ? spark.querySelector('.spark-bars') : null;
+  if (!svg || !Array.isArray(history)) {
     return;
   }
 
-  spark.replaceChildren(...history.map((height) => {
-    const bar = document.createElement('span');
-    bar.className = 'bar';
-    bar.style.height = `${height}%`;
+  const barWidth = 100 / Math.max(history.length, 1);
 
-    return bar;
+  svg.replaceChildren(...history.map((height, index) => {
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', String(round2(index * barWidth)));
+    rect.setAttribute('y', String(round2(100 - height)));
+    rect.setAttribute('width', String(round2(Math.max(barWidth - 0.6, 0.4))));
+    rect.setAttribute('height', String(round2(height)));
+
+    return rect;
   }));
+
+  if (summary) {
+    spark.setAttribute('aria-label', summary);
+  }
+}
+
+// round2 keeps the SVG attributes short.
+function round2(value) {
+  return Math.round(value * 100) / 100;
 }
 
 // updateTables rebuilds the storage and classification tables from the feed.
@@ -519,7 +548,7 @@ async function refreshFeed() {
       warmup.remove();
     }
     updateRuntime(payload.runtime);
-    updateSpark(payload.history);
+    updateSpark(payload.history, payload.history_summary);
     updateTables(payload);
 
     const torrents = payload.torrents || [];
@@ -568,7 +597,25 @@ if (categoriesBody) {
 
 if (document.getElementById('feed')) {
   refreshFeed();
-  window.setInterval(refreshFeed, 3000);
+
+  let feedTimer = window.setInterval(refreshFeed, 3000);
+
+  const feedToggle = document.querySelector('[data-feed-toggle]');
+  if (feedToggle) {
+    feedToggle.addEventListener('click', () => {
+      const paused = feedToggle.getAttribute('aria-pressed') === 'true';
+
+      if (paused) {
+        feedTimer = window.setInterval(refreshFeed, 3000);
+      } else {
+        window.clearInterval(feedTimer);
+      }
+
+      feedToggle.setAttribute('aria-pressed', String(!paused));
+      feedToggle.textContent = paused ? 'Pause Updates' : 'Resume Updates';
+      announce(paused ? 'Updates resumed.' : 'Updates paused.');
+    });
+  }
 
   // A page restored from the back/forward cache shows the figures it was left
   // with. Ask for the current ones straight away rather than waiting for the
