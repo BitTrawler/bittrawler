@@ -619,7 +619,7 @@ func errorString(err error) string {
 }
 
 // torznabHandler builds the endpoint from the current settings.
-func (a *App) torznabHandler() (http.Handler, error) {
+func (a *App) torznabHandler(r *http.Request) (http.Handler, error) {
 	cfg := a.currentConfig()
 
 	return torznab.NewHandler(torznab.Config{
@@ -627,6 +627,7 @@ func (a *App) torznabHandler() (http.Handler, error) {
 		APIKey:       cfg.Torznab.APIKey,
 		DefaultLimit: cfg.Torznab.DefaultLimit,
 		MaxLimit:     cfg.Torznab.MaxLimit,
+		SiteURL:      a.baseURL(r),
 		Searcher:     a.torrentStore,
 	})
 }

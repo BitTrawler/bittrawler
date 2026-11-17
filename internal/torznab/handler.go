@@ -28,6 +28,9 @@ type Config struct {
 	DefaultLimit int
 	// MaxLimit is the largest page the endpoint will serve.
 	MaxLimit int
+	// SiteURL is the absolute address of the web interface. It is used for the
+	// release's info link; empty leaves the link out.
+	SiteURL string
 	// Searcher is required.
 	Searcher Searcher
 }
@@ -146,7 +149,7 @@ func (h *handler) search(w http.ResponseWriter, r *http.Request, req SearchReque
 		return
 	}
 
-	h.writeXML(w, buildFeed(req, h.cfg.Title, result.Torrents))
+	h.writeXML(w, buildFeed(req, h.cfg.Title, h.cfg.SiteURL, result.Torrents))
 }
 
 // categoriesFor narrows a search function to its top-level category when the

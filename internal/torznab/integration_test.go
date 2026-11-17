@@ -116,10 +116,13 @@ func seedStore(t *testing.T) *store.Store {
 	return s
 }
 
+// testSiteURL is the address the endpoint is configured with.
+const testSiteURL = "http://bittrawler.test:6684"
+
 func seedHandler(t *testing.T) http.Handler {
 	t.Helper()
 
-	return newTestHandler(t, Config{Searcher: seedStore(t)})
+	return newTestHandler(t, Config{Searcher: seedStore(t), SiteURL: testSiteURL})
 }
 
 func titles(items []parsedItem) []string {
@@ -357,6 +360,10 @@ func TestFeedConformance(t *testing.T) {
 			if attrs[name] == "" {
 				t.Errorf("item %q has no %s attribute", it.Title, name)
 			}
+		}
+
+		if want := testSiteURL + "/torrent/" + it.GUID; it.Comments != want {
+			t.Errorf("comments = %q, want %q", it.Comments, want)
 		}
 
 		if attrs["infohash"] != it.GUID {

@@ -143,7 +143,9 @@ func TestItemForContentReferenceOnlyForFilmAndTV(t *testing.T) {
 }
 
 func TestBuildFeed(t *testing.T) {
-	feed := buildFeed(SearchRequest{Offset: 20}, "TestTrawler", []store.Torrent{fixedTorrent()})
+	const siteURL = "https://bittrawler.example:6684"
+
+	feed := buildFeed(SearchRequest{Offset: 20}, "TestTrawler", siteURL, []store.Torrent{fixedTorrent()})
 
 	if feed.Version != "2.0" {
 		t.Errorf("version = %q, want %q", feed.Version, "2.0")
@@ -167,6 +169,11 @@ func TestBuildFeed(t *testing.T) {
 
 	if len(feed.Channel.Items) != 1 {
 		t.Fatalf("items = %d, want 1", len(feed.Channel.Items))
+	}
+
+	item := feed.Channel.Items[0]
+	if want := siteURL + "/torrent/0102030000000000000000000000000000000000"; item.Comments != want {
+		t.Errorf("comments = %q, want %q", item.Comments, want)
 	}
 }
 
@@ -234,4 +241,12 @@ func hasAttribute(it item, name string) bool {
 	}
 
 	return false
+}
+
+func TestBuildFeedWithoutSiteURL(t *testing.T) {
+	feed := buildFeed(SearchRequest{}, "TestTrawler", "", []store.Torrent{fixedTorrent()})
+
+	if got := feed.Channel.Items[0].Comments; got != "" {
+		t.Errorf("comments = %q, want it left out", got)
+	}
 }

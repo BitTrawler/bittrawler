@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/xml"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/BitTrawler/bittrawler/internal/store"
@@ -52,8 +53,11 @@ type response struct {
 }
 
 type item struct {
-	Title      string      `xml:"title"`
-	GUID       string      `xml:"guid"`
+	Title string `xml:"title"`
+	GUID  string `xml:"guid"`
+	// Comments is the release's page on this site. Clients read it as the
+	// release's info link: Sonarr, Radarr and Prowlarr all take it from here.
+	Comments   string      `xml:"comments,omitempty"`
 	PubDate    string      `xml:"pubDate"`
 	Category   string      `xml:"category"`
 	Size       int64       `xml:"size"`
@@ -72,12 +76,15 @@ type attribute struct {
 	Value string `xml:"value,attr"`
 }
 
-// buildFeed renders one page of results.
-func buildFeed(req SearchRequest, title string, torrents []store.Torrent) feed {
+// buildFeed renders one page of results. siteURL is the address of the web
+// interface, used for the link back to each release's page.
+func buildFeed(req SearchRequest, title, siteURL string, torrents []store.Torrent) feed {
 	items := make([]item, 0, len(torrents))
 
 	for _, t := range torrents {
-		items = append(items, itemFor(t))
+		rendered := itemFor(t)
+		rendered.Comments = torrentPageURL(siteURL, t.InfoHash)
+		items = append(items, rendered)
 	}
 
 	return feed{
@@ -112,6 +119,18 @@ func itemFor(t store.Torrent) item {
 		},
 		Attributes: attributesFor(t, magnet),
 	}
+}
+
+// torrentPageURL is the torrent's page on this site. Clients show it as the
+// release's info link, which is what makes a result in Prowlarr or Sonarr
+// clickable back to the instance that indexed it.
+func torrentPageURL(siteURL string, hash [20]byte) string {
+	siteURL = strings.TrimRight(siteURL, "/")
+	if siteURL == "" {
+		return ""
+	}
+
+	return siteURL + "/torrent/" + hex.EncodeToString(hash[:])
 }
 
 // attributesFor lists the torznab attributes the clients use for matching,

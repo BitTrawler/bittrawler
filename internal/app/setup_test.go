@@ -140,10 +140,11 @@ func TestSetupThenLoginGating(t *testing.T) {
 	assert.Contains(t, body(t, response), "Wrong username or password")
 	assert.Empty(t, response.Cookies(), "a refused sign-in sets no cookie")
 
-	// Nothing was signed in, so the settings page still asks for a sign-in.
+	// Nothing was signed in, so the settings page still asks for a sign-in,
+	// and remembers where the visitor was going.
 	response = get(t, noRedirect(), baseURL+"/settings", nil)
 	assert.Equal(t, http.StatusSeeOther, response.StatusCode)
-	assert.Equal(t, "/login", response.Header.Get("Location"))
+	assert.Equal(t, "/login?next="+url.QueryEscape("/settings"), response.Header.Get("Location"))
 	response.Body.Close()
 
 	// The right password signs in and the page opens.

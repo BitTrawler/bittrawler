@@ -650,7 +650,7 @@ func (a *App) authorised(w http.ResponseWriter, r *http.Request) bool {
 	}
 
 	if !a.validSession(r) {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		http.Redirect(w, r, loginPath(r), http.StatusSeeOther)
 
 		return false
 	}

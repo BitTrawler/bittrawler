@@ -149,6 +149,8 @@ type LoginData struct {
 	Assets   string
 	Error    string
 	Username string
+	// Next is the local page to return to after signing in.
+	Next string
 }
 
 // SparkBar is one rectangle of the activity chart, laid out in a 100 by 100

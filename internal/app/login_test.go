@@ -78,3 +78,59 @@ func TestLoginRateLimit(t *testing.T) {
 
 	assert.Contains(t, body(t, response), "Too many attempts")
 }
+
+// TestSignInReturnsToTheRequestedPage checks the trip a Prowlarr info link
+// makes: an unauthenticated torrent page sends the visitor to the form with its
+// destination attached, and signing in returns them there.
+func TestSignInReturnsToTheRequestedPage(t *testing.T) {
+	_, baseURL := start(t)
+
+	closeIdleConnections(t)
+
+	completeSetup(t, baseURL)
+
+	const target = "/torrent/0123456789abcdef0123456789abcdef01234567"
+
+	// A page request remembers where it was going.
+	response := get(t, noRedirect(), baseURL+target, nil)
+	require.Equal(t, http.StatusSeeOther, response.StatusCode)
+	response.Body.Close()
+	assert.Equal(t, "/login?next="+url.QueryEscape(target), response.Header.Get("Location"))
+
+	// The form carries the destination.
+	loginPage := body(t, get(t, noRedirect(), baseURL+"/login?next="+url.QueryEscape(target), nil))
+	assert.Contains(t, loginPage, `name="next" value="`+target+`"`)
+
+	// Signing in returns there.
+	response = postForm(t, noRedirect(), baseURL, "/login", url.Values{
+		"username": {"admin"},
+		"password": {"correct-horse-battery"},
+		"next":     {target},
+	}, nil)
+	require.Equal(t, http.StatusSeeOther, response.StatusCode)
+	response.Body.Close()
+	assert.Equal(t, target, response.Header.Get("Location"))
+
+	// A destination that is not a local path is dropped.
+	for _, next := range []string{
+		"//example.com/path",
+		"https://example.com/path",
+		`/\example.com`,
+		"/page\r\nLocation: //example.com",
+	} {
+		response = postForm(t, noRedirect(), baseURL, "/login", url.Values{
+			"username": {"admin"},
+			"password": {"correct-horse-battery"},
+			"next":     {next},
+		}, nil)
+		require.Equal(t, http.StatusSeeOther, response.StatusCode)
+		response.Body.Close()
+		assert.Equal(t, "/", response.Header.Get("Location"), "next %q", next)
+	}
+
+	// A form submission cannot be replayed, so it goes to the plain page.
+	response = postForm(t, noRedirect(), baseURL, "/crawl", url.Values{"action": {"pause"}}, nil)
+	require.Equal(t, http.StatusSeeOther, response.StatusCode)
+	response.Body.Close()
+	assert.Equal(t, "/login", response.Header.Get("Location"))
+}

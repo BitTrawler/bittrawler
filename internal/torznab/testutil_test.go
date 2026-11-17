@@ -69,6 +69,7 @@ type parsedResponse struct {
 type parsedItem struct {
 	Title     string          `xml:"title"`
 	GUID      string          `xml:"guid"`
+	Comments  string          `xml:"comments"`
 	PubDate   string          `xml:"pubDate"`
 	Category  string          `xml:"category"`
 	Size      int64           `xml:"size"`

@@ -46,7 +46,7 @@ func (a *App) routes() http.Handler {
 // serveTorznab builds the endpoint from the current settings for every request,
 // so rotating the API key in the settings page applies immediately.
 func (a *App) serveTorznab(w http.ResponseWriter, r *http.Request) {
-	endpoint, err := a.torznabHandler()
+	endpoint, err := a.torznabHandler(r)
 	if err != nil {
 		a.logger.Error("Torznab endpoint", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
