@@ -1,0 +1,11 @@
+{
+  "name": "bittrawler-playwright",
+  "private": true,
+  "version": "0.0.0",
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.65.1",
+    "chrome-launcher": "^1.2.1",
+    "lighthouse": "^13.0.1"
+  }
+}

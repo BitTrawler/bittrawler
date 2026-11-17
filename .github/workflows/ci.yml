@@ -116,6 +116,49 @@ jobs:
           echo "clean shutdown"
 
 
+  # The browser suite: axe-core and Lighthouse against the real binary and a
+  # seeded throwaway store. Playwright downloads its own pinned Chromium, so the
+  # runner's browser version cannot change the result. It is a separate job from
+  # the Go tests because it needs Node and a browser, and because a failure here
+  # should read as "the interface regressed", not "the code does not compile".
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+          check-latest: true
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: test/browser/package-lock.json
+      - name: install the test dependencies
+        run: cd test/browser && npm ci
+      - name: restore the browser build
+        id: browser-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('test/browser/package-lock.json') }}
+      - name: install the browser
+        run: cd test/browser && npx playwright install --with-deps chromium
+      - name: run the browser suites
+        run: bash test/browser/run.sh
+      - name: keep the reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-report
+          path: |
+            test/browser/artifacts/html-report
+            test/browser/artifacts/*.json
+            test/browser/test-results
+          if-no-files-found: ignore
+
   # govulncheck reports only vulnerabilities reachable from this code, so it is
   # a gate rather than an advisory list. The tool version is pinned: a new
   # scanner should be a reviewed bump, not a silent change.
