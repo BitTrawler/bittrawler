@@ -1,12 +1,15 @@
 package app
 
 import (
+	"net/url"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/BitTrawler/bittrawler/internal/classify"
+	"github.com/BitTrawler/bittrawler/internal/drops"
 	"github.com/BitTrawler/bittrawler/internal/web"
 )
 
@@ -285,4 +288,125 @@ func TestContentLinks(t *testing.T) {
 			assert.Equal(t, testCase.tvdbURL, tvdbURL)
 		})
 	}
+}
+
+// TestParseRejectedFilter checks the reason selection a feed request carries.
+// The key being absent means every reason; a box that has been cleared from
+// every reason asks for nothing.
+func TestParseRejectedFilter(t *testing.T) {
+	t.Parallel()
+
+	t.Run("no selection shows everything", func(t *testing.T) {
+		t.Parallel()
+
+		filter := parseRejectedFilter(url.Values{})
+
+		assert.False(t, filter.set)
+		assert.Nil(t, filter.reasons)
+	})
+
+	t.Run("named reasons", func(t *testing.T) {
+		t.Parallel()
+
+		filter := parseRejectedFilter(url.Values{"rejected": {"banned,adult"}})
+
+		assert.True(t, filter.set)
+		assert.Equal(t, []classify.Drop{classify.DropBanned, classify.DropAdult}, filter.reasons)
+	})
+
+	t.Run("repeated parameters", func(t *testing.T) {
+		t.Parallel()
+
+		filter := parseRejectedFilter(url.Values{
+			"rejected": {"banned", "script,deceptive"},
+		})
+
+		assert.Equal(t, []classify.Drop{
+			classify.DropBanned,
+			classify.DropScript,
+			classify.DropDeceptive,
+		}, filter.reasons)
+	})
+
+	t.Run("an emptied list asks for nothing", func(t *testing.T) {
+		t.Parallel()
+
+		filter := parseRejectedFilter(url.Values{"rejected": {""}})
+
+		assert.True(t, filter.set)
+		assert.Empty(t, filter.reasons)
+	})
+
+	t.Run("unknown names are ignored", func(t *testing.T) {
+		t.Parallel()
+
+		filter := parseRejectedFilter(url.Values{"rejected": {"banned,klingon"}})
+
+		assert.Equal(t, []classify.Drop{classify.DropBanned}, filter.reasons)
+	})
+}
+
+// TestRejectedRows checks the words and formatting the overview uses for the
+// rejected feed.
+func TestRejectedRows(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+
+	application := &App{rejected: drops.NewRecorder(10)}
+
+	application.rejected.Add(drops.Event{
+		Name:   "Some.Bait.2024.1080p",
+		Size:   1536,
+		Reason: classify.DropDeceptive,
+		At:     now.Add(-2 * time.Minute),
+	})
+	application.rejected.Add(drops.Event{
+		Name:   "寄生兽 完全版",
+		Size:   1024,
+		Reason: classify.DropScript,
+		At:     now,
+	})
+
+	assert.Equal(t, []web.RejectedRow{
+		{Name: "寄生兽 完全版", Reason: "Foreign script", Size: "1.0 KiB", Age: "now"},
+		{Name: "Some.Bait.2024.1080p", Reason: "Deceptive", Size: "1.5 KiB", Age: "2m"},
+	}, application.rejectedRows(10, rejectedFilter{}))
+}
+
+// TestRejectedFilterSelectsOneReason checks that filtering happens before the
+// limit, so a filtered list is not cut short by rejections of other reasons.
+func TestRejectedFilterSelectsOneReason(t *testing.T) {
+	t.Parallel()
+
+	recorder := drops.NewRecorder(10)
+
+	for i := 0; i < 5; i++ {
+		recorder.Add(drops.Event{Name: "adult", Reason: classify.DropAdult})
+		recorder.Add(drops.Event{Name: "banned", Reason: classify.DropBanned})
+	}
+
+	filter := rejectedFilter{set: true, reasons: []classify.Drop{classify.DropBanned}}
+
+	events := filter.recent(recorder, 3)
+	require.Len(t, events, 3)
+
+	for _, event := range events {
+		assert.Equal(t, classify.DropBanned, event.Reason)
+	}
+
+	// A cleared selection keeps nothing, rather than falling back to everything.
+	assert.Empty(t, rejectedFilter{set: true}.recent(recorder, 10))
+}
+
+// TestRefreshMillis checks the interval the page's script runs on.
+func TestRefreshMillis(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, 3000, refreshMillis(3*time.Second))
+	assert.Equal(t, 60000, refreshMillis(time.Minute))
+
+	// A page rendered without settings still gets a usable interval.
+	assert.Equal(t, 1000, refreshMillis(0))
+	assert.Equal(t, 1000, refreshMillis(time.Millisecond))
 }

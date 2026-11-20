@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/BitTrawler/bittrawler/internal/classify"
+	"github.com/BitTrawler/bittrawler/internal/drops"
 	"github.com/BitTrawler/bittrawler/internal/store"
 	"github.com/BitTrawler/bittrawler/internal/tmdb"
 )
@@ -160,9 +161,12 @@ func TestTMDBAdultFlagDropsWhenConfigured(t *testing.T) {
 		found: true,
 	}
 
+	rejected := drops.NewRecorder(10)
+
 	tc := newTestCrawler(t, &fakeDHT{}, &fakeRequester{}, Config{
-		TMDB:           searcher,
-		Classification: classify.Config{DropAdult: true},
+		TMDB:       searcher,
+		Classifier: classify.NewLive(classify.Config{DropAdult: true}),
+		Rejected:   rejected,
 	})
 
 	job := tmdbJob{
@@ -176,6 +180,17 @@ func TestTMDBAdultFlagDropsWhenConfigured(t *testing.T) {
 
 	if got := tc.crawler.Stats().TorrentsDropped; got != 1 {
 		t.Fatalf("dropped = %d, want 1", got)
+	}
+
+	// The row was rejected after the crawl's own classification, so the feed
+	// has to be told about it from here.
+	events := rejected.Recent(10, nil)
+	if len(events) != 1 {
+		t.Fatalf("recorded %d rejections, want 1", len(events))
+	}
+
+	if events[0].Name != "Something.2020.1080p" || events[0].Reason != classify.DropAdult {
+		t.Fatalf("recorded %+v, want the adult drop", events[0])
 	}
 }
 

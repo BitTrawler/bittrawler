@@ -84,6 +84,35 @@ test('pausing the live feed stops the polling', async ({ page }) => {
   await expect.poll(() => polls.length, { timeout: 8_000 }).toBeGreaterThan(pausedAt);
 });
 
+test('the rejected feed filters by reason', async ({ page }) => {
+  await page.goto('/');
+
+  const polls: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().includes('/api/feed')) {
+      polls.push(request.url());
+    }
+  });
+
+  const selection = () => polls.map((url) => new URL(url).searchParams.get('rejected'));
+
+  await expect(page.locator('#rejected-feed')).toContainText('Nothing rejected yet.');
+
+  // A subset asks for those reasons, so a filtered list is filled with matches
+  // rather than the last few rejections of any reason.
+  await page.getByRole('checkbox', { name: 'Banned' }).uncheck();
+  await expect.poll(selection).toContain('deceptive,adult,script');
+
+  // Clearing every reason asks for nothing, and the list says so rather than
+  // claiming that nothing has been rejected.
+  for (const reason of ['Deceptive', 'Adult', 'Foreign script']) {
+    await page.getByRole('checkbox', { name: reason }).uncheck();
+  }
+
+  await expect(page.locator('#rejected-feed')).toContainText('No reasons selected.');
+  await expect.poll(selection).toContain('');
+});
+
 test('the pages make no requests off the machine', async ({ page }) => {
   const external: string[] = [];
   page.on('request', (request) => {

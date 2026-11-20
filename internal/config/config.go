@@ -7,6 +7,7 @@ import "time"
 type Config struct {
 	Data     Data     `key:"data"`
 	Web      Web      `key:"web"`
+	Overview Overview `key:"overview"`
 	Log      Log      `key:"log"`
 	Store    Store    `key:"store"`
 	Crawler  Crawler  `key:"crawler"`
@@ -31,6 +32,15 @@ type Web struct {
 	AdminUsername     string `key:"admin_username" hidden:"true" usage:"Set during setup." restart:"true"`
 	AdminPasswordHash string `key:"admin_password_hash" hidden:"true" secret:"true" usage:"Reset with bittrawler auth reset." restart:"true"`
 	SessionSecret     string `key:"session_secret" hidden:"true" secret:"true" usage:"Rotating it signs everyone out." restart:"true"`
+}
+
+// Overview configures the live lists on the overview page.
+type Overview struct {
+	ShowRecent   bool          `key:"show_recent" label:"Show Recently Added"`
+	RecentRows   int           `key:"recent_rows" label:"Recently Added Rows" min:"1" max:"100"`
+	ShowRejected bool          `key:"show_rejected" label:"Show Recently Rejected"  usage:"Banned, deceptive, adult and foreign-script torrents."`
+	RejectedRows int           `key:"rejected_rows" label:"Recently Rejected Rows" min:"1" max:"100"`
+	Refresh      time.Duration `key:"refresh" label:"Refresh Interval"  usage:"How often the lists ask for new rows."`
 }
 
 // Log configures the process log.
@@ -117,6 +127,13 @@ func Default() Config {
 		Web: Web{
 			Address:     "0.0.0.0:6684",
 			SessionDays: 30,
+		},
+		Overview: Overview{
+			ShowRecent:   true,
+			RecentRows:   20,
+			ShowRejected: true,
+			RejectedRows: 10,
+			Refresh:      time.Second * 3,
 		},
 		Log: Log{
 			Level: "info",

@@ -160,7 +160,8 @@
   </div>
 </section>
 
-<section class="card">
+{{if not .HideRecent}}
+<section class="card" data-refresh-ms="{{.RefreshMillis}}">
   <header class="card-head with-action">
     <h2>Recently Added</h2>
     <button class="button secondary small" type="button" data-feed-toggle aria-pressed="false">Pause Updates</button>
@@ -194,4 +195,46 @@
     </table>
   </div>
 </section>
+{{end}}
+
+{{if not .HideRejected}}
+<section class="card" data-refresh-ms="{{.RefreshMillis}}">
+  <header class="card-head with-action">
+    <h2>Recently Rejected</h2>
+    {{if .HideRecent}}<button class="button secondary small" type="button" data-feed-toggle aria-pressed="false">Pause Updates</button>{{end}}
+  </header>
+  {{if .Reasons}}
+  <div class="reason-filter" data-reason-filter role="group" aria-labelledby="rejected-reasons">
+    <span class="tile-label" id="rejected-reasons">Reasons</span>
+    {{range .Reasons}}
+    <label class="check"><input type="checkbox" value="{{.Value}}" checked> {{.Label}}</label>
+    {{end}}
+  </div>
+  {{end}}
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th class="col-reason">Reason</th>
+          <th class="num">Size</th>
+          <th class="num col-age">Age</th>
+        </tr>
+      </thead>
+      <tbody id="rejected-feed">
+        {{range .Rejected}}
+        <tr>
+          <td class="name">{{.Name}}</td>
+          <td class="col-reason"><span class="cat">{{.Reason}}</span></td>
+          <td class="num">{{.Size}}</td>
+          <td class="num col-age">{{.Age}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="4" class="empty">Nothing rejected yet.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</section>
+{{end}}
 {{end}}

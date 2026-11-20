@@ -21,9 +21,11 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/BitTrawler/bittrawler/internal/blocking"
+	"github.com/BitTrawler/bittrawler/internal/classify"
 	"github.com/BitTrawler/bittrawler/internal/config"
 	"github.com/BitTrawler/bittrawler/internal/crawlstate"
 	"github.com/BitTrawler/bittrawler/internal/dhtcrawler"
+	"github.com/BitTrawler/bittrawler/internal/drops"
 	"github.com/BitTrawler/bittrawler/internal/protocol"
 	"github.com/BitTrawler/bittrawler/internal/protocol/dht/ktable"
 	"github.com/BitTrawler/bittrawler/internal/protocol/dht/responder"
@@ -51,6 +53,8 @@ type App struct {
 	torrentStore  *store.Store
 	blocklist     *blocking.Blocklist
 	crawlState    *crawlstate.Store
+	classifier    *classify.Live
+	rejected      *drops.Recorder
 	dht           server.Server
 	table         ktable.Table
 	nodeID        protocol.ID
@@ -151,6 +155,12 @@ func New(ctx context.Context, overrides config.Overrides, info version.Info, log
 	}
 
 	a.refreshAuth()
+
+	// The classifier and the rejection record outlive any one crawl: the drop
+	// rules can change while the crawler runs, and the overview keeps its feed
+	// when the crawl is paused and resumed.
+	a.classifier = classify.NewLive(classifyConfig(a.loaded.Config))
+	a.rejected = drops.NewRecorder(drops.DefaultCapacity)
 
 	a.pages, err = web.New()
 	if err != nil {

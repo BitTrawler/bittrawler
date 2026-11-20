@@ -90,6 +90,7 @@ func (c *Crawler) confirm(ctx context.Context, job tmdbJob) {
 	row, dropped := c.applyTMDBMatch(job, match)
 	if dropped {
 		c.stats.torrentsDropped.Add(1)
+		c.recordRejection(protocol.ID(job.row.InfoHash), job.row.Name, job.row.Size, classify.DropAdult)
 		c.logger.Debug("dropped adult torrent after tmdb match",
 			"info_hash", protocol.ID(job.row.InfoHash).String(), "title", match.Title)
 
@@ -149,7 +150,7 @@ func (c *Crawler) applyTMDBMatchFamily(job tmdbJob, match tmdb.Match) (store.Row
 		row.Episodes = nil
 		row.AirDate = ""
 
-		if c.cfg.Classification.DropAdult {
+		if c.classifier.DropAdult() {
 			return row, true
 		}
 

@@ -52,7 +52,7 @@ type Crawler struct {
 	client     client.Client
 	requester  metainforequester.Requester
 	banning    banning.Checker
-	classifier *classify.Classifier
+	classifier *classify.Live
 	tmdb       TMDBSearcher
 	blocklist  *blocking.Blocklist
 	store      *store.Store
@@ -119,6 +119,10 @@ func New(cfg Config) (*Crawler, error) {
 
 	cfg = cfg.withDefaults()
 
+	if cfg.Classifier == nil {
+		cfg.Classifier = classify.NewLive(classify.Config{})
+	}
+
 	if cfg.Logger == nil {
 		cfg.Logger = slog.New(slog.DiscardHandler)
 	}
@@ -131,7 +135,7 @@ func New(cfg Config) (*Crawler, error) {
 		client:       cfg.DHT,
 		requester:    cfg.Requester,
 		banning:      cfg.Banning,
-		classifier:   classify.New(cfg.Classification),
+		classifier:   cfg.Classifier,
 		tmdb:         cfg.TMDB,
 		blocklist:    cfg.Blocklist,
 		store:        cfg.Store,

@@ -229,6 +229,86 @@ function rowFor(torrent) {
   return row;
 }
 
+// rejectedRowFor builds one row of the rejected feed. These torrents were never
+// stored, so the name is text rather than a link to a page.
+function rejectedRowFor(event) {
+  const row = document.createElement('tr');
+
+  const reason = document.createElement('td');
+  reason.className = 'col-reason';
+  const label = document.createElement('span');
+  label.className = 'cat';
+  label.textContent = event.reason;
+  reason.append(label);
+
+  row.append(
+    textCell(event.name, 'name'),
+    reason,
+    textCell(formatBytes(event.size), 'num'),
+    textCell(formatAge(event.at), 'num col-age'),
+  );
+
+  return row;
+}
+
+// rejectedReasons returns the ticked reasons, or null when the page has no
+// reason filter.
+function rejectedReasons() {
+  const filter = document.querySelector('[data-reason-filter]');
+  if (!filter) {
+    return null;
+  }
+
+  return [...filter.querySelectorAll('input[type="checkbox"]')]
+    .filter((box) => box.checked)
+    .map((box) => box.value);
+}
+
+// feedURL carries the reason selection, so the list is filled with matching
+// rejections rather than the last few rejections of any reason.
+function feedURL() {
+  const reasons = rejectedReasons();
+  if (reasons === null) {
+    return '/api/feed';
+  }
+
+  return '/api/feed?rejected=' + encodeURIComponent(reasons.join(','));
+}
+
+// allReasonsSelected reports whether every reason box is ticked, which decides
+// whether an empty list means nothing has been rejected or nothing matched.
+function allReasonsSelected() {
+  const boxes = document.querySelectorAll('[data-reason-filter] input[type="checkbox"]');
+
+  return [...boxes].every((box) => box.checked);
+}
+
+// updateRejected redraws the rejected feed. An empty selection says so rather
+// than claiming that nothing has been rejected.
+function updateRejected(events) {
+  const body = document.getElementById('rejected-feed');
+  if (!body || !Array.isArray(events)) {
+    return;
+  }
+
+  const reasons = rejectedReasons();
+
+  if (reasons !== null && reasons.length === 0) {
+    body.replaceChildren(emptyRow(4, 'No reasons selected.'));
+
+    return;
+  }
+
+  if (events.length === 0) {
+    const message = allReasonsSelected() ? 'Nothing rejected yet.' : 'Nothing matches these reasons.';
+    body.replaceChildren(emptyRow(4, message));
+
+    return;
+  }
+
+  body.replaceChildren(...events.map(rejectedRowFor));
+}
+
 function updateCounters(payload) {
   const counters = payload.counters || {};
   const ktable = payload.ktable || {};
@@ -519,12 +599,13 @@ function updateCrawlState(running) {
 
 async function refreshFeed() {
   const feed = document.getElementById('feed');
-  if (!feed) {
+  const rejected = document.getElementById('rejected-feed');
+  if (!feed && !rejected) {
     return;
   }
 
   try {
-    const response = await fetch('/api/feed?limit=20', {
+    const response = await fetch(feedURL(), {
       cache: 'no-store',
       headers: { Accept: 'application/json' },
     });
@@ -550,22 +631,17 @@ async function refreshFeed() {
     updateRuntime(payload.runtime);
     updateSpark(payload.history, payload.history_summary);
     updateTables(payload);
+    updateRejected(payload.rejected);
 
-    const torrents = payload.torrents || [];
+    if (feed) {
+      const torrents = payload.torrents || [];
 
-    if (torrents.length === 0) {
-      const row = document.createElement('tr');
-      const cell = document.createElement('td');
-      cell.colSpan = 6;
-      cell.className = 'empty';
-      cell.textContent = 'No torrents yet.';
-      row.append(cell);
-      feed.replaceChildren(row);
-
-      return;
+      if (torrents.length === 0) {
+        feed.replaceChildren(emptyRow(6, 'No torrents yet.'));
+      } else {
+        feed.replaceChildren(...torrents.map(rowFor));
+      }
     }
-
-    feed.replaceChildren(...torrents.map(rowFor));
   } catch {
     // A dropped poll is not worth reporting; the next one may succeed.
   }
@@ -595,10 +671,15 @@ if (categoriesBody) {
   });
 }
 
-if (document.getElementById('feed')) {
+if (document.getElementById('feed') || document.getElementById('rejected-feed')) {
+  // The refresh interval is a setting; a page rendered without one still gets a
+  // usable interval rather than a busy loop.
+  const refreshSource = document.querySelector('[data-refresh-ms]');
+  const refreshMillis = Math.max(1000, Number(refreshSource?.dataset.refreshMs) || 3000);
+
   refreshFeed();
 
-  let feedTimer = window.setInterval(refreshFeed, 3000);
+  let feedTimer = window.setInterval(refreshFeed, refreshMillis);
 
   const feedToggle = document.querySelector('[data-feed-toggle]');
   if (feedToggle) {
@@ -606,7 +687,7 @@ if (document.getElementById('feed')) {
       const paused = feedToggle.getAttribute('aria-pressed') === 'true';
 
       if (paused) {
-        feedTimer = window.setInterval(refreshFeed, 3000);
+        feedTimer = window.setInterval(refreshFeed, refreshMillis);
       } else {
         window.clearInterval(feedTimer);
       }
@@ -614,6 +695,15 @@ if (document.getElementById('feed')) {
       feedToggle.setAttribute('aria-pressed', String(!paused));
       feedToggle.textContent = paused ? 'Pause Updates' : 'Resume Updates';
       announce(paused ? 'Updates resumed.' : 'Updates paused.');
+    });
+  }
+
+  // A change of reasons redraws the list straight away, even while updates are
+  // paused: the reason filter is not part of the pause.
+  const reasonFilter = document.querySelector('[data-reason-filter]');
+  if (reasonFilter) {
+    reasonFilter.addEventListener('change', () => {
+      refreshFeed();
     });
   }
 

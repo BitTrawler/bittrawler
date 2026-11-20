@@ -220,6 +220,8 @@ func groupOf(key string) string {
 		return "Storage"
 	case "web":
 		return "Web interface"
+	case "overview":
+		return "Overview"
 	case "log":
 		return "Logging"
 	case "crawler":

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/BitTrawler/bittrawler/internal/classify"
+	"github.com/BitTrawler/bittrawler/internal/drops"
 	"github.com/BitTrawler/bittrawler/internal/protocol"
 	"github.com/BitTrawler/bittrawler/internal/protocol/dht/ktable"
 	"github.com/BitTrawler/bittrawler/internal/protocol/metainfo"
@@ -107,21 +108,25 @@ func (c *Crawler) metadata(ctx context.Context, job infoHashWithPeers) {
 	switch class.Drop {
 	case classify.DropBanned:
 		c.stats.infohashesBlocked.Add(1)
+		c.recordRejection(job.infoHash, info.BestName(), info.TotalLength(), class.Drop)
 		c.blockInfohash(ctx, job.infoHash, errBannedContent)
 
 		return
 	case classify.DropDeceptive:
 		c.stats.infohashesDeceptive.Add(1)
+		c.recordRejection(job.infoHash, info.BestName(), info.TotalLength(), class.Drop)
 		c.blockInfohash(ctx, job.infoHash, errDeceptiveContent)
 
 		return
 	case classify.DropAdult:
 		c.stats.torrentsDropped.Add(1)
+		c.recordRejection(job.infoHash, info.BestName(), info.TotalLength(), class.Drop)
 		c.logger.Debug("dropped adult torrent", "info_hash", job.infoHash.String())
 
 		return
 	case classify.DropScript:
 		c.stats.torrentsDroppedScript.Add(1)
+		c.recordRejection(job.infoHash, info.BestName(), info.TotalLength(), class.Drop)
 		c.logger.Debug("dropped foreign-script torrent", "info_hash", job.infoHash.String())
 
 		return
@@ -168,6 +173,23 @@ func (c *Crawler) fetchMetainfo(ctx context.Context, job infoHashWithPeers) (met
 	c.stats.metadataFailed.Add(1)
 
 	return metainfo.Info{}, errNoMetadata
+}
+
+// recordRejection keeps a rejected torrent for the overview's feed. The record
+// is in memory only, so it costs this process a few hundred kilobytes at most
+// and leaves no trace on disk.
+func (c *Crawler) recordRejection(hash protocol.ID, name string, size int64, reason classify.Drop) {
+	if c.cfg.Rejected == nil {
+		return
+	}
+
+	c.cfg.Rejected.Add(drops.Event{
+		InfoHash: hash,
+		Name:     name,
+		Size:     size,
+		Reason:   reason,
+		At:       time.Now(),
+	})
 }
 
 // blockInfohash records a hash that must not be indexed. Blocking is rare, so

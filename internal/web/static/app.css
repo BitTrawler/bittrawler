@@ -330,6 +330,21 @@ body {
   font-size: 13px;
 }
 
+/* The rejected feed filters by reason. The poll asks for the ticked reasons
+   only, so a filtered list is still full of matches rather than the last few
+   rejections of any reason. */
+.reason-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  margin-top: 10px;
+}
+
+.reason-filter .tile-label {
+  margin-right: 2px;
+}
+
 .card-foot {
   display: flex;
   align-items: center;

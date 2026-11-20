@@ -102,6 +102,16 @@ func TestRenderOverview(t *testing.T) {
 		Recent: []web.TorrentRow{
 			{Hash: "0123456789abcdef0123456789abcdef01234567", Name: "Some.Release.2024.1080p", Category: "Movies/HD", Size: "1.2 GiB", Files: "3", Seeders: 12, Leechers: 3, Age: "4m"},
 		},
+		Rejected: []web.RejectedRow{
+			{Name: "Some.Bait.2024.1080p", Reason: "Deceptive", Size: "1.5 KiB", Age: "2m"},
+		},
+		Reasons: []web.ReasonOption{
+			{Value: "banned", Label: "Banned"},
+			{Value: "deceptive", Label: "Deceptive"},
+			{Value: "adult", Label: "Adult"},
+			{Value: "script", Label: "Foreign script"},
+		},
+		RefreshMillis: 3000,
 		Pipeline: []web.CounterGroup{
 			{Name: "Discovery", Items: []web.CounterItem{{Key: "nodes_discovered", Label: "Nodes discovered", Value: "1,204"}}},
 		},
@@ -148,11 +158,18 @@ func TestRenderOverview(t *testing.T) {
 	assert.Contains(t, body, `href="/search">Search</a>`)
 	assert.Contains(t, body, "Pause Crawling")
 	assert.Contains(t, body, "Recently Added")
+	assert.Contains(t, body, `data-refresh-ms="3000"`)
+	assert.Contains(t, body, `id="feed"`)
+	assert.Contains(t, body, "Recently Rejected")
+	assert.Contains(t, body, `id="rejected-feed"`)
+	assert.Contains(t, body, `data-reason-filter`)
+	assert.Contains(t, body, `<input type="checkbox" value="script" checked> Foreign script`)
+	assert.Contains(t, body, `Some.Bait.2024.1080p`)
+	assert.Contains(t, body, `<span class="cat">Deceptive</span>`)
 	assert.Contains(t, body, "Some.Release.2024.1080p")
 	assert.Contains(t, body, `href="/torrent/0123456789abcdef0123456789abcdef01234567"`)
 	assert.Contains(t, body, `class="build">v1.2.3</span>`)
 	assert.Contains(t, body, `data-stat="stored">12,345<`)
-	assert.Contains(t, body, `id="feed"`)
 	// The endpoint and key live on the settings page, not here.
 	assert.NotContains(t, body, "http://nas:6684/torznab/api")
 	assert.Contains(t, body, "Ingest Activity")
@@ -167,6 +184,38 @@ func TestRenderOverview(t *testing.T) {
 	assert.Contains(t, body, `<span class="family-static"><span class="chevron is-hidden" aria-hidden="true"></span><span class="cat">Other</span></span>`)
 	assert.Contains(t, body, `<svg class="spark-bars" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">`)
 	assert.Contains(t, body, `<rect x="0" y="90" width="24.4" height="10"></rect>`)
+}
+
+func TestRenderOverviewWithoutTheRecentFeed(t *testing.T) {
+	recorder := render(t, "dashboard", web.OverviewData{
+		Shell:         web.Shell{Title: "Overview", Active: "dashboard"},
+		HideRecent:    true,
+		Reasons:       []web.ReasonOption{{Value: "banned", Label: "Banned"}},
+		RefreshMillis: 3000,
+	})
+
+	body := recorder.Body.String()
+
+	assert.NotContains(t, body, "Recently Added")
+	assert.NotContains(t, body, `id="feed"`)
+	assert.Contains(t, body, "Recently Rejected")
+
+	// Pausing the feed must stay possible when only the rejected feed is shown.
+	assert.Contains(t, body, "data-feed-toggle")
+}
+
+func TestRenderOverviewWithoutAnyFeed(t *testing.T) {
+	recorder := render(t, "dashboard", web.OverviewData{
+		Shell:        web.Shell{Title: "Overview", Active: "dashboard"},
+		HideRecent:   true,
+		HideRejected: true,
+	})
+
+	body := recorder.Body.String()
+
+	assert.NotContains(t, body, "Recently Added")
+	assert.NotContains(t, body, "Recently Rejected")
+	assert.NotContains(t, body, "data-feed-toggle")
 }
 
 func TestRenderPausedOverview(t *testing.T) {

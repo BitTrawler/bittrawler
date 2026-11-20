@@ -226,6 +226,22 @@ type TorrentRow struct {
 	TMDBURL     string
 }
 
+// RejectedRow is one torrent in the overview's rejected feed. Nothing links it:
+// the torrent was never stored, so it has no page.
+type RejectedRow struct {
+	Name   string
+	Reason string
+	Size   string
+	Age    string
+}
+
+// ReasonOption is one checkbox of the rejected feed's reason filter. Value is
+// the classifier's name for the reason, which the feed's request carries.
+type ReasonOption struct {
+	Value string
+	Label string
+}
+
 // OverviewData is the dashboard.
 type OverviewData struct {
 	Shell
@@ -234,6 +250,11 @@ type OverviewData struct {
 	Warming         bool
 	CrawlError      string
 	Recent          []TorrentRow
+	HideRecent      bool
+	Rejected        []RejectedRow
+	HideRejected    bool
+	Reasons         []ReasonOption
+	RefreshMillis   int
 	Pipeline        []CounterGroup
 	Runtime         []CounterItem
 	Shards          []ShardRow

@@ -65,6 +65,12 @@ func (c Config) Validate() error {
 		errs = append(errs, errors.New("config: crawler.sample_infohashes_override must not be negative"))
 	}
 
+	// The feed polls this often while a page is open; a shorter interval would
+	// be a request loop against the instance itself.
+	if c.Overview.Refresh < time.Second {
+		errs = append(errs, errors.New("config: overview.refresh must be at least 1s"))
+	}
+
 	if c.Crawler.SeenHashesFalsePositiveRate <= 0 || c.Crawler.SeenHashesFalsePositiveRate >= 1 {
 		errs = append(errs, errors.New("config: crawler.seen_hashes_false_positive_rate must be between 0 and 1"))
 	}

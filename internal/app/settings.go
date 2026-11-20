@@ -29,6 +29,7 @@ type settingsGroupSpec struct {
 // settingsGroups is the order and grouping of the settings page. The sections
 // are prefixes of setting keys.
 var settingsGroups = []settingsGroupSpec{
+	{"overview", "Overview", "Live lists on the overview page.", []string{"overview"}},
 	{"storage", "Storage", "Shard location and retention.", []string{"data", "store"}},
 	{"web", "Web Interface", "Listen address for this interface and Torznab.", []string{"web"}},
 	{"logging", "Logging", "Log verbosity.", []string{"log"}},
@@ -211,6 +212,10 @@ func (a *App) saveSettings(ctx context.Context, spec settingsGroupSpec, form url
 	}
 
 	a.replaceConfig(candidate, written)
+
+	// The classifier is shared with a running crawl, so a change to the drop
+	// rules applies to the next torrent instead of waiting for a restart.
+	a.classifier.Set(classifyConfig(candidate))
 
 	if _, ok := changed["crawler.enabled"]; ok {
 		crawlCtx, cancel := context.WithTimeout(ctx, 30*time.Second)

@@ -14,6 +14,7 @@ import (
 
 	"github.com/BitTrawler/bittrawler/internal/classify"
 	"github.com/BitTrawler/bittrawler/internal/dhtcrawler"
+	"github.com/BitTrawler/bittrawler/internal/drops"
 	"github.com/BitTrawler/bittrawler/internal/store"
 	"github.com/BitTrawler/bittrawler/internal/tmdb"
 	"github.com/BitTrawler/bittrawler/internal/torznab"
@@ -23,8 +24,10 @@ import (
 const (
 	// pageSize is the number of search results per page.
 	pageSize = 50
-	// feedSize is the number of torrents on the live feed.
-	feedSize = 20
+	// maxFeedLimit is the largest recent list a feed request may ask for. The
+	// overview settings bound the lists the page asks for; this bounds what a
+	// hand-written request can ask for.
+	maxFeedLimit = 100
 )
 
 // categoryFamilyOrder is the order the category families appear in the search
@@ -119,7 +122,10 @@ func (a *App) handleOverview(w http.ResponseWriter, r *http.Request) {
 			Nodes:       humanCount(snapshot.Nodes),
 			Crawled:     humanCount(int(snapshot.Counters.TorrentsPersisted)),
 		},
-		Recent:          a.recentTorrents(r.Context(), feedSize),
+		HideRecent:      !cfg.Overview.ShowRecent,
+		HideRejected:    !cfg.Overview.ShowRejected,
+		Reasons:         rejectedReasonOptions(),
+		RefreshMillis:   refreshMillis(cfg.Overview.Refresh),
 		Pipeline:        pipelineGroups(snapshot),
 		Runtime:         runtimeItems(snapshot),
 		Shards:          shardRows(snapshot),
@@ -134,6 +140,14 @@ func (a *App) handleOverview(w http.ResponseWriter, r *http.Request) {
 		DataDirectory:   a.dataDir,
 		RetentionMonths: cfg.Store.RetentionMonths,
 		CrawlEnabled:    cfg.Crawler.Enabled,
+	}
+
+	if !data.HideRecent {
+		data.Recent = a.recentTorrents(r.Context(), cfg.Overview.RecentRows)
+	}
+
+	if !data.HideRejected {
+		data.Rejected = a.rejectedRows(cfg.Overview.RejectedRows, rejectedFilter{})
 	}
 
 	a.renderPage(w, "dashboard", data)
@@ -187,6 +201,113 @@ func torrentRows(torrents []store.Torrent) []web.TorrentRow {
 	}
 
 	return rows
+}
+
+// rejectedRows returns the newest rejections for the overview.
+func (a *App) rejectedRows(limit int, filter rejectedFilter) []web.RejectedRow {
+	events := filter.recent(a.rejected, limit)
+	now := time.Now()
+
+	rows := make([]web.RejectedRow, 0, len(events))
+
+	for _, event := range events {
+		rows = append(rows, web.RejectedRow{
+			Name:   event.Name,
+			Reason: rejectionLabel(event.Reason),
+			Size:   humanBytes(event.Size),
+			Age:    humanAge(now, event.At),
+		})
+	}
+
+	return rows
+}
+
+// rejectedReasons is the order and wording of the reason filter. The values are
+// the classifier's own names, so a reason this build does not know is never
+// shown or requested.
+var rejectedReasons = []struct {
+	Reason classify.Drop
+	Label  string
+}{
+	{classify.DropBanned, "Banned"},
+	{classify.DropDeceptive, "Deceptive"},
+	{classify.DropAdult, "Adult"},
+	{classify.DropScript, "Foreign script"},
+}
+
+// rejectedReasonOptions builds the filter the page renders.
+func rejectedReasonOptions() []web.ReasonOption {
+	options := make([]web.ReasonOption, 0, len(rejectedReasons))
+
+	for _, known := range rejectedReasons {
+		options = append(options, web.ReasonOption{Value: known.Reason.String(), Label: known.Label})
+	}
+
+	return options
+}
+
+// rejectionLabel is the word the overview uses for a rejection reason.
+func rejectionLabel(reason classify.Drop) string {
+	for _, known := range rejectedReasons {
+		if known.Reason == reason {
+			return known.Label
+		}
+	}
+
+	return reason.String()
+}
+
+// rejectedFilter is the reason selection of a feed request. The page's own
+// render and a poll that names no reasons show everything; a box that has been
+// cleared from every reason asks for nothing.
+type rejectedFilter struct {
+	// set reports that the request named its reasons.
+	set     bool
+	reasons []classify.Drop
+}
+
+// parseRejectedFilter reads the reasons from a feed request. An unknown name is
+// ignored rather than widening the selection.
+func parseRejectedFilter(query url.Values) rejectedFilter {
+	values, set := query["rejected"]
+	if !set {
+		return rejectedFilter{}
+	}
+
+	filter := rejectedFilter{set: true}
+
+	for _, value := range values {
+		for _, name := range strings.Split(value, ",") {
+			name = strings.TrimSpace(name)
+
+			for _, known := range rejectedReasons {
+				if known.Reason.String() == name {
+					filter.reasons = append(filter.reasons, known.Reason)
+				}
+			}
+		}
+	}
+
+	return filter
+}
+
+// recent returns the events the filter selects, newest first.
+func (f rejectedFilter) recent(recorder *drops.Recorder, limit int) []drops.Event {
+	if f.set && len(f.reasons) == 0 {
+		return nil
+	}
+
+	return recorder.Recent(limit, f.reasons)
+}
+
+// refreshMillis turns the refresh interval into the milliseconds the page's
+// script runs on. A page rendered without settings still gets a usable interval.
+func refreshMillis(interval time.Duration) int {
+	if interval < time.Second {
+		return int(time.Second / time.Millisecond)
+	}
+
+	return int(interval / time.Millisecond)
 }
 
 // pipelineGroups lays the crawler's counters out in the groups the overview
@@ -524,9 +645,11 @@ func (a *App) handleFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit := feedSize
+	cfg := a.currentConfig()
+
+	limit := cfg.Overview.RecentRows
 	if raw := r.URL.Query().Get("limit"); raw != "" {
-		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 && parsed <= 100 {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 && parsed <= maxFeedLimit {
 			limit = parsed
 		}
 	}
@@ -537,7 +660,7 @@ func (a *App) handleFeed(w http.ResponseWriter, r *http.Request) {
 
 	response := feedResponse{
 		Crawling:     status.Crawling,
-		CrawlEnabled: a.currentConfig().Crawler.Enabled,
+		CrawlEnabled: cfg.Crawler.Enabled,
 		Stats: feedStats{
 			Stored:        snapshot.StoreRows,
 			RatePerMinute: math.Round(snapshot.RatePerMinute*10) / 10,
@@ -582,6 +705,21 @@ func (a *App) handleFeed(w http.ResponseWriter, r *http.Request) {
 				CategoryID: torrent.Category,
 			})
 		}
+	}
+
+	// The reason filter travels in the request so that a filtered list is still
+	// full of matches rather than the last few rejections of any reason.
+	events := parseRejectedFilter(r.URL.Query()).recent(a.rejected, cfg.Overview.RejectedRows)
+
+	response.Rejected = make([]feedRejected, 0, len(events))
+
+	for _, event := range events {
+		response.Rejected = append(response.Rejected, feedRejected{
+			Name:   event.Name,
+			Reason: rejectionLabel(event.Reason),
+			Size:   event.Size,
+			At:     event.At.Unix(),
+		})
 	}
 
 	writeJSON(w, http.StatusOK, response)
@@ -912,6 +1050,15 @@ type feedTorrent struct {
 	CategoryID int    `json:"category_id"`
 }
 
+// feedRejected is one row of the rejected feed. At is the rejection time, which
+// the page turns into an age.
+type feedRejected struct {
+	Name   string `json:"name"`
+	Reason string `json:"reason"`
+	Size   int64  `json:"size"`
+	At     int64  `json:"at"`
+}
+
 // feedResponse is the body of GET /api/feed.
 type feedResponse struct {
 	Crawling     bool         `json:"crawling"`
@@ -927,6 +1074,7 @@ type feedResponse struct {
 	Shards         []feedShard    `json:"shards"`
 	Categories     []feedCategory `json:"categories"`
 	Torrents       []feedTorrent  `json:"torrents"`
+	Rejected       []feedRejected `json:"rejected"`
 }
 
 // feedShard is one row of the storage table, formatted as the page renders it.

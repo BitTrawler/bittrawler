@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/BitTrawler/bittrawler/internal/classify"
+	"github.com/BitTrawler/bittrawler/internal/config"
 	"github.com/BitTrawler/bittrawler/internal/dhtcrawler"
 	"github.com/BitTrawler/bittrawler/internal/protocol/dht/client"
 	"github.com/BitTrawler/bittrawler/internal/protocol/metainfo/banning"
@@ -123,10 +124,8 @@ func (a *App) crawlerConfig() dhtcrawler.Config {
 	crawler.Blocklist = a.blocklist
 	crawler.Store = a.torrentStore
 	crawler.State = a.crawlState
-	crawler.Classification = classify.Config{
-		DropAdult:   cfg.Classify.DropAdult,
-		DropScripts: cfg.Classify.DropScripts,
-	}
+	crawler.Classifier = a.classifier
+	crawler.Rejected = a.rejected
 	if client := a.tmdbClient(); client != nil {
 		crawler.TMDB = client
 	}
@@ -156,4 +155,14 @@ func (a *App) crawlerConfig() dhtcrawler.Config {
 	crawler.Logger = a.logger.With("component", "crawler")
 
 	return crawler
+}
+
+// classifyConfig turns the drop settings into the classifier's configuration.
+// The live classifier and a newly started crawl both read it from here, so a
+// saved change and a started crawl cannot disagree about what is dropped.
+func classifyConfig(cfg config.Config) classify.Config {
+	return classify.Config{
+		DropAdult:   cfg.Classify.DropAdult,
+		DropScripts: cfg.Classify.DropScripts,
+	}
 }

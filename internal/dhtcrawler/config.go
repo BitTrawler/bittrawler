@@ -6,6 +6,7 @@ import (
 
 	"github.com/BitTrawler/bittrawler/internal/blocking"
 	"github.com/BitTrawler/bittrawler/internal/classify"
+	"github.com/BitTrawler/bittrawler/internal/drops"
 	"github.com/BitTrawler/bittrawler/internal/protocol/dht/client"
 	"github.com/BitTrawler/bittrawler/internal/protocol/dht/ktable"
 	"github.com/BitTrawler/bittrawler/internal/protocol/metainfo/banning"
@@ -32,8 +33,14 @@ type Config struct {
 	// State keeps the routing table between runs. It is optional: nil starts
 	// every crawl from the bootstrap nodes.
 	State StateStore
-	// Classification controls what happens to torrents the classifier rejects.
-	Classification classify.Config
+	// Classifier decides what is indexed and what is rejected. It is live: a
+	// change to the drop rules in the interface is applied to the running crawl
+	// rather than at the next start. A classifier with no drop rules is used
+	// when this is nil.
+	Classifier *classify.Live
+	// Rejected receives every torrent the crawl rejects, for the overview's
+	// feed. It is optional: nil keeps no record.
+	Rejected *drops.Recorder
 	// TMDB confirms and corrects film and television classifications. It is
 	// optional: nil disables the confirmation stage.
 	TMDB TMDBSearcher
