@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDropScriptsIsACheckboxList checks that the writing-system setting is a
-// list of boxes rather than a free-text field, and that ticked and cleared
-// boxes both reach the stored setting.
-func TestDropScriptsIsACheckboxList(t *testing.T) {
+// TestDropScriptsIsASwitchList checks that the writing-system setting is a
+// column of switches rather than a free-text field, and that switching one on
+// and off reaches the stored setting.
+func TestDropScriptsIsASwitchList(t *testing.T) {
 	application, baseURL := start(t)
 
 	completeSetup(t, baseURL)
@@ -22,7 +22,8 @@ func TestDropScriptsIsACheckboxList(t *testing.T) {
 	require.Equal(t, http.StatusOK, response.StatusCode)
 
 	page := body(t, response)
-	assert.Contains(t, page, `type="checkbox" name="classify.drop_scripts"`)
+	assert.Contains(t, page, `class="switch" type="checkbox" name="classify.drop_scripts"`)
+	assert.Contains(t, page, `class="switch-row"><span>CJK</span>`)
 	assert.Contains(t, page, `value="cjk"`)
 	assert.Contains(t, page, `value="nonlatin"`)
 	assert.NotContains(t, page, `<textarea name="classify.drop_scripts"`)

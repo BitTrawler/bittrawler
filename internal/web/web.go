@@ -235,13 +235,6 @@ type RejectedRow struct {
 	Age    string
 }
 
-// ReasonOption is one checkbox of the rejected feed's reason filter. Value is
-// the classifier's name for the reason, which the feed's request carries.
-type ReasonOption struct {
-	Value string
-	Label string
-}
-
 // OverviewData is the dashboard.
 type OverviewData struct {
 	Shell
@@ -253,7 +246,6 @@ type OverviewData struct {
 	HideRecent      bool
 	Rejected        []RejectedRow
 	HideRejected    bool
-	Reasons         []ReasonOption
 	RefreshMillis   int
 	Pipeline        []CounterGroup
 	Runtime         []CounterItem

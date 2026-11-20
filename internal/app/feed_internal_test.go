@@ -1,7 +1,6 @@
 package app
 
 import (
-	"net/url"
 	"testing"
 	"time"
 
@@ -290,60 +289,22 @@ func TestContentLinks(t *testing.T) {
 	}
 }
 
-// TestParseRejectedFilter checks the reason selection a feed request carries.
-// The key being absent means every reason; a box that has been cleared from
-// every reason asks for nothing.
-func TestParseRejectedFilter(t *testing.T) {
+// TestConfiguredRejections turns the settings page's reason names into the
+// classifier's reasons. An empty result means the feed is switched off, which is
+// what the overview checks before rendering it.
+func TestConfiguredRejections(t *testing.T) {
 	t.Parallel()
 
-	t.Run("no selection shows everything", func(t *testing.T) {
-		t.Parallel()
+	assert.Nil(t, configuredRejections(nil), "no reasons switched on turns the feed off")
+	assert.Nil(t, configuredRejections([]string{}))
 
-		filter := parseRejectedFilter(url.Values{})
+	assert.Equal(t, []classify.Drop{
+		classify.DropBanned,
+		classify.DropAdult,
+	}, configuredRejections([]string{"banned", "adult"}))
 
-		assert.False(t, filter.set)
-		assert.Nil(t, filter.reasons)
-	})
-
-	t.Run("named reasons", func(t *testing.T) {
-		t.Parallel()
-
-		filter := parseRejectedFilter(url.Values{"rejected": {"banned,adult"}})
-
-		assert.True(t, filter.set)
-		assert.Equal(t, []classify.Drop{classify.DropBanned, classify.DropAdult}, filter.reasons)
-	})
-
-	t.Run("repeated parameters", func(t *testing.T) {
-		t.Parallel()
-
-		filter := parseRejectedFilter(url.Values{
-			"rejected": {"banned", "script,deceptive"},
-		})
-
-		assert.Equal(t, []classify.Drop{
-			classify.DropBanned,
-			classify.DropScript,
-			classify.DropDeceptive,
-		}, filter.reasons)
-	})
-
-	t.Run("an emptied list asks for nothing", func(t *testing.T) {
-		t.Parallel()
-
-		filter := parseRejectedFilter(url.Values{"rejected": {""}})
-
-		assert.True(t, filter.set)
-		assert.Empty(t, filter.reasons)
-	})
-
-	t.Run("unknown names are ignored", func(t *testing.T) {
-		t.Parallel()
-
-		filter := parseRejectedFilter(url.Values{"rejected": {"banned,klingon"}})
-
-		assert.Equal(t, []classify.Drop{classify.DropBanned}, filter.reasons)
-	})
+	// An unknown name is ignored rather than widening the selection.
+	assert.Equal(t, []classify.Drop{classify.DropScript}, configuredRejections([]string{"klingon", "script"}))
 }
 
 // TestRejectedRows checks the words and formatting the overview uses for the
@@ -368,15 +329,18 @@ func TestRejectedRows(t *testing.T) {
 		At:     now,
 	})
 
+	all := configuredRejections([]string{"banned", "deceptive", "adult", "script"})
+
 	assert.Equal(t, []web.RejectedRow{
 		{Name: "寄生兽 完全版", Reason: "Foreign script", Size: "1.0 KiB", Age: "now"},
 		{Name: "Some.Bait.2024.1080p", Reason: "Deceptive", Size: "1.5 KiB", Age: "2m"},
-	}, application.rejectedRows(10, rejectedFilter{}))
+	}, application.rejectedRows(10, all))
 }
 
-// TestRejectedFilterSelectsOneReason checks that filtering happens before the
-// limit, so a filtered list is not cut short by rejections of other reasons.
-func TestRejectedFilterSelectsOneReason(t *testing.T) {
+// TestRejectedRowsFilterBeforeTheLimit checks that the configured reasons are
+// applied before the limit, so a filtered list is not cut short by rejections
+// of other reasons.
+func TestRejectedRowsFilterBeforeTheLimit(t *testing.T) {
 	t.Parallel()
 
 	recorder := drops.NewRecorder(10)
@@ -386,17 +350,14 @@ func TestRejectedFilterSelectsOneReason(t *testing.T) {
 		recorder.Add(drops.Event{Name: "banned", Reason: classify.DropBanned})
 	}
 
-	filter := rejectedFilter{set: true, reasons: []classify.Drop{classify.DropBanned}}
+	application := &App{rejected: recorder}
 
-	events := filter.recent(recorder, 3)
-	require.Len(t, events, 3)
+	rows := application.rejectedRows(3, configuredRejections([]string{"banned"}))
+	require.Len(t, rows, 3)
 
-	for _, event := range events {
-		assert.Equal(t, classify.DropBanned, event.Reason)
+	for _, row := range rows {
+		assert.Equal(t, "Banned", row.Reason)
 	}
-
-	// A cleared selection keeps nothing, rather than falling back to everything.
-	assert.Empty(t, rejectedFilter{set: true}.recent(recorder, 10))
 }
 
 // TestRefreshMillis checks the interval the page's script runs on.

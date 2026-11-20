@@ -105,12 +105,6 @@ func TestRenderOverview(t *testing.T) {
 		Rejected: []web.RejectedRow{
 			{Name: "Some.Bait.2024.1080p", Reason: "Deceptive", Size: "1.5 KiB", Age: "2m"},
 		},
-		Reasons: []web.ReasonOption{
-			{Value: "banned", Label: "Banned"},
-			{Value: "deceptive", Label: "Deceptive"},
-			{Value: "adult", Label: "Adult"},
-			{Value: "script", Label: "Foreign script"},
-		},
 		RefreshMillis: 3000,
 		Pipeline: []web.CounterGroup{
 			{Name: "Discovery", Items: []web.CounterItem{{Key: "nodes_discovered", Label: "Nodes discovered", Value: "1,204"}}},
@@ -162,8 +156,8 @@ func TestRenderOverview(t *testing.T) {
 	assert.Contains(t, body, `id="feed"`)
 	assert.Contains(t, body, "Recently Rejected")
 	assert.Contains(t, body, `id="rejected-feed"`)
-	assert.Contains(t, body, `data-reason-filter`)
-	assert.Contains(t, body, `<input type="checkbox" value="script" checked> Foreign script`)
+	assert.Contains(t, body, `aria-label="Pause updates to Recently Added"`)
+	assert.Contains(t, body, `aria-label="Pause updates to Recently Rejected"`)
 	assert.Contains(t, body, `Some.Bait.2024.1080p`)
 	assert.Contains(t, body, `<span class="cat">Deceptive</span>`)
 	assert.Contains(t, body, "Some.Release.2024.1080p")
@@ -190,7 +184,6 @@ func TestRenderOverviewWithoutTheRecentFeed(t *testing.T) {
 	recorder := render(t, "dashboard", web.OverviewData{
 		Shell:         web.Shell{Title: "Overview", Active: "dashboard"},
 		HideRecent:    true,
-		Reasons:       []web.ReasonOption{{Value: "banned", Label: "Banned"}},
 		RefreshMillis: 3000,
 	})
 
@@ -200,8 +193,10 @@ func TestRenderOverviewWithoutTheRecentFeed(t *testing.T) {
 	assert.NotContains(t, body, `id="feed"`)
 	assert.Contains(t, body, "Recently Rejected")
 
-	// Pausing the feed must stay possible when only the rejected feed is shown.
-	assert.Contains(t, body, "data-feed-toggle")
+	// The rejected feed has a pause button of its own, whether or not the recent
+	// feed beside it is shown.
+	assert.Contains(t, body, `data-feed="rejected"`)
+	assert.Contains(t, body, `aria-label="Pause updates to Recently Rejected"`)
 }
 
 func TestRenderOverviewWithoutAnyFeed(t *testing.T) {
@@ -363,6 +358,10 @@ func TestRenderSettings(t *testing.T) {
 					{Key: "crawler.enabled", Label: "Enabled", Usage: "Crawl whenever the process is running.", Type: "bool", Checked: true},
 					{Key: "log.level", Label: "Level", Usage: "Log level.", Type: "enum", Value: "info", Options: []string{"debug", "info", "warn", "error"}},
 					{Key: "web.address", Label: "Address", Usage: "Listen address.", Type: "text", Value: "0.0.0.0:6684", Restart: true},
+					{Key: "classify.drop_scripts", Label: "Drop These Scripts", Type: "switches", Choices: []web.SettingChoice{
+						{Value: "cjk", Label: "CJK", Checked: true},
+						{Value: "greek", Label: "Greek"},
+					}},
 				},
 			},
 		},
@@ -382,6 +381,9 @@ func TestRenderSettings(t *testing.T) {
 	assert.Contains(t, body, `<option value="info" selected>info</option>`)
 	assert.Contains(t, body, `class="switch"`)
 	assert.Contains(t, body, `name="crawler.enabled" value="true" checked`)
+	assert.Contains(t, body, `class="switches"`)
+	assert.Contains(t, body, `<label class="switch-row"><span>CJK</span><input class="switch" type="checkbox" name="classify.drop_scripts" value="cjk" checked></label>`)
+	assert.Contains(t, body, `<label class="switch-row"><span>Greek</span><input class="switch" type="checkbox" name="classify.drop_scripts" value="greek"></label>`)
 	assert.Contains(t, body, "from environment")
 	assert.Contains(t, body, `class="tag warn">restart</span>`)
 	assert.Contains(t, body, "0123456789abcdef0123456789abcdef")

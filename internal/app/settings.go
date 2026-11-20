@@ -321,7 +321,7 @@ func settingsField(cfg config.Config, sources map[string]config.Source, setting 
 	case setting.Type == config.TypeBool:
 		control = "bool"
 	case setting.Type == config.TypeStrings && len(setting.Enum) > 0:
-		control = "checks"
+		control = "switches"
 		field.Choices = settingChoices(setting.Enum, value)
 	case len(setting.Enum) > 0:
 		control = "enum"
@@ -378,8 +378,9 @@ func settingsField(cfg config.Config, sources map[string]config.Source, setting 
 	return field
 }
 
-// scriptLabels are the display labels for the writing-system list.
-var scriptLabels = map[string]string{
+// choiceLabels are the display labels for the values in a list setting: the
+// writing systems of the drop filter and the reasons of the rejected feed.
+var choiceLabels = map[string]string{
 	"cjk":        "CJK",
 	"hangul":     "Hangul",
 	"cyrillic":   "Cyrillic",
@@ -389,6 +390,10 @@ var scriptLabels = map[string]string{
 	"devanagari": "Devanagari",
 	"greek":      "Greek",
 	"nonlatin":   "Non-Latin",
+	"banned":     "Banned",
+	"deceptive":  "Deceptive",
+	"adult":      "Adult",
+	"script":     "Foreign script",
 }
 
 // settingChoices builds the checkbox list for a list setting.
@@ -397,7 +402,7 @@ func settingChoices(options []string, value any) []web.SettingChoice {
 	choices := make([]web.SettingChoice, 0, len(options))
 
 	for _, option := range options {
-		label := scriptLabels[option]
+		label := choiceLabels[option]
 		if label == "" {
 			label = strings.ToUpper(option[:1]) + option[1:]
 		}

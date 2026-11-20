@@ -36,11 +36,12 @@ type Web struct {
 
 // Overview configures the live lists on the overview page.
 type Overview struct {
-	ShowRecent   bool          `key:"show_recent" label:"Show Recently Added"`
-	RecentRows   int           `key:"recent_rows" label:"Recently Added Rows" min:"1" max:"100"`
-	ShowRejected bool          `key:"show_rejected" label:"Show Recently Rejected"  usage:"Banned, deceptive, adult and foreign-script torrents."`
-	RejectedRows int           `key:"rejected_rows" label:"Recently Rejected Rows" min:"1" max:"100"`
-	Refresh      time.Duration `key:"refresh" label:"Refresh Interval"  usage:"How often the lists ask for new rows."`
+	ShowRecent      bool          `key:"show_recent" label:"Show Recently Added"`
+	RecentRows      int           `key:"recent_rows" label:"Recently Added Rows" min:"1" max:"100"`
+	ShowRejected    bool          `key:"show_rejected" label:"Show Recently Rejected"  usage:"Banned, deceptive, adult and foreign-script torrents."`
+	RejectedRows    int           `key:"rejected_rows" label:"Recently Rejected Rows" min:"1" max:"100"`
+	RejectedReasons []string      `key:"rejected_reasons" label:"Rejected Reasons"  usage:"The feed is hidden while every reason is off." enum:"banned,deceptive,adult,script"`
+	Refresh         time.Duration `key:"refresh" label:"Refresh Interval"  usage:"How often the lists ask for new rows."`
 }
 
 // Log configures the process log.
@@ -115,7 +116,7 @@ type TMDB struct {
 // Classify configures what is dropped at intake instead of being indexed.
 type Classify struct {
 	DropAdult   bool     `key:"drop_adult" label:"Drop Adult Torrents"  usage:"Dropped, not indexed."`
-	DropScripts []string `key:"drop_scripts" usage:"Nothing selected keeps every script." enum:"cjk,hangul,cyrillic,arabic,hebrew,thai,devanagari,greek,nonlatin"`
+	DropScripts []string `key:"drop_scripts" label:"Drop These Scripts"  usage:"A torrent is dropped when its name is written mostly in a script that is on." enum:"cjk,hangul,cyrillic,arabic,hebrew,thai,devanagari,greek,nonlatin"`
 }
 
 // Default returns the settings new installations start with.
@@ -129,11 +130,12 @@ func Default() Config {
 			SessionDays: 30,
 		},
 		Overview: Overview{
-			ShowRecent:   true,
-			RecentRows:   20,
-			ShowRejected: true,
-			RejectedRows: 10,
-			Refresh:      time.Second * 3,
+			ShowRecent:      true,
+			RecentRows:      20,
+			ShowRejected:    true,
+			RejectedRows:    10,
+			RejectedReasons: []string{"banned", "deceptive", "adult", "script"},
+			Refresh:         time.Second * 3,
 		},
 		Log: Log{
 			Level: "info",

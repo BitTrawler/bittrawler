@@ -251,57 +251,15 @@ function rejectedRowFor(event) {
   return row;
 }
 
-// rejectedReasons returns the ticked reasons, or null when the page has no
-// reason filter.
-function rejectedReasons() {
-  const filter = document.querySelector('[data-reason-filter]');
-  if (!filter) {
-    return null;
-  }
-
-  return [...filter.querySelectorAll('input[type="checkbox"]')]
-    .filter((box) => box.checked)
-    .map((box) => box.value);
-}
-
-// feedURL carries the reason selection, so the list is filled with matching
-// rejections rather than the last few rejections of any reason.
-function feedURL() {
-  const reasons = rejectedReasons();
-  if (reasons === null) {
-    return '/api/feed';
-  }
-
-  return '/api/feed?rejected=' + encodeURIComponent(reasons.join(','));
-}
-
-// allReasonsSelected reports whether every reason box is ticked, which decides
-// whether an empty list means nothing has been rejected or nothing matched.
-function allReasonsSelected() {
-  const boxes = document.querySelectorAll('[data-reason-filter] input[type="checkbox"]');
-
-  return [...boxes].every((box) => box.checked);
-}
-
-// updateRejected redraws the rejected feed. An empty selection says so rather
-// than claiming that nothing has been rejected.
+// updateRejected redraws the rejected feed.
 function updateRejected(events) {
   const body = document.getElementById('rejected-feed');
   if (!body || !Array.isArray(events)) {
     return;
   }
 
-  const reasons = rejectedReasons();
-
-  if (reasons !== null && reasons.length === 0) {
-    body.replaceChildren(emptyRow(4, 'No reasons selected.'));
-
-    return;
-  }
-
   if (events.length === 0) {
-    const message = allReasonsSelected() ? 'Nothing rejected yet.' : 'Nothing matches these reasons.';
-    body.replaceChildren(emptyRow(4, message));
+    body.replaceChildren(emptyRow(4, 'Nothing rejected yet.'));
 
     return;
   }
@@ -597,6 +555,10 @@ function updateCrawlState(running) {
   }
 }
 
+// feedPaused records which live lists the reader has paused. Each list has its
+// own button, and the poll serves the lists that are still live.
+const feedPaused = { recent: false, rejected: false };
+
 async function refreshFeed() {
   const feed = document.getElementById('feed');
   const rejected = document.getElementById('rejected-feed');
@@ -605,7 +567,7 @@ async function refreshFeed() {
   }
 
   try {
-    const response = await fetch(feedURL(), {
+    const response = await fetch('/api/feed', {
       cache: 'no-store',
       headers: { Accept: 'application/json' },
     });
@@ -631,9 +593,12 @@ async function refreshFeed() {
     updateRuntime(payload.runtime);
     updateSpark(payload.history, payload.history_summary);
     updateTables(payload);
-    updateRejected(payload.rejected);
 
-    if (feed) {
+    if (rejected && !feedPaused.rejected) {
+      updateRejected(payload.rejected);
+    }
+
+    if (feed && !feedPaused.recent) {
       const torrents = payload.torrents || [];
 
       if (torrents.length === 0) {
@@ -677,35 +642,57 @@ if (document.getElementById('feed') || document.getElementById('rejected-feed'))
   const refreshSource = document.querySelector('[data-refresh-ms]');
   const refreshMillis = Math.max(1000, Number(refreshSource?.dataset.refreshMs) || 3000);
 
-  refreshFeed();
+  let feedTimer = null;
 
-  let feedTimer = window.setInterval(refreshFeed, refreshMillis);
+  function startPolling() {
+    if (feedTimer !== null) {
+      return;
+    }
 
-  const feedToggle = document.querySelector('[data-feed-toggle]');
-  if (feedToggle) {
-    feedToggle.addEventListener('click', () => {
-      const paused = feedToggle.getAttribute('aria-pressed') === 'true';
+    refreshFeed();
+    feedTimer = window.setInterval(refreshFeed, refreshMillis);
+  }
 
-      if (paused) {
-        feedTimer = window.setInterval(refreshFeed, refreshMillis);
-      } else {
-        window.clearInterval(feedTimer);
-      }
+  function stopPolling() {
+    if (feedTimer === null) {
+      return;
+    }
 
-      feedToggle.setAttribute('aria-pressed', String(!paused));
-      feedToggle.textContent = paused ? 'Pause Updates' : 'Resume Updates';
-      announce(paused ? 'Updates resumed.' : 'Updates paused.');
+    window.clearInterval(feedTimer);
+    feedTimer = null;
+  }
+
+  // The poll serves the counters and every live list, so it runs while at least
+  // one list is unpaused and stops when both are paused.
+  function syncPolling() {
+    const active =
+      (document.getElementById('feed') && !feedPaused.recent) ||
+      (document.getElementById('rejected-feed') && !feedPaused.rejected);
+
+    if (active) {
+      startPolling();
+    } else {
+      stopPolling();
+    }
+  }
+
+  for (const toggle of document.querySelectorAll('[data-feed-toggle]')) {
+    const feed = toggle.dataset.feed;
+    const name = toggle.dataset.feedName;
+
+    toggle.addEventListener('click', () => {
+      feedPaused[feed] = !feedPaused[feed];
+
+      toggle.setAttribute('aria-pressed', String(feedPaused[feed]));
+      toggle.setAttribute('aria-label', `${feedPaused[feed] ? 'Resume' : 'Pause'} updates to ${name}`);
+      toggle.textContent = feedPaused[feed] ? 'Resume Updates' : 'Pause Updates';
+      announce(`${name} updates ${feedPaused[feed] ? 'paused' : 'resumed'}.`);
+
+      syncPolling();
     });
   }
 
-  // A change of reasons redraws the list straight away, even while updates are
-  // paused: the reason filter is not part of the pause.
-  const reasonFilter = document.querySelector('[data-reason-filter]');
-  if (reasonFilter) {
-    reasonFilter.addEventListener('change', () => {
-      refreshFeed();
-    });
-  }
+  startPolling();
 
   // A page restored from the back/forward cache shows the figures it was left
   // with. Ask for the current ones straight away rather than waiting for the

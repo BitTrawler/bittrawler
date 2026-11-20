@@ -60,7 +60,7 @@ test('the skip link is the first tab stop and moves focus to the content', async
   await expect(page.locator('#content')).toBeFocused();
 });
 
-test('pausing the live feed stops the polling', async ({ page }) => {
+test('each live feed pauses on its own', async ({ page }) => {
   await page.goto('/');
 
   const polls: string[] = [];
@@ -73,44 +73,23 @@ test('pausing the live feed stops the polling', async ({ page }) => {
   // The poll runs every three seconds, so one has to happen before pausing.
   await expect.poll(() => polls.length, { timeout: 8_000 }).toBeGreaterThan(0);
 
-  await page.getByRole('button', { name: 'Pause Updates' }).click();
-  await expect(page.getByRole('button', { name: 'Resume Updates' })).toBeVisible();
+  // Pausing one list leaves the other live, so the poll carries on.
+  await page.getByRole('button', { name: 'Pause updates to Recently Added' }).click();
+  await expect(page.getByRole('button', { name: 'Resume updates to Recently Added' })).toBeVisible();
 
-  const pausedAt = polls.length;
+  const onePaused = polls.length;
+  await expect.poll(() => polls.length, { timeout: 8_000 }).toBeGreaterThan(onePaused);
+
+  // Pausing the second list stops the poll entirely.
+  await page.getByRole('button', { name: 'Pause updates to Recently Rejected' }).click();
+  const bothPaused = polls.length;
   await page.waitForTimeout(3_500);
-  expect(polls.length).toBe(pausedAt);
+  expect(polls.length).toBe(bothPaused);
 
-  await page.getByRole('button', { name: 'Resume Updates' }).click();
-  await expect.poll(() => polls.length, { timeout: 8_000 }).toBeGreaterThan(pausedAt);
-});
-
-test('the rejected feed filters by reason', async ({ page }) => {
-  await page.goto('/');
-
-  const polls: string[] = [];
-  page.on('request', (request) => {
-    if (request.url().includes('/api/feed')) {
-      polls.push(request.url());
-    }
-  });
-
-  const selection = () => polls.map((url) => new URL(url).searchParams.get('rejected'));
-
-  await expect(page.locator('#rejected-feed')).toContainText('Nothing rejected yet.');
-
-  // A subset asks for those reasons, so a filtered list is filled with matches
-  // rather than the last few rejections of any reason.
-  await page.getByRole('checkbox', { name: 'Banned' }).uncheck();
-  await expect.poll(selection).toContain('deceptive,adult,script');
-
-  // Clearing every reason asks for nothing, and the list says so rather than
-  // claiming that nothing has been rejected.
-  for (const reason of ['Deceptive', 'Adult', 'Foreign script']) {
-    await page.getByRole('checkbox', { name: reason }).uncheck();
-  }
-
-  await expect(page.locator('#rejected-feed')).toContainText('No reasons selected.');
-  await expect.poll(selection).toContain('');
+  // Either list starts it again.
+  await page.getByRole('button', { name: 'Resume updates to Recently Added' }).click();
+  await expect.poll(() => polls.length, { timeout: 8_000 }).toBeGreaterThan(bothPaused);
+  await page.getByRole('button', { name: 'Resume updates to Recently Rejected' }).click();
 });
 
 test('the pages make no requests off the machine', async ({ page }) => {

@@ -164,7 +164,7 @@
 <section class="card" data-refresh-ms="{{.RefreshMillis}}">
   <header class="card-head with-action">
     <h2>Recently Added</h2>
-    <button class="button secondary small" type="button" data-feed-toggle aria-pressed="false">Pause Updates</button>
+    <button class="button secondary small" type="button" data-feed-toggle data-feed="recent" data-feed-name="Recently Added" aria-pressed="false" aria-label="Pause updates to Recently Added">Pause Updates</button>
   </header>
   <div class="table-wrap">
     <table class="table">
@@ -201,16 +201,8 @@
 <section class="card" data-refresh-ms="{{.RefreshMillis}}">
   <header class="card-head with-action">
     <h2>Recently Rejected</h2>
-    {{if .HideRecent}}<button class="button secondary small" type="button" data-feed-toggle aria-pressed="false">Pause Updates</button>{{end}}
+    <button class="button secondary small" type="button" data-feed-toggle data-feed="rejected" data-feed-name="Recently Rejected" aria-pressed="false" aria-label="Pause updates to Recently Rejected">Pause Updates</button>
   </header>
-  {{if .Reasons}}
-  <div class="reason-filter" data-reason-filter role="group" aria-labelledby="rejected-reasons">
-    <span class="tile-label" id="rejected-reasons">Reasons</span>
-    {{range .Reasons}}
-    <label class="check"><input type="checkbox" value="{{.Value}}" checked> {{.Label}}</label>
-    {{end}}
-  </div>
-  {{end}}
   <div class="table-wrap">
     <table class="table">
       <thead>

@@ -93,6 +93,7 @@ func (c Config) Validate() error {
 
 	errs = append(errs, validateBootstrapNodes(c.Crawler.BootstrapNodes)...)
 	errs = append(errs, validateDropScripts(c.Classify.DropScripts)...)
+	errs = append(errs, validateRejectedReasons(c.Overview.RejectedReasons)...)
 
 	return errors.Join(errs...)
 }
@@ -188,6 +189,23 @@ func validateDropScripts(names []string) []error {
 	for _, name := range names {
 		if !slices.Contains(dropScripts, name) {
 			errs = append(errs, fmt.Errorf("config: classify.drop_scripts: unknown writing system %q", name))
+		}
+	}
+
+	return errs
+}
+
+// rejectedReasons are the reason names the overview's rejected feed accepts.
+// Keeping the list here means a bad value is caught when the settings are
+// loaded instead of silently hiding every rejection.
+var rejectedReasons = []string{"banned", "deceptive", "adult", "script"}
+
+func validateRejectedReasons(names []string) []error {
+	var errs []error
+
+	for _, name := range names {
+		if !slices.Contains(rejectedReasons, name) {
+			errs = append(errs, fmt.Errorf("config: overview.rejected_reasons: unknown reason %q", name))
 		}
 	}
 

@@ -213,6 +213,8 @@ func TestValidationErrors(t *testing.T) {
 		{"zero metadata timeout", func(c *config.Config) { c.Crawler.MetadataTimeout = 0 }, "metadata_timeout"},
 		{"bad bootstrap node", func(c *config.Config) { c.Crawler.BootstrapNodes = []string{"nohost"} }, "bootstrap_nodes"},
 		{"bad drop script", func(c *config.Config) { c.Classify.DropScripts = []string{"klingon"} }, "drop_scripts"},
+		{"bad rejected reason", func(c *config.Config) { c.Overview.RejectedReasons = []string{"klingon"} }, "rejected_reasons"},
+		{"zero refresh interval", func(c *config.Config) { c.Overview.Refresh = 0 }, "overview.refresh"},
 		{"bad seen rate", func(c *config.Config) { c.Crawler.SeenHashesFalsePositiveRate = 1 }, "seen_hashes_false_positive_rate"},
 		{"zero query rate", func(c *config.Config) { c.DHT.OverallQueryRate = 0 }, "overall_query_rate"},
 		{"default limit above max", func(c *config.Config) { c.Torznab.DefaultLimit = 200 }, "default_limit"},

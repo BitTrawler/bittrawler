@@ -14,7 +14,6 @@ import (
 
 	"github.com/BitTrawler/bittrawler/internal/classify"
 	"github.com/BitTrawler/bittrawler/internal/dhtcrawler"
-	"github.com/BitTrawler/bittrawler/internal/drops"
 	"github.com/BitTrawler/bittrawler/internal/store"
 	"github.com/BitTrawler/bittrawler/internal/tmdb"
 	"github.com/BitTrawler/bittrawler/internal/torznab"
@@ -107,6 +106,10 @@ func (a *App) handleOverview(w http.ResponseWriter, r *http.Request) {
 
 	deltas := historyDeltas(snapshot.History)
 
+	// The rejected feed needs at least one reason switched on: with none there
+	// is nothing it could show, so it is not rendered at all.
+	reasons := configuredRejections(cfg.Overview.RejectedReasons)
+
 	data := web.OverviewData{
 		Shell:  a.shell("dashboard", "Overview"),
 		Notice: notice,
@@ -123,8 +126,7 @@ func (a *App) handleOverview(w http.ResponseWriter, r *http.Request) {
 			Crawled:     humanCount(int(snapshot.Counters.TorrentsPersisted)),
 		},
 		HideRecent:      !cfg.Overview.ShowRecent,
-		HideRejected:    !cfg.Overview.ShowRejected,
-		Reasons:         rejectedReasonOptions(),
+		HideRejected:    !cfg.Overview.ShowRejected || len(reasons) == 0,
 		RefreshMillis:   refreshMillis(cfg.Overview.Refresh),
 		Pipeline:        pipelineGroups(snapshot),
 		Runtime:         runtimeItems(snapshot),
@@ -147,7 +149,7 @@ func (a *App) handleOverview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !data.HideRejected {
-		data.Rejected = a.rejectedRows(cfg.Overview.RejectedRows, rejectedFilter{})
+		data.Rejected = a.rejectedRows(cfg.Overview.RejectedRows, reasons)
 	}
 
 	a.renderPage(w, "dashboard", data)
@@ -203,9 +205,10 @@ func torrentRows(torrents []store.Torrent) []web.TorrentRow {
 	return rows
 }
 
-// rejectedRows returns the newest rejections for the overview.
-func (a *App) rejectedRows(limit int, filter rejectedFilter) []web.RejectedRow {
-	events := filter.recent(a.rejected, limit)
+// rejectedRows returns the newest rejections for the overview, keeping only the
+// reasons the configuration asks for.
+func (a *App) rejectedRows(limit int, reasons []classify.Drop) []web.RejectedRow {
+	events := a.rejected.Recent(limit, reasons)
 	now := time.Now()
 
 	rows := make([]web.RejectedRow, 0, len(events))
@@ -222,9 +225,8 @@ func (a *App) rejectedRows(limit int, filter rejectedFilter) []web.RejectedRow {
 	return rows
 }
 
-// rejectedReasons is the order and wording of the reason filter. The values are
-// the classifier's own names, so a reason this build does not know is never
-// shown or requested.
+// rejectedReasons is the order and wording of the rejection reasons. The names
+// are the classifier's own, and the settings page stores them.
 var rejectedReasons = []struct {
 	Reason classify.Drop
 	Label  string
@@ -235,15 +237,21 @@ var rejectedReasons = []struct {
 	{classify.DropScript, "Foreign script"},
 }
 
-// rejectedReasonOptions builds the filter the page renders.
-func rejectedReasonOptions() []web.ReasonOption {
-	options := make([]web.ReasonOption, 0, len(rejectedReasons))
+// configuredRejections turns the configured reason names into the classifier's
+// reasons. An empty result means the rejected feed is switched off, not that it
+// shows every reason.
+func configuredRejections(names []string) []classify.Drop {
+	var reasons []classify.Drop
 
-	for _, known := range rejectedReasons {
-		options = append(options, web.ReasonOption{Value: known.Reason.String(), Label: known.Label})
+	for _, name := range names {
+		for _, known := range rejectedReasons {
+			if known.Reason.String() == name {
+				reasons = append(reasons, known.Reason)
+			}
+		}
 	}
 
-	return options
+	return reasons
 }
 
 // rejectionLabel is the word the overview uses for a rejection reason.
@@ -255,49 +263,6 @@ func rejectionLabel(reason classify.Drop) string {
 	}
 
 	return reason.String()
-}
-
-// rejectedFilter is the reason selection of a feed request. The page's own
-// render and a poll that names no reasons show everything; a box that has been
-// cleared from every reason asks for nothing.
-type rejectedFilter struct {
-	// set reports that the request named its reasons.
-	set     bool
-	reasons []classify.Drop
-}
-
-// parseRejectedFilter reads the reasons from a feed request. An unknown name is
-// ignored rather than widening the selection.
-func parseRejectedFilter(query url.Values) rejectedFilter {
-	values, set := query["rejected"]
-	if !set {
-		return rejectedFilter{}
-	}
-
-	filter := rejectedFilter{set: true}
-
-	for _, value := range values {
-		for _, name := range strings.Split(value, ",") {
-			name = strings.TrimSpace(name)
-
-			for _, known := range rejectedReasons {
-				if known.Reason.String() == name {
-					filter.reasons = append(filter.reasons, known.Reason)
-				}
-			}
-		}
-	}
-
-	return filter
-}
-
-// recent returns the events the filter selects, newest first.
-func (f rejectedFilter) recent(recorder *drops.Recorder, limit int) []drops.Event {
-	if f.set && len(f.reasons) == 0 {
-		return nil
-	}
-
-	return recorder.Recent(limit, f.reasons)
 }
 
 // refreshMillis turns the refresh interval into the milliseconds the page's
@@ -707,19 +672,24 @@ func (a *App) handleFeed(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// The reason filter travels in the request so that a filtered list is still
-	// full of matches rather than the last few rejections of any reason.
-	events := parseRejectedFilter(r.URL.Query()).recent(a.rejected, cfg.Overview.RejectedRows)
+	// The configured reasons are applied before the limit, so a filtered list is
+	// still full of matches rather than the last few rejections of any reason. A
+	// feed with no reasons switched on has nothing to send.
+	response.Rejected = []feedRejected{}
 
-	response.Rejected = make([]feedRejected, 0, len(events))
+	if reasons := configuredRejections(cfg.Overview.RejectedReasons); len(reasons) > 0 {
+		events := a.rejected.Recent(cfg.Overview.RejectedRows, reasons)
 
-	for _, event := range events {
-		response.Rejected = append(response.Rejected, feedRejected{
-			Name:   event.Name,
-			Reason: rejectionLabel(event.Reason),
-			Size:   event.Size,
-			At:     event.At.Unix(),
-		})
+		response.Rejected = make([]feedRejected, 0, len(events))
+
+		for _, event := range events {
+			response.Rejected = append(response.Rejected, feedRejected{
+				Name:   event.Name,
+				Reason: rejectionLabel(event.Reason),
+				Size:   event.Size,
+				At:     event.At.Unix(),
+			})
+		}
 	}
 
 	writeJSON(w, http.StatusOK, response)
