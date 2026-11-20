@@ -289,7 +289,6 @@ func pipelineGroups(snapshot statsSnapshot) []web.CounterGroup {
 				{Key: "hashes_discovered", Label: "Hashes discovered", Value: humanCount(int(counters.HashesDiscovered))},
 				{Key: "hashes_triaged", Label: "Hashes triaged", Value: humanCount(int(counters.HashesTriaged))},
 				{Key: "ktable_nodes", Label: "Routing table", Value: humanCount(snapshot.Nodes)},
-				{Key: "ktable_hashes", Label: "Hashes tracked", Value: humanCount(snapshot.Hashes)},
 			},
 		},
 		{

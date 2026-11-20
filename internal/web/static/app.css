@@ -90,18 +90,22 @@ body {
 /* Application shell */
 
 .app {
-  display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
   min-height: 100vh;
 }
 
+/* The sidebar is fixed rather than sticky. A sticky element is held inside the
+   page, so an elastic overscroll at the foot of a long page dragged it up and
+   showed the page background beneath it. */
 .sidebar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  bottom: 0;
+  left: 0;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  width: 248px;
   padding: 20px 14px;
+  overflow-y: auto;
   background: var(--sidebar);
   border-right: 1px solid var(--sidebar-border);
 }
@@ -248,6 +252,7 @@ body {
 
 .main {
   min-width: 0;
+  margin-left: 248px;
 }
 
 .content {
@@ -617,8 +622,9 @@ code {
   font-size: 13.5px;
 }
 
-/* A list setting is a column of switches: each row is an independent choice,
-   and the off state is as easy to see as the on state. */
+/* A list setting is a column of switches. The label sits immediately beside its
+   switch, so the two read as one row, and the switches line up with the other
+   controls on the page. */
 .switches {
   display: flex;
   flex-direction: column;
@@ -628,10 +634,10 @@ code {
 .switch-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  justify-content: flex-end;
+  gap: 10px;
   padding: 4px 0;
-  font-size: 13px;
+  font-size: 13.5px;
   cursor: pointer;
 }
 
@@ -833,19 +839,24 @@ input::placeholder {
 /* Responsive */
 
 @media (max-width: 900px) {
-  .app {
-    display: block;
-  }
-
   .sidebar {
     position: static;
     flex-direction: row;
     align-items: center;
     gap: 18px;
+    width: auto;
     height: auto;
     padding: 12px 16px;
     border-right: 0;
     border-bottom: 1px solid var(--sidebar-border);
+  }
+
+  .main {
+    margin-left: 0;
+  }
+
+  .switch-row {
+    justify-content: flex-start;
   }
 
   .nav {

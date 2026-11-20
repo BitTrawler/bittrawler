@@ -277,8 +277,6 @@ function updateCounters(payload) {
 
     if (key === 'ktable_nodes') {
       value = ktable.nodes;
-    } else if (key === 'ktable_hashes') {
-      value = ktable.hashes;
     }
 
     if (typeof value === 'number') {
