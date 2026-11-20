@@ -569,10 +569,18 @@ code {
   margin-top: 12px;
 }
 
+/* Settings pages read as a single narrow form column. A wide card stretches
+   the label column, which left short labels hundreds of pixels from their
+   fields; the column is capped and centred instead. */
+.settings-page {
+  max-width: 620px;
+  margin: 0 auto;
+}
+
 .setting {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 272px;
-  gap: 20px 32px;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 20px 24px;
   align-items: start;
   padding: 15px 0;
   border-top: 1px solid var(--border);
