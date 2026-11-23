@@ -32,11 +32,21 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: set up buildx
         uses: docker/setup-buildx-action@v3
+      # A tag with a hand-written note in release-notes/ uses that file instead of
+      # the generated notes. The first release needs this: with no previous tag,
+      # generated notes would be the entire commit history.
+      - name: pick the release notes
+        id: notes
+        run: |
+          file="release-notes/${GITHUB_REF_NAME}.md"
+          if [ -f "$file" ]; then
+            echo "args=--release-notes $file" >> "$GITHUB_OUTPUT"
+          fi
       - name: goreleaser
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: release --clean
+          args: release --clean ${{ steps.notes.outputs.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

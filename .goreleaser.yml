@@ -84,3 +84,10 @@ dockers_v2:
       - diskfree_other.go
       - diskfree_unix.go
       - internal
+
+# Release notes come from GitHub's generated notes for every future tag, which
+# groups them by pull request. A tag with a hand-written note in release-notes/
+# uses that instead: the release workflow passes the file with --release-notes,
+# which replaces the generated body.
+changelog:
+  use: github
