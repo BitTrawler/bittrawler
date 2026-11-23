@@ -387,6 +387,60 @@ func TestNewestFirstAndPagination(t *testing.T) {
 	}
 }
 
+// TestTextCountWithAndWithoutAFilter covers both count queries: a text-only
+// count reads the search index alone, a filtered one joins the table for the
+// category. Both must agree with the rows the same query returns.
+func TestTextCountWithAndWithoutAFilter(t *testing.T) {
+	s, _ := newStore(t, Config{RetentionMonths: 12})
+	now := s.cfg.Now()
+
+	put(t, s,
+		Row{InfoHash: testHash(60), Name: "Counted.Movie.Release", CreatedAt: now, Category: 2040},
+		Row{InfoHash: testHash(61), Name: "Counted.Movie.Other", CreatedAt: now, Category: 2030},
+		Row{InfoHash: testHash(62), Name: "Counted.TV.Release", CreatedAt: now, Category: 5040},
+		Row{InfoHash: testHash(63), Name: "Unrelated.Release", CreatedAt: now, Category: 2040},
+	)
+
+	cases := []struct {
+		name       string
+		categories []int
+		want       int
+	}{
+		{name: "no filter", want: 3},
+		{name: "parent category", categories: []int{2000}, want: 2},
+		{name: "leaf category", categories: []int{2040}, want: 1},
+	}
+
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			q := NewQuery()
+			q.Text = "counted"
+			q.Categories = test.categories
+			q.Limit = 10
+			q.Count = true
+
+			res := search(t, s, q)
+			if res.Total != test.want {
+				t.Fatalf("total = %d, want %d", res.Total, test.want)
+			}
+
+			if len(res.Torrents) != test.want {
+				t.Fatalf("returned %v, want %d rows", names(res), test.want)
+			}
+		})
+	}
+
+	// A filter with no text takes the other count path.
+	q := NewQuery()
+	q.Categories = []int{2000}
+	q.Limit = 10
+	q.Count = true
+
+	if res := search(t, s, q); res.Total != 3 {
+		t.Fatalf("category-only total = %d, want 3", res.Total)
+	}
+}
+
 func TestRolloverCreatesNewShard(t *testing.T) {
 	s, clock := newStore(t, Config{RetentionMonths: 12})
 

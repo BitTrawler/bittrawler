@@ -311,9 +311,19 @@ func countShard(ctx context.Context, sh *shard, match, filter string, filterArgs
 		return n, nil
 	}
 
-	query := "SELECT count(*) FROM torrents_fts JOIN torrents t ON t.id = torrents_fts.rowid" +
-		" WHERE torrents_fts MATCH ?" + filter
-	args := append([]any{match}, filterArgs...)
+	// The search index answers a text-only count on its own: the rowids it holds
+	// all have a row, and asking count(*) to prove that one by one costs a table
+	// lookup per match. At millions of matches that is the difference between
+	// milliseconds and half a minute, so join only when the filter needs a
+	// column the index does not hold.
+	query := "SELECT count(*) FROM torrents_fts WHERE torrents_fts MATCH ?"
+	args := []any{match}
+
+	if filter != "" {
+		query = "SELECT count(*) FROM torrents_fts JOIN torrents t ON t.id = torrents_fts.rowid" +
+			" WHERE torrents_fts MATCH ?" + filter
+		args = append(args, filterArgs...)
+	}
 
 	if err := sh.db.QueryRowContext(ctx, query, args...).Scan(&n); err != nil {
 		return 0, fmt.Errorf("count: %w", err)
