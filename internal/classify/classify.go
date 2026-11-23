@@ -33,6 +33,12 @@ const (
 	// DropScript means the name is written in a script the configuration filters
 	// out. Like the adult drop, it is a setting, not a block.
 	DropScript
+	// DropBlocked means the metainfo failed the checks that decide whether a
+	// torrent is worth indexing: the name is too short to be a title, or the
+	// torrent is too small to be anything, or the name is not valid text. The
+	// hash is blocklisted so the torrent cannot come back. The classifier is not
+	// consulted for these, so the drop is not one of its own decisions.
+	DropBlocked
 )
 
 func (d Drop) String() string {
@@ -45,6 +51,8 @@ func (d Drop) String() string {
 		return "adult"
 	case DropScript:
 		return "script"
+	case DropBlocked:
+		return "blocked"
 	default:
 		return "none"
 	}

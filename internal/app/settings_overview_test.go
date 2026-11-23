@@ -30,6 +30,8 @@ func TestOverviewFeedSettings(t *testing.T) {
 	assert.Contains(t, page, `class="switch" type="checkbox" name="overview.rejected_reasons"`)
 	assert.Contains(t, page, `class="switch-row"><span>Foreign script</span>`)
 	assert.Contains(t, page, `value="script" checked`)
+	assert.Contains(t, page, `class="switch-row"><span>Blocked</span>`)
+	assert.Contains(t, page, `value="blocked" checked`)
 	assert.Contains(t, page, `name="overview.refresh"`)
 
 	// An interval below a second would be a request loop against the instance.

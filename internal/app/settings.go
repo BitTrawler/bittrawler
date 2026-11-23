@@ -394,6 +394,7 @@ var choiceLabels = map[string]string{
 	"deceptive":  "Deceptive",
 	"adult":      "Adult",
 	"script":     "Foreign script",
+	"blocked":    "Blocked",
 }
 
 // settingChoices builds the checkbox list for a list setting.

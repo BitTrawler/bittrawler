@@ -198,7 +198,7 @@ func validateDropScripts(names []string) []error {
 // rejectedReasons are the reason names the overview's rejected feed accepts.
 // Keeping the list here means a bad value is caught when the settings are
 // loaded instead of silently hiding every rejection.
-var rejectedReasons = []string{"banned", "deceptive", "adult", "script"}
+var rejectedReasons = []string{"banned", "deceptive", "adult", "script", "blocked"}
 
 func validateRejectedReasons(names []string) []error {
 	var errs []error

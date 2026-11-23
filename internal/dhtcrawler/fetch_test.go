@@ -7,6 +7,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/BitTrawler/bittrawler/internal/classify"
+	"github.com/BitTrawler/bittrawler/internal/drops"
 	"github.com/BitTrawler/bittrawler/internal/protocol"
 	"github.com/BitTrawler/bittrawler/internal/protocol/metainfo"
 	"github.com/BitTrawler/bittrawler/internal/protocol/metainfo/metainforequester"
@@ -73,12 +75,14 @@ func TestFetchMetainfoTriesPeersInOrder(t *testing.T) {
 	}
 }
 
-func TestFetchMetainfoBlocksBannedTorrent(t *testing.T) {
+func TestFetchMetainfoRecordsBlockedTorrent(t *testing.T) {
 	// The name is too short and the size is too small, so both banning checks
 	// reject it.
 	requester := &fakeRequester{info: metainfo.Info{Name: "bad", Length: 1}}
 
-	tc := newTestCrawler(t, &fakeDHT{}, requester, Config{})
+	rejected := drops.NewRecorder(10)
+
+	tc := newTestCrawler(t, &fakeDHT{}, requester, Config{Rejected: rejected})
 
 	hash := testHash(9)
 	job := infoHashWithPeers{
@@ -98,6 +102,23 @@ func TestFetchMetainfoBlocksBannedTorrent(t *testing.T) {
 
 	if len(allowed) != 0 {
 		t.Fatal("banned infohash was not recorded in the blocklist")
+	}
+
+	events := rejected.Recent(10, nil)
+	if len(events) != 1 {
+		t.Fatalf("recorded %d rejections, want 1", len(events))
+	}
+
+	if events[0].Reason != classify.DropBlocked {
+		t.Fatalf("recorded reason %v, want %v", events[0].Reason, classify.DropBlocked)
+	}
+
+	if events[0].Name != "bad" || events[0].Size != 1 {
+		t.Fatalf("recorded %q of %d bytes, want %q of 1 byte", events[0].Name, events[0].Size, "bad")
+	}
+
+	if events[0].InfoHash != hash {
+		t.Fatalf("recorded hash %v, want %v", events[0].InfoHash, hash)
 	}
 }
 

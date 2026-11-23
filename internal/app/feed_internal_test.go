@@ -305,6 +305,10 @@ func TestConfiguredRejections(t *testing.T) {
 
 	// An unknown name is ignored rather than widening the selection.
 	assert.Equal(t, []classify.Drop{classify.DropScript}, configuredRejections([]string{"klingon", "script"}))
+
+	// The blocking checks that run before the classifier have their own reason,
+	// so they can be switched separately from the content rules.
+	assert.Equal(t, []classify.Drop{classify.DropBlocked}, configuredRejections([]string{"blocked"}))
 }
 
 // TestRejectedRows checks the words and formatting the overview uses for the
@@ -328,10 +332,17 @@ func TestRejectedRows(t *testing.T) {
 		Reason: classify.DropScript,
 		At:     now,
 	})
+	application.rejected.Add(drops.Event{
+		Name:   "1Kb",
+		Size:   1024,
+		Reason: classify.DropBlocked,
+		At:     now,
+	})
 
-	all := configuredRejections([]string{"banned", "deceptive", "adult", "script"})
+	all := configuredRejections([]string{"banned", "deceptive", "adult", "script", "blocked"})
 
 	assert.Equal(t, []web.RejectedRow{
+		{Name: "1Kb", Reason: "Blocked", Size: "1.0 KiB", Age: "now"},
 		{Name: "寄生兽 完全版", Reason: "Foreign script", Size: "1.0 KiB", Age: "now"},
 		{Name: "Some.Bait.2024.1080p", Reason: "Deceptive", Size: "1.5 KiB", Age: "2m"},
 	}, application.rejectedRows(10, all))

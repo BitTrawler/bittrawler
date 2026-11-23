@@ -38,9 +38,9 @@ type Web struct {
 type Overview struct {
 	ShowRecent      bool          `key:"show_recent" label:"Show Recently Added"`
 	RecentRows      int           `key:"recent_rows" label:"Recently Added Rows" min:"1" max:"100"`
-	ShowRejected    bool          `key:"show_rejected" label:"Show Recently Rejected"  usage:"Banned, deceptive, adult and foreign-script torrents."`
+	ShowRejected    bool          `key:"show_rejected" label:"Show Recently Rejected"  usage:"Banned, blocked, deceptive, adult and foreign-script torrents."`
 	RejectedRows    int           `key:"rejected_rows" label:"Recently Rejected Rows" min:"1" max:"100"`
-	RejectedReasons []string      `key:"rejected_reasons" label:"Rejected Reasons"  usage:"The feed is hidden while every reason is off." enum:"banned,deceptive,adult,script"`
+	RejectedReasons []string      `key:"rejected_reasons" label:"Rejected Reasons"  usage:"The feed is hidden while every reason is off." enum:"banned,deceptive,adult,script,blocked"`
 	Refresh         time.Duration `key:"refresh" label:"Refresh Interval"  usage:"How often the lists ask for new rows."`
 }
 
@@ -134,7 +134,7 @@ func Default() Config {
 			RecentRows:      20,
 			ShowRejected:    true,
 			RejectedRows:    10,
-			RejectedReasons: []string{"banned", "deceptive", "adult", "script"},
+			RejectedReasons: []string{"banned", "deceptive", "adult", "script", "blocked"},
 			Refresh:         time.Second * 3,
 		},
 		Log: Log{

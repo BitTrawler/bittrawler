@@ -144,8 +144,8 @@ func (c *Crawler) metadata(ctx context.Context, job infoHashWithPeers) {
 }
 
 // fetchMetainfo asks the peers in turn for the metadata. A torrent that fails
-// the banning checks is recorded in the blocklist and reported as an error so
-// no part of it is ever stored.
+// the banning checks is kept for the overview's feed, recorded in the blocklist
+// and reported as an error so no part of it is ever stored.
 func (c *Crawler) fetchMetainfo(ctx context.Context, job infoHashWithPeers) (metainfo.Info, error) {
 	for _, peer := range job.peers {
 		res, err := c.requester.Request(ctx, job.infoHash, peer)
@@ -160,6 +160,7 @@ func (c *Crawler) fetchMetainfo(ctx context.Context, job infoHashWithPeers) (met
 
 		if banErr := c.banning.Check(res.Info); banErr != nil {
 			c.stats.infohashesBlocked.Add(1)
+			c.recordRejection(job.infoHash, res.Info.BestName(), res.Info.TotalLength(), classify.DropBlocked)
 			c.blockInfohash(ctx, job.infoHash, banErr)
 
 			return metainfo.Info{}, banErr

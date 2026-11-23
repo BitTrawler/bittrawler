@@ -235,6 +235,7 @@ var rejectedReasons = []struct {
 	{classify.DropDeceptive, "Deceptive"},
 	{classify.DropAdult, "Adult"},
 	{classify.DropScript, "Foreign script"},
+	{classify.DropBlocked, "Blocked"},
 }
 
 // configuredRejections turns the configured reason names into the classifier's
