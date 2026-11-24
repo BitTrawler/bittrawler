@@ -80,7 +80,9 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
 
-	base := time.Date(2026, 11, 14, 12, 0, 0, 123456789, time.UTC)
+	// Relative to now: Save prunes rows older than a week, so a fixed date
+	// would make this test fail once that date passed.
+	base := time.Now().UTC().Add(-time.Hour).Truncate(time.Second).Add(123456789)
 
 	nodes := []Node{
 		{
@@ -136,7 +138,8 @@ func TestSaveReplacesExistingNode(t *testing.T) {
 	ctx := context.Background()
 	store := newStore(t)
 
-	base := time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)
+	// Relative to now, for the same reason: the save prunes aged rows.
+	base := time.Now().UTC().Add(-time.Hour).Truncate(time.Second)
 
 	first := Node{
 		ID:              testID(1),
