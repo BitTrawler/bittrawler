@@ -1,0 +1,80 @@
+# Example Docker Compose service for BitTrawler running behind a VPN.
+#
+# This is the same deployment as deploy/docker-compose.yml with one change:
+# BitTrawler has no network stack of its own and shares gluetun's, so all of its
+# traffic, including DNS, leaves through the tunnel. The ports are published on
+# gluetun because a container that shares another's network namespace cannot
+# publish its own.
+#
+# Use this file instead of deploy/docker-compose.yml, not alongside it, and put
+# the provider credentials in a .env file next to it:
+#
+#   VPN_WIREGUARD_PRIVATE_KEY=...
+#   VPN_WIREGUARD_ADDRESSES=...
+#
+# The provider block below is an example. gluetun supports many providers and
+# protocols, with per-provider settings documented at
+# https://github.com/qdm12/gluetun-wiki/tree/main/setup/providers
+#
+# The provider must allow BitTorrent. Port forwarding is optional: without it
+# the crawl still works outbound, but the DHT port is not reachable from
+# outside, so this node is less useful to the network. Where a provider forwards
+# a fixed port, set BitTrawler's DHT listen address to it (dht.listen_address in
+# the settings, or -dht on the command line) and uncomment
+# FIREWALL_VPN_INPUT_PORTS below; providers that hand out a random port on each
+# connection make this impractical, so leave it off for those.
+
+services:
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: gluetun
+    restart: unless-stopped
+    # Creating the tunnel and the firewall needs these two.
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      # The interface and Torznab, then the DHT. In the plain example these are
+      # published on the BitTrawler service; here they belong to gluetun.
+      - "6684:6684/tcp"
+      - "6684:6684/udp"
+    environment:
+      # Replace this block with the settings for your provider. This one is
+      # Mullvad over WireGuard; gluetun's wiki has the settings for each provider.
+      VPN_SERVICE_PROVIDER: mullvad
+      VPN_TYPE: wireguard
+      WIREGUARD_PRIVATE_KEY: ${VPN_WIREGUARD_PRIVATE_KEY}
+      WIREGUARD_ADDRESSES: ${VPN_WIREGUARD_ADDRESSES}
+      SERVER_COUNTRIES: Netherlands
+      # Optional: the forwarded port, so that the DHT port is reachable and this
+      # node answers other nodes. It only works with a provider that forwards a
+      # fixed port you can choose.
+      # FIREWALL_VPN_INPUT_PORTS: "6684"
+
+  bittrawler:
+    image: ghcr.io/bittrawler/bittrawler:latest
+    container_name: bittrawler
+    restart: unless-stopped
+    # Sharing gluetun's network stack is the point: no ports of its own, and no
+    # route for traffic to leave outside the tunnel.
+    network_mode: "service:gluetun"
+    # gluetun does not require this, but it stops BitTrawler from logging
+    # connection failures while the tunnel is still coming up.
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    # The application stops cleanly and waits for the crawler's last batches;
+    # allow it the same thirty seconds the image is built around.
+    stop_grace_period: 30s
+    # The image runs as 65532; a bind mount keeps the host's ownership, so run
+    # as the host user that owns the directory instead.
+    user: "1000:1000"
+    volumes:
+      # The host directory must exist before the first start, must be writable by
+      # uid/gid 1000:1000, and must be on a local filesystem. SQLite locking over
+      # SMB or NFS is not reliable and can corrupt the store; never use a network
+      # mount here.
+      - /volume2/bittrawler:/data
+    environment:
+      TZ: Europe/London
