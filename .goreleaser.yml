@@ -81,6 +81,7 @@ dockers_v2:
       - main.go
       - commands.go
       - doctor.go
+      - reclassify.go
       - diskfree_other.go
       - diskfree_unix.go
       - internal
